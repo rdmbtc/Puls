@@ -3,6 +3,7 @@
 create table if not exists wallets (
   user_id text primary key,
   wallet_id text not null,
+  last_balance text default '0',
   created_at timestamptz default now()
 );
 
@@ -17,6 +18,7 @@ create table if not exists trades (
   tx_id text not null,
   side text not null,
   usdc_amount numeric not null,
+  entry_price numeric default 0.5,
   question text,
   market_id text,
   state text default 'INITIATED',

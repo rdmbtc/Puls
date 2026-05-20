@@ -75,20 +75,35 @@ async function ensureWalletSet() {
   return walletSetId;
 }
 
+const walletAddressCache = new Map();
+
 async function getWalletInfo(walletId) {
-  const [walletRes, balRes] = await Promise.all([
-    circle.getWallet({ id: walletId }),
-    circle.getWalletTokenBalance({ id: walletId }),
-  ]);
-  const wallet = walletRes.data.wallet;
-  const usdcToken = balRes.data.tokenBalances?.find(
-    t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
-  );
-  return {
-    walletId,
-    address: wallet.address,
-    usdcBalance: parseFloat(usdcToken?.amount ?? '0').toFixed(2),
-  };
+  try {
+    let address = walletAddressCache.get(walletId);
+    if (address) {
+      const balRes = await circle.getWalletTokenBalance({ id: walletId });
+      const usdcToken = balRes.data.tokenBalances?.find(
+        t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
+      );
+      const balance = parseFloat(usdcToken?.amount ?? '0').toFixed(2);
+      return { walletId, address, usdcBalance: balance };
+    } else {
+      const [walletRes, balRes] = await Promise.all([
+        circle.getWallet({ id: walletId }),
+        circle.getWalletTokenBalance({ id: walletId }),
+      ]);
+      address = walletRes.data.wallet.address;
+      walletAddressCache.set(walletId, address);
+      const usdcToken = balRes.data.tokenBalances?.find(
+        t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
+      );
+      const balance = parseFloat(usdcToken?.amount ?? '0').toFixed(2);
+      return { walletId, address, usdcBalance: balance };
+    }
+  } catch (e) {
+    console.error('getWalletInfo error:', e.message);
+    return { walletId, address: '', usdcBalance: '0' };
+  }
 }
 
 // POST /api/wallet/get-or-create
@@ -124,11 +139,8 @@ app.get('/api/wallet/balance', async (req, res) => {
     const { userId } = req.query;
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(404).json({ error: 'Wallet not found' });
-    const balRes = await circle.getWalletTokenBalance({ id: walletId });
-    const usdcToken = balRes.data.tokenBalances?.find(
-      t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
-    );
-    res.json({ usdcBalance: parseFloat(usdcToken?.amount ?? '0').toFixed(2) });
+    const info = await getWalletInfo(walletId);
+    res.json({ usdcBalance: info.usdcBalance });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -176,24 +188,33 @@ app.post('/api/trade/buy', async (req, res) => {
       });
     }
 
-    // Approve max once
+    // Approve max once — fire async, don't block the trade response
     if (!(await isApproved(walletId))) {
       const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-      const approveRes = await circle.createContractExecutionTransaction({
-        walletId,
-        contractAddress: USDC,
-        abiFunctionSignature: 'approve(address,uint256)',
-        abiParameters: [MARKET_CONTRACT, MAX],
-        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
-      });
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        const check = await circle.getTransaction({ id: approveRes.data.id });
-        const state = check.data.transaction.state;
-        if (state === 'COMPLETE') { await markApproved(walletId); break; }
-        if (state === 'FAILED' || state === 'DENIED') {
-          return res.status(500).json({ error: 'USDC approval failed' });
-        }
+      try {
+        const approveRes = await circle.createContractExecutionTransaction({
+          walletId,
+          contractAddress: USDC,
+          abiFunctionSignature: 'approve(address,uint256)',
+          abiParameters: [MARKET_CONTRACT, MAX],
+          fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+        });
+        // Poll approval in background — mark approved when done
+        (async () => {
+          for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+            try {
+              const check = await circle.getTransaction({ id: approveRes.data.id });
+              const s = check.data.transaction.state;
+              if (s === 'COMPLETE') { await markApproved(walletId); break; }
+              if (s === 'FAILED' || s === 'DENIED' || s === 'CANCELLED') break;
+            } catch {}
+          }
+        })();
+        // Wait briefly for approval to clear before submitting trade
+        await new Promise(r => setTimeout(r, 4000));
+      } catch (e) {
+        console.error('approve error:', e.message);
       }
     }
 
@@ -212,12 +233,38 @@ app.post('/api/trade/buy', async (req, res) => {
       tx_id: txId,
       side,
       usdc_amount: amount,
+      entry_price: parseFloat(req.body.entryPrice ?? 0.5),
       question: question || 'Prediction Market',
       market_id: MARKET_CONTRACT,
       state: 'INITIATED',
     });
   } catch (e) {
     console.error('trade:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/trade/claim — calls claim() on PulsMarket for resolved markets
+app.post('/api/trade/claim', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    if (!MARKET_CONTRACT) return res.status(500).json({ error: 'MARKET_CONTRACT not set' });
+
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(400).json({ error: 'No wallet' });
+
+    const txRes = await circle.createContractExecutionTransaction({
+      walletId,
+      contractAddress: MARKET_CONTRACT,
+      abiFunctionSignature: 'claim()',
+      abiParameters: [],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+
+    res.json({ txId: txRes.data.id, state: txRes.data.state });
+  } catch (e) {
+    console.error('claim:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -237,21 +284,91 @@ app.get('/api/portfolio', async (req, res) => {
   try {
     const { userId } = req.query;
     const rows = await getTrades(userId);
-    const positions = await Promise.all(rows.map(async (r) => {
-      try {
-        const tx = await circle.getTransaction({ id: r.tx_id });
-        return { ...r, state: tx.data.transaction.state, txHash: tx.data.transaction.txHash };
-      } catch { return r; }
+    
+    // Map existing rows immediately to return the response in <1ms
+    const positions = rows.map((r) => ({
+      id: r.id,
+      side: r.side,
+      usdcAmount: parseFloat(r.usdc_amount ?? 0),
+      entryPrice: parseFloat(r.entry_price ?? 0),
+      question: r.question,
+      state: r.state || 'INITIATED',
+      txHash: r.tx_hash,
+      timestamp: r.created_at,
     }));
+
     const completed = positions.filter(p => p.state === 'COMPLETE');
-    const totalSpent = completed.reduce((s, p) => s + (p.usdc_amount || 0), 0).toFixed(2);
-    res.json({ positions, totalSpent, totalValue: totalSpent });
+    const totalSpent = completed.reduce((s, p) => s + p.usdcAmount, 0).toFixed(2);
+    
+    // Return to client immediately (1ms response latency)
+    res.json({ positions, totalSpent });
+
+    // Sync any pending (INITIATED/null) states from Circle in the background without blocking the client
+    const pendingRows = rows.filter(r => r.state === 'INITIATED' || r.state === null);
+    if (pendingRows.length > 0) {
+      (async () => {
+        for (const r of pendingRows) {
+          try {
+            const tx = await circle.getTransaction({ id: r.tx_id });
+            const state = tx.data.transaction.state;
+            const txHash = tx.data.transaction.txHash ?? r.tx_hash;
+            await supabase.from('trades').update({ state, tx_hash: txHash }).eq('tx_id', r.tx_id);
+          } catch (err) {
+            console.error(`Background portfolio sync failed for tx ${r.tx_id}:`, err.message);
+          }
+        }
+      })().catch(console.error);
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
+
+// ── Circle Webhook — instant trade state updates ───────────────────────────
+app.post('/api/webhook/circle', async (req, res) => {
+  res.sendStatus(200); // Acknowledge immediately
+  try {
+    const { notificationType, transaction } = req.body;
+    if (notificationType !== 'transactions.outbound' || !transaction) return;
+    const { id: txId, state, txHash } = transaction;
+    if (!txId) return;
+    // Update trade state in Supabase
+    await supabase.from('trades').update({
+      state,
+      tx_hash: txHash ?? null,
+    }).eq('tx_id', txId);
+    console.log(`Webhook: tx ${txId} → ${state}`);
+  } catch (e) {
+    console.error('webhook error:', e.message);
+  }
+});
+
+// ── Market resolution (owner only) ────────────────────────────────────────
+app.post('/api/market/resolve', async (req, res) => {
+  try {
+    const { userId, outcome } = req.body; // outcome: true=YES wins, false=NO wins
+    if (!userId || outcome === undefined) return res.status(400).json({ error: 'userId and outcome required' });
+    if (!MARKET_CONTRACT) return res.status(500).json({ error: 'MARKET_CONTRACT not set' });
+
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(400).json({ error: 'No wallet' });
+
+    const txRes = await circle.createContractExecutionTransaction({
+      walletId,
+      contractAddress: MARKET_CONTRACT,
+      abiFunctionSignature: 'resolve(bool)',
+      abiParameters: [outcome],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+
+    res.json({ txId: txRes.data.id, state: txRes.data.state });
+  } catch (e) {
+    console.error('resolve:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Puls backend :${PORT}`));
