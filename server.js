@@ -730,9 +730,26 @@ app.post('/api/trade/claim', async (req, res) => {
 app.get('/api/trade/status', async (req, res) => {
   try {
     const { txId } = req.query;
+    if (!txId) return res.status(400).json({ error: 'txId required' });
+
+    if (txId.startsWith('0x')) {
+      // External browser wallet transaction hash
+      try {
+        const receipt = await publicClient.getTransactionReceipt({ hash: txId });
+        if (receipt) {
+          const state = receipt.status === 'success' ? 'COMPLETE' : 'FAILED';
+          return res.json({ txId, state, txHash: txId });
+        }
+      } catch (err) {
+        // Receipt not found yet (still pending/mining)
+        return res.json({ txId, state: 'INITIATED', txHash: txId });
+      }
+      return res.json({ txId, state: 'INITIATED', txHash: txId });
+    }
+
     const txRes = await circle.getTransaction({ id: txId });
     const tx = txRes.data.transaction;
-    res.json({ txId: txRes.data.id, state: tx.state });
+    res.json({ txId: txRes.data.id, state: tx.state, txHash: tx.txHash });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

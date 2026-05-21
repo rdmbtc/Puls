@@ -27,3 +27,12 @@ create table if not exists trades (
 );
 
 create index if not exists trades_user_id_idx on trades(user_id);
+
+create table if not exists deployed_markets (
+  slug text primary key,
+  contract_address text not null,
+  deadline bigint not null,
+  resolved boolean default false,
+  outcome boolean,
+  created_at timestamptz default now()
+);
