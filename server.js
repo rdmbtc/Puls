@@ -1,27 +1,222 @@
 import 'dotenv/config';
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { arcTestnet } from 'viem/chains';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const circle = initiateDeveloperControlledWalletsClient({
-  apiKey: process.env.CIRCLE_API_KEY,
-  entitySecret: process.env.CIRCLE_ENTITY_SECRET,
+  apiKey: process.env.CIRCLE_API_KEY ? process.env.CIRCLE_API_KEY.trim() : undefined,
+  entitySecret: process.env.CIRCLE_ENTITY_SECRET ? process.env.CIRCLE_ENTITY_SECRET.trim() : undefined,
 });
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY // use service_role key (server-side only)
+  process.env.SUPABASE_URL ? process.env.SUPABASE_URL.trim() : '',
+  process.env.SUPABASE_SERVICE_KEY ? process.env.SUPABASE_SERVICE_KEY.trim() : '' // use service_role key (server-side only)
 );
 
 const USDC = '0x3600000000000000000000000000000000000000';
-const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '';
-let walletSetId = process.env.WALLET_SET_ID || '';
+let walletSetId = (process.env.WALLET_SET_ID || '').trim();
+
+const publicClient = createPublicClient({
+  chain: arcTestnet,
+  transport: http('https://rpc.testnet.arc.network')
+});
+
+const adminPrivateKey = process.env.PRIVATE_KEY ? process.env.PRIVATE_KEY.trim() : null;
+const adminAccount = adminPrivateKey ? privateKeyToAccount(adminPrivateKey.startsWith('0x') ? adminPrivateKey : `0x${adminPrivateKey}`) : null;
+
+const walletClient = adminAccount ? createWalletClient({
+  account: adminAccount,
+  chain: arcTestnet,
+  transport: http('https://rpc.testnet.arc.network')
+}) : null;
+
+const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS || '').trim();
+
+const FACTORY_ABI = [
+  {
+    name: 'createMarket',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'slug', type: 'string' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'b', type: 'uint256' }
+    ],
+    outputs: [{ name: 'market', type: 'address' }]
+  },
+  {
+    name: 'allMarkets',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address[]' }]
+  }
+];
+
+// ── Cache of Deployed Markets ────────────────────────────────────────────────
+const deployedMarketsCache = new Map(); // slug -> { contractAddress, deadline, resolved, outcome }
+const contractToSlugCache = new Map(); // contractAddress -> slug
+
+async function loadDeployedMarkets() {
+  try {
+    const { data, error } = await supabase
+      .from('deployed_markets')
+      .select('*');
+    if (error) {
+      console.error('Failed to load deployed_markets from Supabase:', error.message);
+      return;
+    }
+    for (const row of (data || [])) {
+      const entry = {
+        contractAddress: row.contract_address,
+        deadline: Number(row.deadline),
+        resolved: row.resolved,
+        outcome: row.outcome
+      };
+      deployedMarketsCache.set(row.slug, entry);
+      contractToSlugCache.set(row.contract_address.toLowerCase(), row.slug);
+    }
+    console.log(`Loaded ${deployedMarketsCache.size} deployed markets into cache.`);
+  } catch (e) {
+    console.error('loadDeployedMarkets error:', e.message);
+  }
+}
+
+// Prevent duplicate concurrent deployments
+const pendingDeployments = new Map();
+let deploymentQueue = Promise.resolve();
+
+async function _executeMarketDeployment(slug, deadlineSeconds) {
+  let cached = deployedMarketsCache.get(slug);
+  if (cached) return cached.contractAddress;
+
+  if (!FACTORY_ADDRESS) throw new Error('FACTORY_ADDRESS not set in backend');
+  if (!walletClient || !adminAccount) throw new Error('Admin wallet credentials not configured');
+
+  console.log(`Dynamic deployment triggered for slug: ${slug}, deadline: ${deadlineSeconds}`);
+  const b = 10_000_000; // b = 10 USDC
+  const initialCost = BigInt(Math.round(b * Math.log(2))); // ~6,931,471
+
+  // Check current allowance first to avoid redundant approvals and race conditions
+  const allowance = await publicClient.readContract({
+    address: USDC,
+    abi: [{
+      name: 'allowance',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' }
+      ],
+      outputs: [{ name: '', type: 'uint256' }]
+    }],
+    functionName: 'allowance',
+    args: [adminAccount.address, FACTORY_ADDRESS]
+  });
+
+  if (BigInt(allowance) < initialCost) {
+    console.log(`Current factory allowance is ${allowance}, less than required ${initialCost}. Approving MaxUint256...`);
+    const MAX = 115792089237316195423570985008687907853269984665640564039457584007913129639935n;
+    const approveHash = await walletClient.writeContract({
+      address: USDC,
+      abi: [{
+        name: 'approve',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'spender', type: 'address' },
+          { name: 'amount', type: 'uint256' }
+        ],
+        outputs: [{ name: '', type: 'bool' }]
+      }],
+      functionName: 'approve',
+      args: [FACTORY_ADDRESS, MAX]
+    });
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    console.log(`✅ Approved factory for MaxUint256 USDC`);
+  }
+
+  const { request } = await publicClient.simulateContract({
+    account: adminAccount,
+    address: FACTORY_ADDRESS,
+    abi: FACTORY_ABI,
+    functionName: 'createMarket',
+    args: [slug, BigInt(deadlineSeconds), BigInt(b)]
+  });
+
+  const hash = await walletClient.writeContract(request);
+  console.log(`Deploy Tx Hash: ${hash}`);
+  await publicClient.waitForTransactionReceipt({ hash });
+
+  const allM = await publicClient.readContract({
+    address: FACTORY_ADDRESS,
+    abi: FACTORY_ABI,
+    functionName: 'allMarkets'
+  });
+  
+  const deployedAddress = allM[allM.length - 1];
+  if (!deployedAddress) throw new Error('Failed to retrieve deployed market address from factory');
+
+  console.log(`✅ Successfully deployed LMSRMarket at ${deployedAddress} for slug ${slug}`);
+
+  await supabase.from('deployed_markets').upsert({
+    slug,
+    contract_address: deployedAddress,
+    deadline: deadlineSeconds,
+    resolved: false
+  });
+
+  const entry = {
+    contractAddress: deployedAddress,
+    deadline: deadlineSeconds,
+    resolved: false,
+    outcome: null
+  };
+  deployedMarketsCache.set(slug, entry);
+  contractToSlugCache.set(deployedAddress.toLowerCase(), slug);
+
+  return deployedAddress;
+}
+
+async function getOrDeployMarket(slug, deadlineSeconds) {
+  if (!slug) throw new Error('slug is required');
+  
+  let cached = deployedMarketsCache.get(slug);
+  if (cached) return cached.contractAddress;
+
+  if (pendingDeployments.has(slug)) {
+    return pendingDeployments.get(slug);
+  }
+
+  const promise = new Promise((resolve, reject) => {
+    deploymentQueue = deploymentQueue.then(async () => {
+      try {
+        const addr = await _executeMarketDeployment(slug, deadlineSeconds);
+        resolve(addr);
+      } catch (err) {
+        reject(err);
+      }
+    }).catch((err) => {
+      console.error(`Queue execution failed:`, err.message);
+    });
+  });
+
+  pendingDeployments.set(slug, promise);
+  
+  promise.finally(() => {
+    pendingDeployments.delete(slug);
+  });
+
+  return promise;
+}
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
@@ -38,17 +233,32 @@ async function saveWallet(userId, walletId) {
   await supabase.from('wallets').upsert({ user_id: userId, wallet_id: walletId });
 }
 
-async function isApproved(walletId) {
-  const { data } = await supabase
-    .from('approved_wallets')
-    .select('wallet_id')
-    .eq('wallet_id', walletId)
-    .single();
-  return !!data;
-}
+async function isApproved(walletId, contractAddress) {
+  try {
+    const info = await getWalletInfo(walletId);
+    if (!info || !info.address) return false;
 
-async function markApproved(walletId) {
-  await supabase.from('approved_wallets').upsert({ wallet_id: walletId });
+    const allowance = await publicClient.readContract({
+      address: USDC,
+      abi: [{
+        name: 'allowance',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [
+          { name: 'owner', type: 'address' },
+          { name: 'spender', type: 'address' }
+        ],
+        outputs: [{ name: '', type: 'uint256' }]
+      }],
+      functionName: 'allowance',
+      args: [info.address, contractAddress]
+    });
+
+    return BigInt(allowance) >= BigInt(1_000_000_000_000);
+  } catch (e) {
+    console.error('Check allowance failed:', e.message);
+    return false;
+  }
 }
 
 async function saveTrade(userId, trade) {
@@ -80,29 +290,42 @@ const walletAddressCache = new Map();
 async function getWalletInfo(walletId) {
   try {
     let address = walletAddressCache.get(walletId);
-    if (address) {
-      const balRes = await circle.getWalletTokenBalance({ id: walletId });
-      const usdcToken = balRes.data.tokenBalances?.find(
-        t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
-      );
-      const balance = parseFloat(usdcToken?.amount ?? '0').toFixed(2);
-      return { walletId, address, usdcBalance: balance };
-    } else {
-      const [walletRes, balRes] = await Promise.all([
-        circle.getWallet({ id: walletId }),
-        circle.getWalletTokenBalance({ id: walletId }),
-      ]);
+    if (!address) {
+      const walletRes = await circle.getWallet({ id: walletId });
       address = walletRes.data.wallet.address;
       walletAddressCache.set(walletId, address);
-      const usdcToken = balRes.data.tokenBalances?.find(
-        t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
-      );
-      const balance = parseFloat(usdcToken?.amount ?? '0').toFixed(2);
-      return { walletId, address, usdcBalance: balance };
     }
+
+    let balance = '0.00';
+    try {
+      const balanceRaw = await publicClient.readContract({
+        address: USDC,
+        abi: [{
+          name: 'balanceOf',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [{ name: 'account', type: 'address' }],
+          outputs: [{ name: '', type: 'uint256' }]
+        }],
+        functionName: 'balanceOf',
+        args: [address]
+      });
+      balance = (Number(balanceRaw) / 1_000_000).toFixed(2);
+    } catch (err) {
+      console.warn(`On-chain balance check failed for ${address}:`, err.message);
+      try {
+        const balRes = await circle.getWalletTokenBalance({ id: walletId });
+        const usdcToken = balRes.data.tokenBalances?.find(
+          t => t.token?.address?.toLowerCase() === USDC.toLowerCase() || t.token?.symbol === 'USDC'
+        );
+        balance = parseFloat(usdcToken?.amount ?? '0').toFixed(2);
+      } catch (_) {}
+    }
+
+    return { walletId, address, usdcBalance: balance };
   } catch (e) {
     console.error('getWalletInfo error:', e.message);
-    return { walletId, address: '', usdcBalance: '0' };
+    return { walletId, address: '', usdcBalance: '0.00' };
   }
 }
 
@@ -137,6 +360,37 @@ app.post('/api/wallet/get-or-create', async (req, res) => {
 app.get('/api/wallet/balance', async (req, res) => {
   try {
     const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    let userAddress = null;
+    if (userId.startsWith('0x')) {
+      userAddress = userId;
+    } else if (userId.startsWith('eth_0x')) {
+      userAddress = userId.replace('eth_', '');
+    }
+
+    if (userAddress) {
+      let balance = '0.00';
+      try {
+        const balanceRaw = await publicClient.readContract({
+          address: USDC,
+          abi: [{
+            name: 'balanceOf',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'uint256' }]
+          }],
+          functionName: 'balanceOf',
+          args: [userAddress]
+        });
+        balance = (Number(balanceRaw) / 1_000_000).toFixed(2);
+      } catch (err) {
+        console.warn(`On-chain balance check failed for external wallet ${userAddress}:`, err.message);
+      }
+      return res.json({ usdcBalance: balance });
+    }
+
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(404).json({ error: 'Wallet not found' });
     const info = await getWalletInfo(walletId);
@@ -166,16 +420,188 @@ app.get('/api/wallet/export', async (req, res) => {
   }
 });
 
+// ── GET /api/markets ──────────────────────────────────────────────────────────
+app.get('/api/markets', async (req, res) => {
+  try {
+    const limit = req.query.limit || 50;
+    const offset = req.query.offset || 0;
+    
+    const pmUrl = `https://gamma-api.polymarket.com/markets?limit=${limit}&active=true&closed=false&order=volume&ascending=false&offset=${offset}`;
+    const pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' } });
+    
+    if (!pmRes.ok) {
+      return res.status(500).json({ error: 'Failed to fetch from Polymarket' });
+    }
+    
+    const list = await pmRes.json();
+    
+    const mergedList = await Promise.all(list.map(async (j) => {
+      const slug = j.slug;
+      const cached = deployedMarketsCache.get(slug);
+      
+      let contractAddress = null;
+      let poolYes = null;
+      let poolNo = null;
+      let resolved = false;
+      let outcome = null;
+      let yesPrice = null;
+      let noPrice = null;
+      let totalVolume = null;
+
+      if (cached) {
+        contractAddress = cached.contractAddress;
+        resolved = cached.resolved;
+        outcome = cached.outcome;
+        
+        try {
+          const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain, yesOutstanding, noOutstanding] = await publicClient.readContract({
+            address: contractAddress,
+            abi: [
+              {
+                name: 'getMarketInfo',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [],
+                outputs: [
+                  { name: '_slug', type: 'string' },
+                  { name: '_deadline', type: 'uint256' },
+                  { name: '_resolved', type: 'bool' },
+                  { name: '_outcome', type: 'bool' },
+                  { name: '_yesOutstanding', type: 'uint256' },
+                  { name: '_noOutstanding', type: 'uint256' }
+                ]
+              }
+            ],
+            functionName: 'getMarketInfo'
+          });
+
+          poolYes = Number(yesOutstanding) / 1_000_000;
+          poolNo = Number(noOutstanding) / 1_000_000;
+          
+          const bVal = 10;
+          const maxQ = Math.max(poolYes, poolNo);
+          const expYes = Math.exp((poolYes - maxQ) / bVal);
+          const expNo = Math.exp((poolNo - maxQ) / bVal);
+          yesPrice = expYes / (expYes + expNo);
+          noPrice = expNo / (expYes + expNo);
+          totalVolume = poolYes + poolNo;
+        } catch (err) {
+          console.error(`Error reading on-chain market ${contractAddress}:`, err.message);
+        }
+      }
+
+      let currentPrices = [0.5, 0.5];
+      try {
+        const rawPrices = j.outcomePrices || '["0.5","0.5"]';
+        currentPrices = JSON.parse(rawPrices).map(p => parseFloat(p) || 0.5);
+      } catch {}
+
+      return {
+        ...j,
+        contractAddress,
+        yesPrice: yesPrice !== null ? parseFloat(yesPrice.toFixed(4)) : currentPrices[0],
+        noPrice: noPrice !== null ? parseFloat(noPrice.toFixed(4)) : currentPrices[1],
+        poolYes,
+        poolNo,
+        resolved,
+        outcome,
+        totalVolume
+      };
+    }));
+
+    res.json(mergedList);
+  } catch (e) {
+    console.error('/api/markets error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/market/activate
+app.post('/api/market/activate', async (req, res) => {
+  try {
+    const { slug, deadline } = req.body;
+    if (!slug || !deadline) {
+      return res.status(400).json({ error: 'slug and deadline required' });
+    }
+    const contractAddress = await getOrDeployMarket(slug, deadline);
+    res.json({ contractAddress });
+  } catch (e) {
+    console.error('activate market error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/market/info
+app.get('/api/market/info', async (req, res) => {
+  try {
+    const { slug } = req.query;
+    if (!slug) return res.status(400).json({ error: 'slug required' });
+    
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(404).json({ error: 'Market not deployed' });
+    const contractAddress = cached.contractAddress;
+    
+    const [slugOnChain, deadline, resolved, outcome, yesOutstanding, noOutstanding] = await publicClient.readContract({
+      address: contractAddress,
+      abi: [
+        {
+          name: 'getMarketInfo',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [],
+          outputs: [
+            { name: '_slug', type: 'string' },
+            { name: '_deadline', type: 'uint256' },
+            { name: '_resolved', type: 'bool' },
+            { name: '_outcome', type: 'bool' },
+            { name: '_yesOutstanding', type: 'uint256' },
+            { name: '_noOutstanding', type: 'uint256' }
+          ]
+        }
+      ],
+      functionName: 'getMarketInfo'
+    });
+
+    const poolYesVal = Number(yesOutstanding) / 1_000_000;
+    const poolNoVal = Number(noOutstanding) / 1_000_000;
+    
+    const bVal = 10;
+    const maxQ = Math.max(poolYesVal, poolNoVal);
+    const expYes = Math.exp((poolYesVal - maxQ) / bVal);
+    const expNo = Math.exp((poolNoVal - maxQ) / bVal);
+    const yesPrice = expYes / (expYes + expNo);
+    const noPrice = expNo / (expYes + expNo);
+    const totalPool = poolYesVal + poolNoVal;
+
+    res.json({
+      contractAddress,
+      question: slug,
+      deadline: Number(deadline),
+      resolved,
+      outcome,
+      poolYes: poolYesVal,
+      poolNo: poolNoVal,
+      yesPrice: parseFloat(yesPrice.toFixed(4)),
+      noPrice: parseFloat(noPrice.toFixed(4)),
+      totalVolume: totalPool
+    });
+  } catch (e) {
+    console.error('getMarketInfo:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Trade ─────────────────────────────────────────────────────────────────────
 
 app.post('/api/trade/buy', async (req, res) => {
   try {
-    const { userId, side, usdcAmount, question } = req.body;
-    if (!userId || !side || !usdcAmount) return res.status(400).json({ error: 'Missing fields' });
-    if (!MARKET_CONTRACT) return res.status(500).json({ error: 'MARKET_CONTRACT not set' });
+    const { userId, side, usdcAmount, question, slug, deadline } = req.body;
+    if (!userId || !side || !usdcAmount || !slug || !deadline) return res.status(400).json({ error: 'Missing fields' });
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
+
+    const contractAddress = await getOrDeployMarket(slug, deadline);
 
     const isYes = side === 'YES';
     const amount = parseFloat(usdcAmount);
@@ -184,35 +610,21 @@ app.post('/api/trade/buy', async (req, res) => {
     const info = await getWalletInfo(walletId);
     if (parseFloat(info.usdcBalance) < amount) {
       return res.status(400).json({
-        error: `Insufficient USDC. Balance: $${info.usdcBalance}, Need: $${amount.toFixed(2)}. Get testnet USDC at faucet.circle.com`,
+        error: `Insufficient USDC. Balance: $${info.usdcBalance}, Need: $${amount.toFixed(2)}.`,
       });
     }
 
-    // Approve max once — fire async, don't block the trade response
-    if (!(await isApproved(walletId))) {
+    if (!(await isApproved(walletId, contractAddress))) {
       const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
       try {
         const approveRes = await circle.createContractExecutionTransaction({
           walletId,
           contractAddress: USDC,
           abiFunctionSignature: 'approve(address,uint256)',
-          abiParameters: [MARKET_CONTRACT, MAX],
+          abiParameters: [contractAddress, MAX],
           fee: { type: 'level', config: { feeLevel: 'HIGH' } },
         });
-        // Poll approval in background — mark approved when done
-        (async () => {
-          for (let i = 0; i < 30; i++) {
-            await new Promise(r => setTimeout(r, 2000));
-            try {
-              const check = await circle.getTransaction({ id: approveRes.data.id });
-              const s = check.data.transaction.state;
-              if (s === 'COMPLETE') { await markApproved(walletId); break; }
-              if (s === 'FAILED' || s === 'DENIED' || s === 'CANCELLED') break;
-            } catch {}
-          }
-        })();
-        // Wait briefly for approval to clear before submitting trade
-        await new Promise(r => setTimeout(r, 4000));
+        await new Promise(r => setTimeout(r, 4500));
       } catch (e) {
         console.error('approve error:', e.message);
       }
@@ -220,14 +632,13 @@ app.post('/api/trade/buy', async (req, res) => {
 
     const txRes = await circle.createContractExecutionTransaction({
       walletId,
-      contractAddress: MARKET_CONTRACT,
+      contractAddress: contractAddress,
       abiFunctionSignature: isYes ? 'buyYes(uint256)' : 'buyNo(uint256)',
       abiParameters: [amountMicro],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
     });
 
     const txId = txRes.data.id;
-    res.json({ txId, state: txRes.data.state, side, balance: info.usdcBalance });
 
     await saveTrade(userId, {
       tx_id: txId,
@@ -235,28 +646,75 @@ app.post('/api/trade/buy', async (req, res) => {
       usdc_amount: amount,
       entry_price: parseFloat(req.body.entryPrice ?? 0.5),
       question: question || 'Prediction Market',
-      market_id: MARKET_CONTRACT,
+      market_id: contractAddress,
       state: 'INITIATED',
     });
+
+    res.json({ txId, state: txRes.data.state, side, balance: info.usdcBalance });
   } catch (e) {
-    console.error('trade:', e.message);
+    console.error('trade buy error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST /api/trade/claim — calls claim() on PulsMarket for resolved markets
-app.post('/api/trade/claim', async (req, res) => {
+app.post('/api/trade/sell', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-    if (!MARKET_CONTRACT) return res.status(500).json({ error: 'MARKET_CONTRACT not set' });
+    const { userId, side, shares, question, slug } = req.body;
+    if (!userId || !side || !shares || !slug) return res.status(400).json({ error: 'Missing fields' });
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
 
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
+    const contractAddress = cached.contractAddress;
+
+    const isYes = side === 'YES';
+    const sharesAmount = parseFloat(shares);
+    const sharesMicro = Math.round(sharesAmount * 1_000_000).toString();
+
     const txRes = await circle.createContractExecutionTransaction({
       walletId,
-      contractAddress: MARKET_CONTRACT,
+      contractAddress: contractAddress,
+      abiFunctionSignature: isYes ? 'sellYes(uint256)' : 'sellNo(uint256)',
+      abiParameters: [sharesMicro],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+
+    const txId = txRes.data.id;
+
+    await saveTrade(userId, {
+      tx_id: txId,
+      side,
+      usdc_amount: -sharesAmount,
+      entry_price: parseFloat(req.body.entryPrice ?? 0.5),
+      question: question || 'Prediction Market',
+      market_id: contractAddress,
+      state: 'INITIATED',
+    });
+
+    res.json({ txId, state: txRes.data.state, side });
+  } catch (e) {
+    console.error('sell trade error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/trade/claim', async (req, res) => {
+  try {
+    const { userId, slug } = req.body;
+    if (!userId || !slug) return res.status(400).json({ error: 'Missing fields' });
+
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(400).json({ error: 'No wallet' });
+
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
+    const contractAddress = cached.contractAddress;
+
+    const txRes = await circle.createContractExecutionTransaction({
+      walletId,
+      contractAddress: contractAddress,
       abiFunctionSignature: 'claim()',
       abiParameters: [],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
@@ -264,7 +722,7 @@ app.post('/api/trade/claim', async (req, res) => {
 
     res.json({ txId: txRes.data.id, state: txRes.data.state });
   } catch (e) {
-    console.error('claim:', e.message);
+    console.error('claim error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -274,36 +732,49 @@ app.get('/api/trade/status', async (req, res) => {
     const { txId } = req.query;
     const txRes = await circle.getTransaction({ id: txId });
     const tx = txRes.data.transaction;
-    res.json({ state: tx.state, txHash: tx.txHash ?? null });
+    res.json({ txId: txRes.data.id, state: tx.state });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
+app.post('/api/trade/save-external', async (req, res) => {
+  try {
+    const { userId, side, usdcAmount, entryPrice, question, txHash, marketId } = req.body;
+    if (!userId || !side || !usdcAmount || !entryPrice || !question || !txHash) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+    await saveTrade(userId, {
+      tx_id: `ext_${Date.now()}`,
+      side,
+      usdc_amount: parseFloat(usdcAmount),
+      entry_price: parseFloat(entryPrice),
+      question,
+      market_id: marketId,
+      state: 'COMPLETE',
+      tx_hash: txHash,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/portfolio ────────────────────────────────────────────────────────
 app.get('/api/portfolio', async (req, res) => {
   try {
     const { userId } = req.query;
+    let userAddress = null;
+    if (userId && (userId.startsWith('0x') || userId.startsWith('eth_0x'))) {
+      userAddress = userId.replace('eth_', '');
+    } else {
+      const walletId = await getWalletId(userId);
+      const info = walletId ? await getWalletInfo(walletId) : null;
+      userAddress = info?.address;
+    }
+
     const rows = await getTrades(userId);
-    
-    // Map existing rows immediately to return the response in <1ms
-    const positions = rows.map((r) => ({
-      id: r.id,
-      side: r.side,
-      usdcAmount: parseFloat(r.usdc_amount ?? 0),
-      entryPrice: parseFloat(r.entry_price ?? 0),
-      question: r.question,
-      state: r.state || 'INITIATED',
-      txHash: r.tx_hash,
-      timestamp: r.created_at,
-    }));
 
-    const completed = positions.filter(p => p.state === 'COMPLETE');
-    const totalSpent = completed.reduce((s, p) => s + p.usdcAmount, 0).toFixed(2);
-    
-    // Return to client immediately (1ms response latency)
-    res.json({ positions, totalSpent });
-
-    // Sync any pending (INITIATED/null) states from Circle in the background without blocking the client
     const pendingRows = rows.filter(r => r.state === 'INITIATED' || r.state === null);
     if (pendingRows.length > 0) {
       (async () => {
@@ -319,6 +790,124 @@ app.get('/api/portfolio', async (req, res) => {
         }
       })().catch(console.error);
     }
+
+    let positions = [];
+    const uniqueMarkets = [...new Set(rows.map(r => r.market_id).filter(id => id && id.startsWith('0x')))];
+
+    if (userAddress && uniqueMarkets.length > 0) {
+      await Promise.all(uniqueMarkets.map(async (marketAddress) => {
+        try {
+          const [yesSharesRaw, noSharesRaw, claimed] = await publicClient.readContract({
+            address: marketAddress,
+            abi: [{
+              name: 'getUserPosition',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [{ name: 'user', type: 'address' }],
+              outputs: [
+                { name: '_yesShares', type: 'uint256' },
+                { name: '_noShares', type: 'uint256' },
+                { name: '_claimed', type: 'bool' }
+              ]
+            }],
+            functionName: 'getUserPosition',
+            args: [userAddress]
+          });
+
+          const yesShares = Number(yesSharesRaw) / 1_000_000;
+          const noShares = Number(noSharesRaw) / 1_000_000;
+
+          if (yesShares < 0.0001 && noShares < 0.0001) return;
+
+          const slug = contractToSlugCache.get(marketAddress.toLowerCase()) || '';
+          
+          let question = 'Prediction Market';
+          let resolved = false;
+          let outcome = null;
+          
+          const cached = slug ? deployedMarketsCache.get(slug) : null;
+          if (cached) {
+            resolved = cached.resolved;
+            outcome = cached.outcome;
+          }
+
+          const tradeForMarket = rows.find(r => r.market_id === marketAddress);
+          if (tradeForMarket && tradeForMarket.question) {
+            question = tradeForMarket.question;
+          }
+
+          const completedTrades = rows.filter(r => r.state === 'COMPLETE' && r.market_id === marketAddress);
+          const yesCost = completedTrades.filter(r => r.side === 'YES').reduce((sum, r) => sum + parseFloat(r.usdc_amount ?? 0), 0);
+          const noCost = completedTrades.filter(r => r.side === 'NO').reduce((sum, r) => sum + parseFloat(r.usdc_amount ?? 0), 0);
+
+          if (yesShares > 0.0001) {
+            const entryPrice = yesCost > 0 ? Math.min(0.99, Math.max(0.01, yesCost / yesShares)) : 0.5;
+            positions.push({
+              id: `${userId}-${marketAddress}-YES`,
+              side: 'YES',
+              usdcAmount: yesCost > 0 ? yesCost : yesShares * entryPrice,
+              entryPrice: entryPrice,
+              shares: yesShares,
+              question,
+              slug,
+              marketId: marketAddress,
+              contractAddress: marketAddress,
+              state: 'COMPLETE',
+              claimed,
+              resolved,
+              outcome,
+              txHash: completedTrades.find(r => r.side === 'YES')?.tx_hash || null,
+              timestamp: completedTrades.find(r => r.side === 'YES')?.created_at || new Date().toISOString()
+            });
+          }
+
+          if (noShares > 0.0001) {
+            const entryPrice = noCost > 0 ? Math.min(0.99, Math.max(0.01, noCost / noShares)) : 0.5;
+            positions.push({
+              id: `${userId}-${marketAddress}-NO`,
+              side: 'NO',
+              usdcAmount: noCost > 0 ? noCost : noShares * entryPrice,
+              entryPrice: entryPrice,
+              shares: noShares,
+              question,
+              slug,
+              marketId: marketAddress,
+              contractAddress: marketAddress,
+              state: 'COMPLETE',
+              claimed,
+              resolved,
+              outcome,
+              txHash: completedTrades.find(r => r.side === 'NO')?.tx_hash || null,
+              timestamp: completedTrades.find(r => r.side === 'NO')?.created_at || new Date().toISOString()
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to read position for user ${userAddress} on market ${marketAddress}:`, err.message);
+        }
+      }));
+    }
+
+    const pendingTrades = rows.filter(r => r.state === 'INITIATED' || r.state === 'SENT' || r.state === 'QUEUED' || r.state === null);
+    for (const r of pendingTrades) {
+      positions.push({
+        id: r.id,
+        side: r.side,
+        usdcAmount: parseFloat(r.usdc_amount ?? 0),
+        entryPrice: parseFloat(r.entry_price ?? 0),
+        question: r.question,
+        marketId: r.market_id,
+        contractAddress: r.market_id,
+        state: r.state || 'INITIATED',
+        txHash: r.tx_hash || null,
+        timestamp: r.created_at,
+        shares: Math.abs(parseFloat(r.usdc_amount ?? 0)) / parseFloat(r.entry_price ?? 0.5)
+      });
+    }
+
+    const completed = positions.filter(p => p.state === 'COMPLETE');
+    const totalSpent = completed.reduce((s, p) => s + p.usdcAmount, 0).toFixed(2);
+    
+    res.json({ positions, totalSpent });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -326,15 +915,14 @@ app.get('/api/portfolio', async (req, res) => {
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 
-// ── Circle Webhook — instant trade state updates ───────────────────────────
+// ── Circle Webhook ────────────────────────────────────────────────────────────
 app.post('/api/webhook/circle', async (req, res) => {
-  res.sendStatus(200); // Acknowledge immediately
+  res.sendStatus(200);
   try {
     const { notificationType, transaction } = req.body;
     if (notificationType !== 'transactions.outbound' || !transaction) return;
     const { id: txId, state, txHash } = transaction;
     if (!txId) return;
-    // Update trade state in Supabase
     await supabase.from('trades').update({
       state,
       tx_hash: txHash ?? null,
@@ -345,19 +933,22 @@ app.post('/api/webhook/circle', async (req, res) => {
   }
 });
 
-// ── Market resolution (owner only) ────────────────────────────────────────
+// ── Market resolution (owner fallback / manual) ──────────────────────────────
 app.post('/api/market/resolve', async (req, res) => {
   try {
-    const { userId, outcome } = req.body; // outcome: true=YES wins, false=NO wins
-    if (!userId || outcome === undefined) return res.status(400).json({ error: 'userId and outcome required' });
-    if (!MARKET_CONTRACT) return res.status(500).json({ error: 'MARKET_CONTRACT not set' });
+    const { userId, slug, outcome } = req.body; // outcome: true=YES wins, false=NO wins
+    if (!userId || !slug || outcome === undefined) return res.status(400).json({ error: 'userId, slug and outcome required' });
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
 
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
+    const contractAddress = cached.contractAddress;
+
     const txRes = await circle.createContractExecutionTransaction({
       walletId,
-      contractAddress: MARKET_CONTRACT,
+      contractAddress: contractAddress,
       abiFunctionSignature: 'resolve(bool)',
       abiParameters: [outcome],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
@@ -365,10 +956,152 @@ app.post('/api/market/resolve', async (req, res) => {
 
     res.json({ txId: txRes.data.id, state: txRes.data.state });
   } catch (e) {
-    console.error('resolve:', e.message);
+    console.error('resolve error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
+// ── Auto-Resolution Cron ──────────────────────────────────────────────────────
+async function checkAndResolveMarkets() {
+  console.log('Running auto-resolution cron check...');
+  const now = Math.floor(Date.now() / 1000);
+  
+  const marketsToResolve = [];
+  for (const [slug, entry] of deployedMarketsCache.entries()) {
+    if (entry.deadline < now && !entry.resolved) {
+      marketsToResolve.push({ slug, ...entry });
+    }
+  }
+
+  if (marketsToResolve.length === 0) {
+    console.log('No markets need resolution.');
+    return;
+  }
+
+  console.log(`Found ${marketsToResolve.length} markets to check for resolution.`);
+
+  for (const market of marketsToResolve) {
+    try {
+      const pmUrl = `https://gamma-api.polymarket.com/markets?slug=${market.slug}`;
+      const res = await fetch(pmUrl);
+      if (!res.ok) continue;
+      
+      const list = await res.json();
+      if (!list || list.length === 0) continue;
+      
+      const pmMarket = list[0];
+      const isResolved = pmMarket.closed === true || pmMarket.resolved === true;
+      if (!isResolved) {
+        console.log(`Market ${market.slug} is past deadline but not yet resolved on Polymarket.`);
+        continue;
+      }
+      
+      let outcome = null;
+      if (pmMarket.consensusOutcome === 'YES') {
+        outcome = true;
+      } else if (pmMarket.consensusOutcome === 'NO') {
+        outcome = false;
+      } else {
+        try {
+          const prices = JSON.parse(pmMarket.outcomePrices || '[]');
+          if (parseFloat(prices[0]) > 0.9) outcome = true;
+          else if (parseFloat(prices[1]) > 0.9) outcome = false;
+        } catch {}
+      }
+
+      if (outcome === null) {
+        console.log(`Could not determine outcome for resolved market ${market.slug}`);
+        continue;
+      }
+
+      console.log(`Resolving on-chain market ${market.contractAddress} for slug ${market.slug} to outcome: ${outcome ? 'YES' : 'NO'}`);
+
+      const { request } = await publicClient.simulateContract({
+        account: adminAccount,
+        address: market.contractAddress,
+        abi: [
+          {
+            name: 'resolve',
+            type: 'function',
+            stateMutability: 'nonpayable',
+            inputs: [{ name: '_outcome', type: 'bool' }],
+            outputs: []
+          }
+        ],
+        functionName: 'resolve',
+        args: [outcome]
+      });
+
+      const hash = await walletClient.writeContract(request);
+      console.log(`Resolution Tx Hash: ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+      
+      await supabase
+        .from('deployed_markets')
+        .update({ resolved: true, outcome })
+        .eq('slug', market.slug);
+
+      market.resolved = true;
+      market.outcome = outcome;
+      console.log(`✅ Deployed market ${market.slug} resolved successfully.`);
+    } catch (e) {
+      console.error(`Failed to resolve market ${market.slug}:`, e.message);
+    }
+  }
+}
+
+// Run resolution check every 5 minutes
+setInterval(checkAndResolveMarkets, 5 * 60 * 1000);
+
+async function warmupTopMarkets() {
+  console.log('Starting eager market warmup for top active markets...');
+  try {
+    const limit = 20;
+    const pmUrl = `https://gamma-api.polymarket.com/markets?limit=${limit}&active=true&closed=false&order=volume&ascending=false`;
+    const pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' } });
+    if (!pmRes.ok) {
+      console.error('Failed to fetch top markets for warmup:', pmRes.statusText);
+      return;
+    }
+    const list = await pmRes.json();
+    console.log(`Fetched ${list.length} top active markets for warmup.`);
+
+    for (const j of list) {
+      const slug = j.slug;
+      if (!slug) continue;
+
+      if (deployedMarketsCache.has(slug)) {
+        // Already deployed
+        continue;
+      }
+
+      // Parse deadline
+      const endRaw = j.endDate || j.endDateIso;
+      let deadlineSeconds = Math.floor(Date.now() / 1000) + 30 * 24 * 3600; // default 30 days
+      if (endRaw) {
+        const parsedDate = new Date(endRaw);
+        if (!isNaN(parsedDate.getTime())) {
+          deadlineSeconds = Math.floor(parsedDate.getTime() / 1000);
+        }
+      }
+
+      console.log(`Warming up market: ${slug} (deadline: ${deadlineSeconds})`);
+      try {
+        await getOrDeployMarket(slug, deadlineSeconds);
+      } catch (err) {
+        console.error(`Failed to warm up market ${slug}:`, err.message);
+      }
+    }
+    console.log('Eager market warmup completed.');
+  } catch (e) {
+    console.error('warmupTopMarkets error:', e.message);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Puls backend :${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`Puls backend :${PORT}`);
+  await loadDeployedMarkets();
+  checkAndResolveMarkets().catch(console.error);
+  warmupTopMarkets().catch(console.error);
+});
