@@ -792,10 +792,12 @@ app.get('/api/portfolio', async (req, res) => {
 
     const rows = await getTrades(userId);
 
-    const pendingRows = rows.filter(r => r.state === 'INITIATED' || r.state === null);
+    const terminalStates = ['COMPLETE', 'FAILED', 'CANCELLED', 'DENIED'];
+    const pendingRows = rows.filter(r => !r.state || !terminalStates.includes(r.state.toUpperCase()));
     if (pendingRows.length > 0) {
       (async () => {
         for (const r of pendingRows) {
+          if (!r.tx_id || r.tx_id.startsWith('ext_')) continue;
           try {
             const tx = await circle.getTransaction({ id: r.tx_id });
             const state = tx.data.transaction.state;
@@ -904,7 +906,7 @@ app.get('/api/portfolio', async (req, res) => {
       }));
     }
 
-    const pendingTrades = rows.filter(r => r.state === 'INITIATED' || r.state === 'SENT' || r.state === 'QUEUED' || r.state === null);
+    const pendingTrades = rows.filter(r => !r.state || !terminalStates.includes(r.state.toUpperCase()));
     for (const r of pendingTrades) {
       positions.push({
         id: r.id,
