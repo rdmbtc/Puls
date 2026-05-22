@@ -7,6 +7,11 @@ import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 
+// Prevent unhandled promise rejections from crashing the server
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION]', reason?.message || reason);
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -142,6 +147,24 @@ async function _executeMarketDeployment(slug, deadlineSeconds) {
     });
     await publicClient.waitForTransactionReceipt({ hash: approveHash });
     console.log(`✅ Approved factory for MaxUint256 USDC`);
+  }
+
+  // Check deployer USDC balance before attempting deployment
+  const deployerBalance = await publicClient.readContract({
+    address: USDC,
+    abi: [{
+      name: 'balanceOf',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'account', type: 'address' }],
+      outputs: [{ name: '', type: 'uint256' }]
+    }],
+    functionName: 'balanceOf',
+    args: [adminAccount.address]
+  });
+  if (BigInt(deployerBalance) < initialCost) {
+    console.warn(`⚠️  Deployer USDC balance (${deployerBalance}) < required (${initialCost}) — skipping deployment for ${slug}`);
+    throw new Error(`Deployer has insufficient USDC (${deployerBalance} < ${initialCost}) to deploy market ${slug}`);
   }
 
   const { request } = await publicClient.simulateContract({
