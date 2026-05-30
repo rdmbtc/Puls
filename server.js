@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import { createPublicClient, createWalletClient, http, decodeEventLog } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 
@@ -29,9 +29,10 @@ const supabase = createClient(
 const USDC = '0x3600000000000000000000000000000000000000';
 let walletSetId = (process.env.WALLET_SET_ID || '').trim();
 
+const rpcUrl = (process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network').trim();
 const publicClient = createPublicClient({
   chain: arcTestnet,
-  transport: http('https://rpc.testnet.arc.network')
+  transport: http(rpcUrl)
 });
 
 const adminPrivateKey = process.env.PRIVATE_KEY ? process.env.PRIVATE_KEY.trim() : null;
@@ -40,7 +41,7 @@ const adminAccount = adminPrivateKey ? privateKeyToAccount(adminPrivateKey.start
 const walletClient = adminAccount ? createWalletClient({
   account: adminAccount,
   chain: arcTestnet,
-  transport: http('https://rpc.testnet.arc.network')
+  transport: http(rpcUrl)
 }) : null;
 
 const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS || '').trim();
@@ -69,6 +70,87 @@ const FACTORY_ABI = [
 // ── Cache of Deployed Markets ────────────────────────────────────────────────
 const deployedMarketsCache = new Map(); // slug -> { contractAddress, deadline, resolved, outcome }
 const contractToSlugCache = new Map(); // contractAddress -> slug
+
+const MARKET_EVENTS_ABI = [
+  {
+    anonymous: false,
+    name: 'Bought',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'user', type: 'address' },
+      { indexed: false, name: 'side', type: 'bool' },
+      { indexed: false, name: 'amount', type: 'uint256' },
+      { indexed: false, name: 'shares', type: 'uint256' }
+    ]
+  },
+  {
+    anonymous: false,
+    name: 'Sold',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'user', type: 'address' },
+      { indexed: false, name: 'side', type: 'bool' },
+      { indexed: false, name: 'shares', type: 'uint256' },
+      { indexed: false, name: 'usdcOut', type: 'uint256' }
+    ]
+  },
+  {
+    anonymous: false,
+    name: 'Resolved',
+    type: 'event',
+    inputs: [
+      { indexed: false, name: 'outcome', type: 'bool' }
+    ]
+  },
+  {
+    anonymous: false,
+    name: 'Claimed',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'user', type: 'address' },
+      { indexed: false, name: 'payout', type: 'uint256' }
+    ]
+  }
+];
+
+// ── Cache of User Wallets ──────────────────────────────────────────────────
+const addressToUserIdCache = new Map(); // address (lowercase) -> userId
+const userIdToAddressCache = new Map(); // userId -> address (lowercase)
+
+async function loadWalletAddressMapping() {
+  try {
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('user_id, wallet_id');
+    if (error) {
+      console.error('Failed to load wallets for address mapping:', error.message);
+      return;
+    }
+    console.log(`Loading wallet addresses for ${data.length} wallets...`);
+    for (const row of data) {
+      try {
+        const walletId = row.wallet_id;
+        const userId = row.user_id;
+        
+        let address = walletAddressCache.get(walletId);
+        if (!address) {
+          const walletRes = await circle.getWallet({ id: walletId });
+          address = walletRes.data.wallet.address;
+          walletAddressCache.set(walletId, address);
+        }
+        
+        const lowerAddress = address.toLowerCase();
+        addressToUserIdCache.set(lowerAddress, userId);
+        userIdToAddressCache.set(userId, lowerAddress);
+      } catch (err) {
+        console.error(`Failed to fetch wallet address for user ${row.user_id}:`, err.message);
+      }
+    }
+    console.log(`Loaded ${addressToUserIdCache.size} wallet address mappings.`);
+  } catch (e) {
+    console.error('loadWalletAddressMapping error:', e.message);
+  }
+}
 
 async function loadDeployedMarkets() {
   try {
@@ -288,6 +370,65 @@ async function saveTrade(userId, trade) {
   await supabase.from('trades').insert({ user_id: userId, ...trade });
 }
 
+async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, txHash, question, entryPrice }) {
+  try {
+    const { data: existing, error } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('market_id', marketId)
+      .eq('side', side)
+      .eq('state', 'INITIATED')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching existing trade for sync:', error.message);
+    }
+
+    if (existing && existing.length > 0) {
+      const trade = existing[0];
+      await supabase
+        .from('trades')
+        .update({
+          state: 'COMPLETE',
+          tx_hash: txHash,
+          usdc_amount: amountUsdc,
+        })
+        .eq('id', trade.id);
+      console.log(`[QuickNode Webhook] Synced initiated trade ID ${trade.id} to COMPLETE`);
+    } else {
+      const { data: dup } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('tx_hash', txHash)
+        .limit(1);
+      
+      if (dup && dup.length > 0) {
+        console.log(`[QuickNode Webhook] Trade for tx ${txHash} already exists, skipping duplicate insert.`);
+        return;
+      }
+
+      await supabase
+        .from('trades')
+        .insert({
+          user_id: userId,
+          tx_id: `ext_${Date.now()}`,
+          side,
+          usdc_amount: amountUsdc,
+          entry_price: entryPrice !== undefined ? entryPrice : (shares !== 0 ? Math.min(0.99, Math.max(0.01, Math.abs(amountUsdc / shares))) : 0.5),
+          question: question || 'Prediction Market',
+          market_id: marketId,
+          state: 'COMPLETE',
+          tx_hash: txHash,
+        });
+      console.log(`[QuickNode Webhook] Inserted new completed trade for tx ${txHash}`);
+    }
+  } catch (err) {
+    console.error('Error syncing completed trade:', err.message);
+  }
+}
+
 async function getTrades(userId) {
   const { data } = await supabase
     .from('trades')
@@ -372,6 +513,15 @@ app.post('/api/wallet/get-or-create', async (req, res) => {
     const wallet = createRes.data.wallets[0];
     await saveWallet(userId, wallet.id);
     console.log(`Created wallet for ${userId}: ${wallet.address}`);
+    
+    // Cache the address mapping
+    if (wallet.address) {
+      const lowerAddress = wallet.address.toLowerCase();
+      addressToUserIdCache.set(lowerAddress, userId);
+      userIdToAddressCache.set(userId, lowerAddress);
+      walletAddressCache.set(wallet.id, wallet.address);
+    }
+    
     res.json(await getWalletInfo(wallet.id));
   } catch (e) {
     console.error('get-or-create:', e.message);
@@ -434,7 +584,7 @@ app.get('/api/wallet/export', async (req, res) => {
       ...info,
       network: 'Arc Testnet',
       chainId: 5042002,
-      rpc: 'https://rpc.testnet.arc.network',
+      rpc: rpcUrl,
       explorer: `https://testnet.arcscan.app/address/${info.address}`,
       note: 'Circle MPC wallet. Private key managed by Circle.',
     });
@@ -531,6 +681,13 @@ app.get('/api/markets', async (req, res) => {
         totalVolume
       };
     }));
+
+    // Sort: deployed (pre-warmed) markets first for instant trades
+    mergedList.sort((a, b) => {
+      const aDep = a.contractAddress ? 1 : 0;
+      const bDep = b.contractAddress ? 1 : 0;
+      return bDep - aDep;
+    });
 
     res.json(mergedList);
   } catch (e) {
@@ -975,6 +1132,165 @@ app.post('/api/webhook/circle', async (req, res) => {
   }
 });
 
+// ── QuickNode Webhook ─────────────────────────────────────────────────────────
+
+async function handleQuickNodeLog(log) {
+  try {
+    const contractAddress = log.address.toLowerCase();
+    const slug = contractToSlugCache.get(contractAddress);
+    if (!slug) {
+      console.log(`[QuickNode Webhook] Ignoring log from non-market address: ${contractAddress}`);
+      return;
+    }
+
+    let decoded;
+    try {
+      decoded = decodeEventLog({
+        abi: MARKET_EVENTS_ABI,
+        data: log.data,
+        topics: log.topics,
+      });
+    } catch (err) {
+      console.warn(`[QuickNode Webhook] Failed to decode event log at address ${contractAddress}:`, err.message);
+      return;
+    }
+
+    const { eventName, args } = decoded;
+    console.log(`[QuickNode Webhook] Received ${eventName} event on market ${slug} (${contractAddress})`);
+
+    let question = slug.split('-').join(' ');
+    if (question.length > 0) {
+      question = question.charAt(0).toUpperCase() + question.slice(1);
+    }
+
+    if (eventName === 'Bought') {
+      const userAddress = args.user.toLowerCase();
+      const userId = addressToUserIdCache.get(userAddress) || `eth_${userAddress}`;
+      const side = args.side ? 'YES' : 'NO';
+      const amountUsdc = Number(args.amount) / 1_000_000;
+      const shares = Number(args.shares) / 1_000_000;
+      const entryPrice = shares !== 0 ? Math.min(0.99, Math.max(0.01, amountUsdc / shares)) : 0.5;
+
+      await syncCompletedTrade(userId, {
+        marketId: contractAddress,
+        side,
+        amountUsdc,
+        shares,
+        txHash: log.transactionHash,
+        question,
+        entryPrice
+      });
+    } else if (eventName === 'Sold') {
+      const userAddress = args.user.toLowerCase();
+      const userId = addressToUserIdCache.get(userAddress) || `eth_${userAddress}`;
+      const side = args.side ? 'YES' : 'NO';
+      const shares = Number(args.shares) / 1_000_000;
+      const usdcOut = Number(args.usdcOut) / 1_000_000;
+      const amountUsdc = -shares; // Sells are stored as negative shares in the database
+      const exitPrice = shares !== 0 ? Math.min(0.99, Math.max(0.01, usdcOut / shares)) : 0.5;
+
+      await syncCompletedTrade(userId, {
+        marketId: contractAddress,
+        side,
+        amountUsdc,
+        shares,
+        txHash: log.transactionHash,
+        question,
+        entryPrice: exitPrice
+      });
+    } else if (eventName === 'Resolved') {
+      const outcome = args.outcome;
+      console.log(`[QuickNode Webhook] Market ${slug} resolved on-chain to outcome: ${outcome ? 'YES' : 'NO'}`);
+      
+      const { error } = await supabase
+        .from('deployed_markets')
+        .update({ resolved: true, outcome })
+        .eq('contract_address', contractAddress);
+        
+      if (error) {
+        console.error(`[QuickNode Webhook] Failed to update resolved state in Supabase for ${slug}:`, error.message);
+      } else {
+        const cached = deployedMarketsCache.get(slug);
+        if (cached) {
+          cached.resolved = true;
+          cached.outcome = outcome;
+        }
+        console.log(`[QuickNode Webhook] Successfully updated resolved state in DB & cache for ${slug}`);
+      }
+    } else if (eventName === 'Claimed') {
+      const userAddress = args.user.toLowerCase();
+      const userId = addressToUserIdCache.get(userAddress) || `eth_${userAddress}`;
+      const txHash = log.transactionHash;
+
+      const { data: dup } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('tx_hash', txHash)
+        .limit(1);
+
+      if (dup && dup.length > 0) {
+        console.log(`[QuickNode Webhook] Claim event for tx ${txHash} already exists, skipping.`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('trades')
+        .insert({
+          user_id: userId,
+          tx_id: `ext_${Date.now()}`,
+          side: 'CLAIM',
+          usdc_amount: 0,
+          entry_price: 0,
+          question: 'Claim Winnings',
+          market_id: contractAddress,
+          state: 'COMPLETE',
+          tx_hash: txHash,
+        });
+
+      if (error) {
+        console.error(`[QuickNode Webhook] Failed to insert CLAIM trade for user ${userId}:`, error.message);
+      } else {
+        console.log(`[QuickNode Webhook] Successfully recorded CLAIM trade for user ${userId} and tx ${txHash}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[QuickNode Webhook] Error processing single log:`, err.message);
+  }
+}
+
+app.post('/api/webhook/quicknode', async (req, res) => {
+  try {
+    const webhookSecret = process.env.QUICKNODE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const headerSecret = req.headers['x-qn-secret'];
+      const querySecret = req.query.secret;
+      if (headerSecret !== webhookSecret && querySecret !== webhookSecret) {
+        console.warn(`[QuickNode Webhook] Unauthorized request received. Secret mismatch.`);
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
+
+    const payload = req.body;
+    
+    if (Array.isArray(payload)) {
+      console.log(`[QuickNode Webhook] Received array of ${payload.length} logs.`);
+      for (const log of payload) {
+        await handleQuickNodeLog(log);
+      }
+    } else if (payload && typeof payload === 'object') {
+      console.log(`[QuickNode Webhook] Received single log payload.`);
+      await handleQuickNodeLog(payload);
+    } else {
+      console.warn(`[QuickNode Webhook] Unknown or empty payload format received.`);
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error(`[QuickNode Webhook] Error handling request:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Market resolution (owner fallback / manual) ──────────────────────────────
 app.post('/api/market/resolve', async (req, res) => {
   try {
@@ -1144,6 +1460,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
   await loadDeployedMarkets();
+  loadWalletAddressMapping().catch(console.error);
   checkAndResolveMarkets().catch(console.error);
   warmupTopMarkets().catch(console.error);
 });
