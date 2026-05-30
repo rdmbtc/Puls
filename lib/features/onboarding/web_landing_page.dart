@@ -97,10 +97,12 @@ class _Navbar extends StatelessWidget {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
     final isDark = context.isDark;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
     return Container(
       color: t.bg.withValues(alpha: 0.8),
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 12 : 18),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: t.border.withValues(alpha: 0.5))),
       ),
@@ -126,10 +128,12 @@ class _Navbar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
-          const SizedBox(width: 8),
-          _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
-          const SizedBox(width: 16),
+          if (!isMobile) ...[
+            _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+            const SizedBox(width: 8),
+            _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+            const SizedBox(width: 16),
+          ],
           // Theme Toggle button
           IconButton(
             onPressed: appState.toggleThemeMode,
@@ -140,9 +144,9 @@ class _Navbar extends StatelessWidget {
             ),
             tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isMobile ? 8 : 16),
           _PrimaryButton(
-            label: 'Launch App',
+            label: isMobile ? 'Launch' : 'Launch App',
             onTap: appState.completeOnboarding,
             small: true,
           ),
@@ -279,11 +283,19 @@ class _HeroContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
-    return Column(
+    final double titleFontSize = isMobile ? 36 : 62;
+    final double titleLetterSpacing = isMobile ? -1.0 : -2.0;
+
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(height: 80),
+        SizedBox(height: isMobile ? 40 : 80),
         // Live on Arc badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -302,108 +314,194 @@ class _HeroContent extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Live on Arc Testnet · Chain ID 5042002',
-                style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                style: TextStyle(color: t.brand, fontSize: isMobile ? 10 : 12, fontWeight: FontWeight.w600, letterSpacing: 0.2),
               ),
             ],
           ),
         ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.15),
-        const SizedBox(height: 28),
+        SizedBox(height: isMobile ? 18 : 28),
         // Title with cycling word
-        Column(
-          children: [
-            Text(
-              'Trade on the',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: PulsColors.fontDisplay,
-                color: t.text,
-                fontSize: 62,
-                fontWeight: FontWeight.w700,
-                height: 1.12,
-                letterSpacing: -2.0,
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Future of ',
-                  style: TextStyle(
-                    fontFamily: PulsColors.fontDisplay,
-                    color: t.text,
-                    fontSize: 62,
-                    fontWeight: FontWeight.w700,
-                    height: 1.12,
-                    letterSpacing: -2.0,
-                  ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
-                      child: child,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: isMobile
+              ? Column(
+                  children: [
+                    Text(
+                      'Trade on the',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        color: t.text,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        letterSpacing: titleLetterSpacing,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    '$word.',
-                    key: ValueKey(wordIndex),
-                    style: TextStyle(
-                      fontFamily: PulsColors.fontDisplay,
-                      color: t.brand,
-                      fontSize: 62,
-                      fontWeight: FontWeight.w700,
-                      height: 1.12,
-                      letterSpacing: -2.0,
+                    Text(
+                      'Future of',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        color: t.text,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        letterSpacing: titleLetterSpacing,
+                      ),
                     ),
-                  ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 500),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        '$word.',
+                        key: ValueKey(wordIndex),
+                        style: TextStyle(
+                          fontFamily: PulsColors.fontDisplay,
+                          color: t.brand,
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                          letterSpacing: titleLetterSpacing,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Text(
+                      'Trade on the',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        color: t.text,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.12,
+                        letterSpacing: titleLetterSpacing,
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Future of ',
+                          style: TextStyle(
+                            fontFamily: PulsColors.fontDisplay,
+                            color: t.text,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w700,
+                            height: 1.12,
+                            letterSpacing: titleLetterSpacing,
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: Text(
+                            '$word.',
+                            key: ValueKey(wordIndex),
+                            style: TextStyle(
+                              fontFamily: PulsColors.fontDisplay,
+                              color: t.brand,
+                              fontSize: titleFontSize,
+                              fontWeight: FontWeight.w700,
+                              height: 1.12,
+                              letterSpacing: titleLetterSpacing,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
         ).animate().fadeIn(duration: 600.ms, delay: 100.ms).slideY(begin: 0.15, delay: 100.ms),
-        const SizedBox(height: 24),
+        SizedBox(height: isMobile ? 16 : 24),
         // Subtitle
-        Text(
-          'An on-chain prediction market powered by USDC.\nNo gas tokens needed. Sub-second finality.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: t.textMuted,
-            fontSize: 17,
-            height: 1.65,
-            fontWeight: FontWeight.w400,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            isMobile
+                ? 'An on-chain prediction market powered by USDC.\nNo gas tokens needed. Sub-second finality.'
+                : 'An on-chain prediction market powered by USDC.\nNo gas tokens needed. Sub-second finality.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: t.textMuted,
+              fontSize: isMobile ? 14 : 17,
+              height: 1.65,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.15, delay: 200.ms),
-        const SizedBox(height: 38),
+        SizedBox(height: isMobile ? 28 : 38),
         // Buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _PrimaryButton(label: 'Sign in with Google', onTap: appState.completeOnboarding)
-                .animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
-            const SizedBox(width: 12),
-            Builder(
-              builder: (context) {
-                final wallet = WalletServiceScope.of(context);
-                return _SecondaryButton(
-                  label: 'Connect Wallet',
-                  onTap: () async {
-                    await wallet.signInWithExternalWallet();
-                    if (wallet.state.isExternalWallet && context.mounted) {
-                      appState.completeOnboarding();
-                    }
-                  },
-                ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.15, delay: 350.ms);
-              },
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: isMobile
+              ? Column(
+                  children: [
+                    _PrimaryButton(label: 'Sign in with Google', onTap: appState.completeOnboarding)
+                        .animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final wallet = WalletServiceScope.of(context);
+                        return _SecondaryButton(
+                          label: 'Connect Wallet',
+                          onTap: () async {
+                            await wallet.signInWithExternalWallet();
+                            if (wallet.state.isExternalWallet && context.mounted) {
+                              appState.completeOnboarding();
+                            }
+                          },
+                        );
+                      },
+                    ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.15, delay: 350.ms),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _PrimaryButton(label: 'Sign in with Google', onTap: appState.completeOnboarding)
+                        .animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
+                    const SizedBox(width: 12),
+                    Builder(
+                      builder: (context) {
+                        final wallet = WalletServiceScope.of(context);
+                        return _SecondaryButton(
+                          label: 'Connect Wallet',
+                          onTap: () async {
+                            await wallet.signInWithExternalWallet();
+                            if (wallet.state.isExternalWallet && context.mounted) {
+                              appState.completeOnboarding();
+                            }
+                          },
+                        );
+                      },
+                    ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.15, delay: 350.ms),
+                  ],
+                ),
         ),
-        const SizedBox(height: 52),
+        SizedBox(height: isMobile ? 32 : 52),
         // Live stats strip
         _LiveStatsStrip()
             .animate().fadeIn(duration: 600.ms, delay: 450.ms),
       ],
+        ),
+      ),
     );
   }
 }
@@ -412,6 +510,49 @@ class _LiveStatsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
+
+    if (isMobile) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: t.surface.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: t.border),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(child: _StatChip(icon: Icons.bolt_rounded, label: '100 Live Markets', color: t.brand)),
+                Expanded(child: _StatChip(icon: Icons.account_balance_wallet_rounded, label: 'Circle MPC', color: t.yes)),
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, thickness: 0.5),
+            ),
+            Row(
+              children: [
+                Expanded(child: _StatChip(icon: Icons.speed_rounded, label: 'Sub-second finality', color: PulsColors.amber)),
+                Expanded(child: _StatChip(icon: Icons.water_drop_rounded, label: 'USDC Gas Token', color: const Color(0xFF0EA5E9))),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
       decoration: BoxDecoration(
@@ -523,9 +664,11 @@ class _FeaturesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 96),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 96),
       child: Column(
         children: [
           Container(
@@ -544,22 +687,22 @@ class _FeaturesSection extends StatelessWidget {
           Text(
             'Everything you need to trade predictions',
             textAlign: TextAlign.center,
-            style: TextStyle(color: t.text, fontSize: 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
+            style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
           ),
           const SizedBox(height: 12),
           Text(
             'Built on Circle\'s full-stack: MPC wallets, USDC, Arc Testnet.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: t.textMuted, fontSize: 16, height: 1.6),
+            style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
           ),
-          const SizedBox(height: 56),
+          SizedBox(height: isMobile ? 32 : 56),
           LayoutBuilder(builder: (context, constraints) {
             final cols = constraints.maxWidth > 900 ? 3 : constraints.maxWidth > 600 ? 2 : 1;
             return Wrap(
-              spacing: 20,
-              runSpacing: 20,
+              spacing: isMobile ? 12 : 20,
+              runSpacing: isMobile ? 12 : 20,
               children: _features.map((f) => SizedBox(
-                width: (constraints.maxWidth - (cols - 1) * 20) / cols,
+                width: (constraints.maxWidth - (cols - 1) * (isMobile ? 12 : 20)) / cols,
                 child: _FeatureCard(feature: f),
               )).toList(),
             );
@@ -651,10 +794,12 @@ class _HowItWorksSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
     return Container(
       color: t.surface.withValues(alpha: 0.4),
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 96),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 96),
       child: Column(
         children: [
           Container(
@@ -673,9 +818,9 @@ class _HowItWorksSection extends StatelessWidget {
           Text(
             'From zero to on-chain in 60 seconds',
             textAlign: TextAlign.center,
-            style: TextStyle(color: t.text, fontSize: 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
+            style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
           ),
-          const SizedBox(height: 56),
+          SizedBox(height: isMobile ? 32 : 56),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
             child: Column(
@@ -715,6 +860,9 @@ class _StepRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,14 +870,14 @@ class _StepRow extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: 44, height: 44,
+                width: isMobile ? 36 : 44, height: isMobile ? 36 : 44,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
                   border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Center(
-                  child: Text(number, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+                  child: Text(number, style: TextStyle(color: color, fontSize: isMobile ? 12 : 13, fontWeight: FontWeight.w700)),
                 ),
               ),
               if (!isLast)
@@ -742,22 +890,22 @@ class _StepRow extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: isMobile ? 16 : 24),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 28),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : (isMobile ? 20 : 28)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 10),
+                  SizedBox(height: isMobile ? 6 : 10),
                   Text(
                     title,
-                    style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: t.text, fontSize: isMobile ? 15 : 16, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     body,
-                    style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.6),
+                    style: TextStyle(color: t.textMuted, fontSize: isMobile ? 13 : 14, height: 1.6),
                   ),
                 ],
               ),
@@ -776,9 +924,11 @@ class _StatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 88),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 88),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
@@ -787,31 +937,31 @@ class _StatsSection extends StatelessWidget {
               Text(
                 'Built on Circle\'s full stack',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: t.text, fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: -1),
+                style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 36, fontWeight: FontWeight.w800, letterSpacing: -1),
               ),
               const SizedBox(height: 8),
               Text(
                 'Real infrastructure. Real trades. Testnet.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: t.textMuted, fontSize: 16),
+                style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16),
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: isMobile ? 32 : 48),
               LayoutBuilder(builder: (context, constraints) {
                 final cols = constraints.maxWidth > 700 ? 4 : 2;
                 return Wrap(
-                  spacing: 20, runSpacing: 20,
+                  spacing: isMobile ? 12 : 20, runSpacing: isMobile ? 12 : 20,
                   children: [
-                    _statCard('100+', 'Live Markets', 'From Polymarket Gamma API', t.brand, constraints, cols, t),
-                    _statCard('< 1s', 'Trade Speed', 'Arc Testnet sub-second finality', t.yes, constraints, cols, t),
-                    _statCard('\$0 ETH', 'Gas Cost', 'USDC is the native gas token', PulsColors.amber, constraints, cols, t),
-                    _statCard('MPC', 'Wallet Type', 'Circle developer-controlled wallets', const Color(0xFF0EA5E9), constraints, cols, t),
+                    _statCard('100+', 'Live Markets', 'From Polymarket Gamma API', t.brand, 'https://img.icons8.com/?id=KslJGdGlJFNz&format=png&size=256', constraints, cols, t),
+                    _statCard('< 1s', 'Trade Speed', 'Arc Testnet sub-second finality', t.yes, 'https://img.icons8.com/?id=XTqUA8keYxec&format=png&size=256', constraints, cols, t),
+                    _statCard('\$0 ETH', 'Gas Cost', 'USDC is the native gas token', PulsColors.amber, 'https://img.icons8.com/?id=rcnetj6T68lY&format=png&size=256', constraints, cols, t),
+                    _statCard('MPC', 'Wallet Type', 'Circle developer-controlled wallets', const Color(0xFF0EA5E9), 'https://img.icons8.com/?id=hkkfYNNRoACe&format=png&size=256', constraints, cols, t),
                   ],
                 );
               }),
-              const SizedBox(height: 52),
+              SizedBox(height: isMobile ? 32 : 52),
               // Contract address widget
               Container(
-                padding: const EdgeInsets.all(22),
+                padding: EdgeInsets.all(isMobile ? 14 : 22),
                 decoration: BoxDecoration(
                   color: t.surface,
                   borderRadius: BorderRadius.circular(16),
@@ -820,43 +970,86 @@ class _StatsSection extends StatelessWidget {
                     BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.03), blurRadius: 10)
                   ],
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(10)),
-                      child: Icon(Icons.code_rounded, color: t.brand, size: 20),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
+                child: isMobile
+                    ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36, height: 36,
+                                decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(10)),
+                                child: Icon(Icons.code_rounded, color: t.brand, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'LMSRMarketFactory.sol',
+                                  style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
                           Text(
-                          'LMSRMarketFactory.sol — Arc Testnet',
-                          style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          factoryAddress,
-                          style: TextStyle(color: t.textSubtle, fontSize: 12, fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _CopyButton(text: factoryAddress),
-                  const SizedBox(width: 8),
-                  _SecondaryButton(
-                    label: 'View ↗',
-                    onTap: () => launchUrl(
-                      Uri.parse('https://testnet.arcscan.app/address/$factoryAddress'),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                      small: true,
-                    ),
-                  ],
-                ),
+                            factoryAddress,
+                            style: TextStyle(color: t.textSubtle, fontSize: 10, fontFamily: 'monospace'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _CopyButton(text: factoryAddress),
+                              const SizedBox(width: 8),
+                              _SecondaryButton(
+                                label: 'View ↗',
+                                onTap: () => launchUrl(
+                                  Uri.parse('https://testnet.arcscan.app/address/$factoryAddress'),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                small: true,
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Container(
+                            width: 40, height: 40,
+                            decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(10)),
+                            child: Icon(Icons.code_rounded, color: t.brand, size: 20),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'LMSRMarketFactory.sol — Arc Testnet',
+                                  style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  factoryAddress,
+                                  style: TextStyle(color: t.textSubtle, fontSize: 12, fontFamily: 'monospace'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _CopyButton(text: factoryAddress),
+                          const SizedBox(width: 8),
+                          _SecondaryButton(
+                            label: 'View ↗',
+                            onTap: () => launchUrl(
+                              Uri.parse('https://testnet.arcscan.app/address/$factoryAddress'),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                            small: true,
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -865,11 +1058,13 @@ class _StatsSection extends StatelessWidget {
     );
   }
 
-  Widget _statCard(String value, String label, String sub, Color color, BoxConstraints constraints, int cols, PulsThemeColors t) {
+  Widget _statCard(String value, String label, String sub, Color color, String imageUrl, BoxConstraints constraints, int cols, PulsThemeColors t) {
+    final isMobile = constraints.maxWidth < 600;
+    final spacing = isMobile ? 12.0 : 20.0;
     return SizedBox(
-      width: (constraints.maxWidth - (cols - 1) * 20) / cols,
+      width: (constraints.maxWidth - (cols - 1) * spacing) / cols,
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 12 : 24),
         decoration: BoxDecoration(
           color: t.surface,
           borderRadius: BorderRadius.circular(18),
@@ -878,11 +1073,32 @@ class _StatsSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: TextStyle(color: color, fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: -1)),
-            const SizedBox(height: 6),
-            Text(label, style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: isMobile ? 22 : 36,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                ),
+                Image.network(
+                  imageUrl,
+                  width: isMobile ? 32 : 48,
+                  height: isMobile ? 32 : 48,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(label, style: TextStyle(color: t.text, fontSize: isMobile ? 13 : 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text(sub, style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.4)),
+            Text(sub, style: TextStyle(color: t.textMuted, fontSize: isMobile ? 10 : 12, height: 1.4)),
           ],
         ),
       ),
@@ -933,10 +1149,12 @@ class _FooterSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 600;
 
     return Container(
       color: t.surface.withValues(alpha: 0.3),
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 80),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 80),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
@@ -944,7 +1162,7 @@ class _FooterSection extends StatelessWidget {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(52),
+                padding: EdgeInsets.all(isMobile ? 24 : 52),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [t.brand, t.brand.withValues(alpha: 0.8)],
@@ -962,18 +1180,18 @@ class _FooterSection extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       'Ready to predict?',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w900, letterSpacing: -1),
+                      style: TextStyle(color: Colors.white, fontSize: isMobile ? 24 : 40, fontWeight: FontWeight.w900, letterSpacing: -1),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'Sign in with Google. Get a wallet. Trade in 60 seconds.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 16, height: 1.6),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: isMobile ? 13 : 16, height: 1.6),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: isMobile ? 20 : 32),
                     _WhiteButton(
                       label: 'Launch Puls →',
                       onTap: appState.completeOnboarding,
@@ -981,36 +1199,77 @@ class _FooterSection extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 60),
-              Row(
-                children: [
-                  Container(
-                    width: 26, height: 26,
-                    decoration: BoxDecoration(
-                      color: t.brandSubtle,
-                      borderRadius: BorderRadius.circular(6),
+              SizedBox(height: isMobile ? 40 : 60),
+              isMobile
+                  ? Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 26, height: 26,
+                              decoration: BoxDecoration(
+                                color: t.brandSubtle,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Puls',
+                              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Built on Arc Testnet · Circle MPC Wallets',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+                            const SizedBox(width: 20),
+                            _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+                            const SizedBox(width: 20),
+                            _FooterLink('Faucet', 'https://faucet.circle.com'),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          width: 26, height: 26,
+                          decoration: BoxDecoration(
+                            color: t.brandSubtle,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Puls',
+                          style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Built on Arc Testnet · Circle MPC Wallets',
+                          style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                        const Spacer(),
+                        _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+                        const SizedBox(width: 20),
+                        _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+                        const SizedBox(width: 20),
+                        _FooterLink('Faucet', 'https://faucet.circle.com'),
+                      ],
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset('assets/logo.png', fit: BoxFit.cover),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Puls',
-                    style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Built on Arc Testnet · Circle MPC Wallets',
-                    style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                  const Spacer(),
-                  _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
-                  const SizedBox(width: 20),
-                  _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
-                  const SizedBox(width: 20),
-                  _FooterLink('Faucet', 'https://faucet.circle.com'),
-                ],
-              ),
             ],
           ),
         ),

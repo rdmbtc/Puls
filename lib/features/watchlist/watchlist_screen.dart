@@ -270,7 +270,13 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.bookmark_rounded, color: t.textSubtle, size: 32),
+          Image.network(
+            'https://img.icons8.com/?id=QXkPT7U8Homg&format=png&size=256',
+            width: 80,
+            height: 80,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => Icon(Icons.bookmark_rounded, color: t.textSubtle, size: 32),
+          ),
           const SizedBox(height: 12),
           Text('No saved markets',
               style: Theme.of(context).textTheme.titleMedium),

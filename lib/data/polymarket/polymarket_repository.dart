@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 
 import '../../core/config.dart' show backendUrl;
@@ -20,7 +19,12 @@ class PolymarketRepository {
     ]);
 
     final markets = [...results[0], ...results[1]];
-    markets.shuffle(Random());
+    // Pin deployed (pre-warmed) markets first for instant sub-second trades
+    markets.sort((a, b) {
+      final aDep = a.contractAddress != null ? 1 : 0;
+      final bDep = b.contractAddress != null ? 1 : 0;
+      return bDep - aDep;
+    });
     return markets;
   }
 

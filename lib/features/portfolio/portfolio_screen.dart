@@ -306,6 +306,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     message: 'No positions yet',
                     sub: 'Buy YES or NO on any prediction to get started.',
                     t: t,
+                    imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
                   ),
                 ),
               )
@@ -614,7 +615,7 @@ class _PositionCardState extends State<_PositionCard> {
   Future<void> _claim() async {
     setState(() => _claiming = true);
     final slug = widget.position['slug'] as String? ?? '';
-    final String? contractAddress = widget.position['contractAddress'] as String?;
+    final String? contractAddress = (widget.position['contractAddress'] as String?) ?? (widget.position['marketId'] as String?);
     if (contractAddress == null || contractAddress.isEmpty) {
       throw Exception('Market contract address not available');
     }
@@ -689,7 +690,10 @@ class _PositionCardState extends State<_PositionCard> {
       news: const [],
     );
 
-    final hasValidContract = matchedMarket.id.isNotEmpty && matchedMarket.id.startsWith('0x');
+    final positionContract = (position['contractAddress'] as String?) ?? (position['marketId'] as String?);
+    final hasValidContract = positionContract != null &&
+        positionContract.startsWith('0x') &&
+        positionContract.length == 42;
 
     Color stateColor;
     String stateLabel;
@@ -807,7 +811,10 @@ class _PositionCardState extends State<_PositionCard> {
                           ? () {
                               showTradePreviewSheet(
                                 context: context,
-                                market: matchedMarket!,
+                                market: matchedMarket!.copyWith(
+                                  contractAddress: positionContract,
+                                  slug: position['slug'] as String?,
+                                ),
                                 side: isYes ? MarketSide.yes : MarketSide.no,
                                 initialIsBuy: false,
                                 maxShares: (position['shares'] as num?)?.toDouble() ?? (amount > 0 ? (amount / (hasRealEntryPrice ? entryPrice : 0.5)) : 0.0),
@@ -897,11 +904,13 @@ class _Empty extends StatelessWidget {
     required this.message,
     required this.sub,
     required this.t,
+    this.imageUrl,
   });
   final IconData icon;
   final String message;
   final String sub;
   final PulsThemeColors t;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -916,7 +925,16 @@ class _Empty extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: t.textSubtle, size: 36),
+          if (imageUrl != null)
+            Image.network(
+              imageUrl!,
+              width: 80,
+              height: 80,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Icon(icon, color: t.textSubtle, size: 36),
+            )
+          else
+            Icon(icon, color: t.textSubtle, size: 36),
           const SizedBox(height: 14),
           Text(message, style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),

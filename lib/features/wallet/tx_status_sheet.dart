@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:haptic_kit/haptic_kit.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'wallet_service.dart';
@@ -137,19 +138,26 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
                     width: 56, height: 56,
                     child: CircularProgressIndicator(color: t.brand, strokeWidth: 3),
                   )
-                : Container(
+                : Image.network(
+                    _status == TxStatus.complete
+                        ? 'https://img.icons8.com/?id=hJniet82Bq1U&format=png&size=256'
+                        : 'https://img.icons8.com/?id=DXECg4JU1n2x&format=png&size=256',
                     key: ValueKey(_status),
                     width: 56, height: 56,
-                    decoration: BoxDecoration(
-                      color: _status == TxStatus.complete ? t.yesBg : t.noBg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _status == TxStatus.complete
-                          ? Icons.check_rounded
-                          : Icons.close_rounded,
-                      color: _status == TxStatus.complete ? t.yes : t.no,
-                      size: 28,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 56, height: 56,
+                      decoration: BoxDecoration(
+                        color: _status == TxStatus.complete ? t.yesBg : t.noBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _status == TxStatus.complete
+                            ? Icons.check_rounded
+                            : Icons.close_rounded,
+                        color: _status == TxStatus.complete ? t.yes : t.no,
+                        size: 28,
+                      ),
                     ),
                   ),
           ),
@@ -190,7 +198,52 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
               ],
             ),
           ),
-          if (_txHash != null) ...[
+          if (_txHash != null && _status == TxStatus.complete) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => launchUrl(
+                Uri.parse('https://testnet.arcscan.app/tx/$_txHash'),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: t.brand.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new_rounded, size: 13, color: t.brand),
+                    const SizedBox(width: 6),
+                    Text(
+                      'View on Arcscan',
+                      style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_txHash!.substring(0, 8)}…${_txHash!.substring(_txHash!.length - 6)}',
+                      style: TextStyle(color: t.textSubtle, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Arc differentiator — the "USDC paid the gas" money-shot
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bolt_rounded, size: 13, color: t.yes),
+                const SizedBox(width: 4),
+                Text(
+                  'Settled in <1s · gas paid in USDC, no ETH',
+                  style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ] else if (_txHash != null) ...[
             const SizedBox(height: 12),
             Text('TX: ${_txHash!.substring(0, 10)}...${_txHash!.substring(_txHash!.length - 6)}',
                 style: TextStyle(color: t.textSubtle, fontSize: 11)),

@@ -50,6 +50,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
   late bool _isBuy;
   double _amount = 50;
   bool _isExecuting = false;
+  bool _isDeploying = false;
 
   String _formatShares(double shares) {
     final microShares = (shares * 1000000).floor();
@@ -376,7 +377,9 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                   children: [
                     Icon(
                       hasRealWallet
-                          ? Icons.check_circle_outline_rounded
+                          ? (widget.market.contractAddress != null
+                              ? Icons.bolt_rounded
+                              : Icons.check_circle_outline_rounded)
                           : Icons.info_outline_rounded,
                       color: hasRealWallet ? t.yes : PulsColors.amber,
                       size: 14,
@@ -385,7 +388,9 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                     Expanded(
                       child: Text(
                         hasRealWallet
-                            ? 'Real USDC trade on Arc Testnet · Balance: \$${ws.usdcBalance}'
+                            ? (widget.market.contractAddress != null
+                                ? '⚡ Instant trade — already on Arc Testnet · \$${ws.usdcBalance}'
+                                : 'Real USDC trade on Arc Testnet · Balance: \$${ws.usdcBalance}')
                             : 'Demo only — connect wallet in Profile for real trades.',
                         style: TextStyle(
                           color: hasRealWallet
@@ -406,6 +411,10 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                   onPressed: (_amount > 0 && !_isExecuting)
                       ? () async {
                           setState(() => _isExecuting = true);
+                          // Show deploying state for cold markets (no contract yet)
+                          if (hasRealWallet && widget.market.contractAddress == null) {
+                            setState(() => _isDeploying = true);
+                          }
                           try {
                             if (hasRealWallet) {
                               final Map<String, dynamic> result;
@@ -474,7 +483,10 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             }
                           } finally {
                             if (mounted) {
-                              setState(() => _isExecuting = false);
+                              setState(() {
+                                _isExecuting = false;
+                                _isDeploying = false;
+                              });
                             }
                           }
                         }
@@ -486,13 +498,26 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _isExecuting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            if (_isDeploying) ...[
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Deploying on Arc Testnet…',
+                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ],
                         )
                       : Text(
                           hasRealWallet 

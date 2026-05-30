@@ -42,7 +42,7 @@ Users sign in with Google → get a Circle MPC wallet instantly → trade real P
 ## Features
 
 - **Google sign-in** → Circle MPC wallet created automatically
-- **Live feed** — 100 real Polymarket markets, shuffled, with images
+- **Live feed** — 100 real Polymarket markets, deployed-first ordering for instant trades
 - **Fast Buy** — swipe right/left to buy YES/NO instantly (no confirmation modal)
 - **TikTok Home** — vertical video feed with prediction pills
 - **Real trades** — USDC sent to smart contract on Arc Testnet
@@ -94,15 +94,30 @@ node server.js
 ## Architecture
 
 ```
-Flutter App
-    ↓ Google OAuth
-Supabase Auth
-    ↓ userId
-Node.js Backend (VPS)
-    ↓ Circle SDK
-Circle MPC Wallet (Arc Testnet)
-    ↓ USDC
-PulsMarket.sol (Arc Testnet)
+┌─────────────┐   Google OAuth   ┌──────────────┐
+│  Flutter App │ ───────────────▷ │ Supabase Auth │
+└──────┬──────┘                  └──────────────┘
+       │ userId
+       ▼
+┌──────────────┐   Circle SDK    ┌───────────────────────┐
+│ Node.js API  │ ───────────────▷│ Circle MPC Wallet     │
+│ (VPS)        │                 │ (Arc Testnet)         │
+└──────┬───────┘                 │ • No seed phrase      │
+       │                         │ • Instant on sign-up  │
+       │ createMarket()          └──────────┬────────────┘
+       ▼                                    │ USDC (gas token)
+┌───────────────────┐    buyYes/buyNo()     │
+│ LMSRMarketFactory │ ◁────────────────────-┘
+│ 0xa478b966…7cbb0  │
+└───────┬───────────┘
+        │ creates
+        ▼
+┌──────────────────┐     verified source     ┌──────────────────┐
+│ PulsMarket.sol   │ ─────────────────────▷  │ Arcscan Explorer │
+│ (per-question)   │                         │ Chain ID 5042002 │
+└──────────────────┘                         └──────────────────┘
+
+Key: USDC is the ONLY token. No ETH needed. Sub-second finality.
 ```
 
 ---

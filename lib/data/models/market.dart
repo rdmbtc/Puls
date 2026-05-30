@@ -58,6 +58,35 @@ class Market {
   final double competitive;
 
   bool get trendIsPositive => trend >= 0;
+
+  Market copyWith({String? contractAddress, String? slug}) => Market(
+        id: id,
+        slug: slug ?? this.slug,
+        contractAddress: contractAddress ?? this.contractAddress,
+        question: question,
+        category: category,
+        context: context,
+        yesPrice: yesPrice,
+        noPrice: noPrice,
+        volume: volume,
+        liquidity: liquidity,
+        deadline: deadline,
+        trend: trend,
+        isFeatured: isFeatured,
+        tags: tags,
+        history: history,
+        comments: comments,
+        news: news,
+        imageUrl: imageUrl,
+        volume24hr: volume24hr,
+        lastTradePrice: lastTradePrice,
+        bestBid: bestBid,
+        bestAsk: bestAsk,
+        spread: spread,
+        clobTokenId: clobTokenId,
+        liquidityNum: liquidityNum,
+        competitive: competitive,
+      );
 }
 
 class MarketComment {
