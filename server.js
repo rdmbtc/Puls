@@ -1730,12 +1730,25 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
             abiParameters: [amountMicro],
             fee: { type: 'level', config: { feeLevel: 'HIGH' } },
           });
+          const circleId = txRes.data.id;
+          // Poll for the real on-chain tx hash (Circle returns a UUID, not a 0x hash).
+          let txHash = null;
+          for (let i = 0; i < 20; i++) {
+            await new Promise(r => setTimeout(r, 1500));
+            try {
+              const st = await circle.getTransaction({ id: circleId });
+              const tx = st.data?.transaction;
+              if (tx?.txHash) { txHash = tx.txHash; }
+              if (tx?.txHash || ['COMPLETE', 'FAILED', 'DENIED'].includes(tx?.state)) break;
+            } catch (_) {}
+          }
           await saveTrade(userId, {
-            tx_id: txRes.data.id, side, usdc_amount: amount, entry_price: 0.5,
-            question: `🤖 Agent: ${market.question || slug}`, market_id: contractAddress, state: 'INITIATED',
+            tx_id: circleId, side, usdc_amount: amount, entry_price: 0.5,
+            question: `🤖 Agent: ${market.question || slug}`, market_id: contractAddress,
+            state: 'INITIATED', tx_hash: txHash,
           });
           spentNow = amount;
-          trade = { slug, side, usdcAmount: amount, txId: txRes.data.id, contractAddress };
+          trade = { slug, side, usdcAmount: amount, txHash, txId: circleId, contractAddress };
         } catch (e) {
           intent.reply = `Trade failed: ${e.message}`;
         }
