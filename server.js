@@ -999,6 +999,14 @@ app.get('/api/portfolio', async (req, res) => {
       userAddress = info?.address;
     }
 
+    // Also include the user's AI-agent wallet so agent-bought positions appear.
+    let agentAddress = null;
+    try {
+      const agentWalletId = await getWalletId(`agent_${userId}`);
+      if (agentWalletId) agentAddress = (await getWalletInfo(agentWalletId)).address;
+    } catch (_) {}
+    const scanAddresses = [userAddress, agentAddress].filter(Boolean);
+
     const rows = await getTrades(userId);
 
     const terminalStates = ['COMPLETE', 'FAILED', 'CANCELLED', 'DENIED'];
@@ -1022,28 +1030,31 @@ app.get('/api/portfolio', async (req, res) => {
     let positions = [];
     const uniqueMarkets = [...new Set(rows.map(r => r.market_id).filter(id => id && id.startsWith('0x')))];
 
-    if (userAddress && uniqueMarkets.length > 0) {
+    if (scanAddresses.length > 0 && uniqueMarkets.length > 0) {
       await Promise.all(uniqueMarkets.map(async (marketAddress) => {
         try {
-          const [yesSharesRaw, noSharesRaw, claimed] = await publicClient.readContract({
-            address: marketAddress,
-            abi: [{
-              name: 'getUserPosition',
-              type: 'function',
-              stateMutability: 'view',
-              inputs: [{ name: 'user', type: 'address' }],
-              outputs: [
-                { name: '_yesShares', type: 'uint256' },
-                { name: '_noShares', type: 'uint256' },
-                { name: '_claimed', type: 'bool' }
-              ]
-            }],
-            functionName: 'getUserPosition',
-            args: [userAddress]
-          });
-
-          const yesShares = Number(yesSharesRaw) / 1_000_000;
-          const noShares = Number(noSharesRaw) / 1_000_000;
+          let yesShares = 0, noShares = 0, claimed = false;
+          for (const addr of scanAddresses) {
+            const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
+              address: marketAddress,
+              abi: [{
+                name: 'getUserPosition',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [{ name: 'user', type: 'address' }],
+                outputs: [
+                  { name: '_yesShares', type: 'uint256' },
+                  { name: '_noShares', type: 'uint256' },
+                  { name: '_claimed', type: 'bool' }
+                ]
+              }],
+              functionName: 'getUserPosition',
+              args: [addr]
+            });
+            yesShares += Number(yesSharesRaw) / 1_000_000;
+            noShares += Number(noSharesRaw) / 1_000_000;
+            if (claimedRaw) claimed = true;
+          }
 
           if (yesShares < 0.0001 && noShares < 0.0001) return;
 
