@@ -43,14 +43,24 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     super.didChangeDependencies();
     // Reactive: re-fires when wallet state changes. Only (re)subscribe + reload
     // when the signed-in user actually changes (e.g. sign-in after first build).
-    final userId = WalletServiceScope.of(context).state.userId;
+    final wallet = WalletServiceScope.of(context);
+    final userId = wallet.state.userId;
     if (!_initialized || userId != _lastUserId) {
       _initialized = true;
       _lastUserId = userId;
       _setupRealtime();
       _load();
     }
+    // Instant reload whenever any trade is placed (user or agent), no realtime lag.
+    if (_signal != wallet.tradeSignal) {
+      _signal?.removeListener(_onTradeSignal);
+      _signal = wallet.tradeSignal;
+      _signal!.addListener(_onTradeSignal);
+    }
   }
+
+  ValueNotifier<int>? _signal;
+  void _onTradeSignal() => _load();
 
   void _setupRealtime() {
     final ws = WalletServiceScope.of(context).state;
@@ -107,6 +117,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 
   @override
   void dispose() {
+    _signal?.removeListener(_onTradeSignal);
     _tradeChannel?.unsubscribe();
     _client.close();
     super.dispose();

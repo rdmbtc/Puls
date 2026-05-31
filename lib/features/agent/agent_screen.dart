@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -132,6 +133,8 @@ class _AgentScreenState extends State<AgentScreen> {
             txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?));
         if (r['remaining'] != null) _spent = _budgetVal - (r['remaining'] as num).toDouble();
       });
+      // Agent placed a trade → refresh balance + portfolio instantly.
+      if (trade != null && mounted) WalletServiceScope.of(context).notifyTrade();
     } catch (e) {
       setState(() => _msgs.add(_Msg(true, '⚠️ ${e.toString().replaceAll('Exception: ', '')}')));
     } finally {
@@ -198,44 +201,112 @@ class _AgentScreenState extends State<AgentScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smart_toy_rounded, size: 56, color: t.brand),
-            const SizedBox(height: 16),
-            Text('Autonomous Trading Agent',
-                style: TextStyle(color: t.text, fontSize: 20, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text(
-              'Fund a budget-capped AI agent with its own Arc wallet and ERC-8004 identity. It buys predictions for you — autonomously, on-chain.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _budget,
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: t.text),
-              decoration: InputDecoration(
-                labelText: 'Budget (USDC)',
-                labelStyle: TextStyle(color: t.textMuted),
-                prefixText: '\$',
-                prefixStyle: TextStyle(color: t.text),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ZoomIn(
+              duration: const Duration(milliseconds: 500),
+              child: Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [t.brand, const Color(0xFF818CF8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: t.brand.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 8))],
+                ),
+                child: const Icon(Icons.smart_toy_rounded, size: 42, color: Colors.white),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: (!signedIn || _busy) ? null : _start,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.brand,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 20),
+            FadeInUp(
+              delay: const Duration(milliseconds: 100),
+              child: Text('Autonomous Trading Agent',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: t.text, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+            ),
+            const SizedBox(height: 8),
+            FadeInUp(
+              delay: const Duration(milliseconds: 160),
+              child: Text(
+                'Fund a budget-capped AI agent with its own Arc wallet and on-chain ERC-8004 identity. It trades predictions for you — autonomously.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.45),
+              ),
+            ),
+            const SizedBox(height: 22),
+            FadeInUp(
+              delay: const Duration(milliseconds: 220),
+              child: Column(
+                children: [
+                  _feature(t, Icons.account_balance_wallet_rounded, 'Its own Circle MPC wallet on Arc'),
+                  _feature(t, Icons.verified_rounded, 'Verifiable ERC-8004 on-chain identity'),
+                  _feature(t, Icons.shield_rounded, "Spends only what you fund — can't exceed budget"),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            FadeInUp(
+              delay: const Duration(milliseconds: 280),
+              child: TextField(
+                controller: _budget,
+                keyboardType: TextInputType.number,
+                style: TextStyle(color: t.text),
+                decoration: InputDecoration(
+                  labelText: 'Budget (USDC)',
+                  labelStyle: TextStyle(color: t.textMuted),
+                  prefixText: '\$',
+                  prefixStyle: TextStyle(color: t.text),
+                  filled: true,
+                  fillColor: t.surfaceRaised,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.border)),
                 ),
-                child: _busy
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                    : Text(signedIn ? 'Activate Agent' : 'Sign in first',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FadeInUp(
+              delay: const Duration(milliseconds: 320),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [5, 10, 25, 50].map((v) {
+                  final sel = _budget.text == '$v';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _budget.text = '$v'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: sel ? t.brand : t.surfaceRaised,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: sel ? t.brand : t.border),
+                        ),
+                        child: Text('\$$v', style: TextStyle(color: sel ? Colors.white : t.textMuted, fontWeight: FontWeight.w700, fontSize: 13)),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            FadeInUp(
+              delay: const Duration(milliseconds: 360),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: (!signedIn || _busy) ? null : _start,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: t.brand,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: _busy
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                      : Text(signedIn ? 'Activate Agent' : 'Sign in first',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ),
               ),
             ),
           ],
@@ -243,6 +314,17 @@ class _AgentScreenState extends State<AgentScreen> {
       ),
     );
   }
+
+  Widget _feature(PulsThemeColors t, IconData icon, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: t.brand),
+            const SizedBox(width: 12),
+            Expanded(child: Text(text, style: TextStyle(color: t.textMuted, fontSize: 13.5, height: 1.3))),
+          ],
+        ),
+      );
 
   Widget _chat(PulsThemeColors t) {
     return Column(
@@ -253,17 +335,61 @@ class _AgentScreenState extends State<AgentScreen> {
             controller: _scroll,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             itemCount: _msgs.length,
-            itemBuilder: (_, i) => _bubble(_msgs[i], t),
+            itemBuilder: (_, i) => FadeInUp(
+              key: ValueKey(i),
+              duration: const Duration(milliseconds: 300),
+              from: 12,
+              child: _bubble(_msgs[i], t),
+            ),
           ),
         ),
-        if (_busy) Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text('Agent is thinking…', style: TextStyle(color: t.textSubtle, fontSize: 12)),
-        ),
+        if (_msgs.length <= 1 && !_busy) _suggestions(t),
+        if (_busy) _thinking(t),
         _composer(t),
       ],
     );
   }
+
+  static const _prompts = [
+    'Buy \$2 YES on the top market',
+    'Pick a crypto market and bet \$1',
+    'What can you trade right now?',
+  ];
+
+  Widget _suggestions(PulsThemeColors t) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _prompts.map((p) => GestureDetector(
+                onTap: () { _input.text = p; _send(); },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: t.brandSubtle,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: t.brand.withValues(alpha: 0.25)),
+                  ),
+                  child: Text(p, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              )).toList(),
+        ),
+      );
+
+  Widget _thinking(PulsThemeColors t) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, left: 16),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: t.brand),
+            ),
+            const SizedBox(width: 8),
+            Text('Agent is thinking…', style: TextStyle(color: t.textSubtle, fontSize: 12)),
+          ],
+        ),
+      );
 
   Widget _header(PulsThemeColors t) {
     final addr = _agentAddress ?? '';

@@ -91,7 +91,7 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
           if (mounted) setState(() { _status = TxStatus.complete; _txHash = txHash; });
           Haptics.notification(HapticNotificationStyle.success);
           _timer?.cancel();
-          widget.walletService?.refreshBalance();
+          widget.walletService?.notifyTrade();
           return;
         } else if (state == 'FAILED' || state == 'DENIED' || state == 'CANCELLED') {
           if (mounted) setState(() => _status = TxStatus.failed);

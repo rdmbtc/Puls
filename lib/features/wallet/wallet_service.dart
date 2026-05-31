@@ -57,6 +57,16 @@ class WalletService extends ChangeNotifier {
   Timer? _refreshTimer;
   final http.Client _client = http.Client();
 
+  /// Bumped whenever a trade is placed (by the user or the agent) so other
+  /// screens (Portfolio) can reload instantly instead of waiting on realtime.
+  final ValueNotifier<int> tradeSignal = ValueNotifier<int>(0);
+
+  /// Call after any trade to trigger an instant balance refresh + portfolio reload.
+  void notifyTrade() {
+    refreshBalance();
+    tradeSignal.value++;
+  }
+
   WalletService() {
     _supabase.auth.onAuthStateChange.listen((data) {
       if (data.session != null && _state.userId == null) {
@@ -75,6 +85,7 @@ class WalletService extends ChangeNotifier {
   void dispose() {
     _refreshTimer?.cancel();
     _client.close();
+    tradeSignal.dispose();
     super.dispose();
   }
 
