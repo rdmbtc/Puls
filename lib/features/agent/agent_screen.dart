@@ -442,21 +442,28 @@ class _AgentScreenState extends State<AgentScreen> {
                     style: TextStyle(color: t.textMuted, fontSize: 11)),
                 if (_registered) ...[
                   const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      const Icon(Icons.workspace_premium_rounded, size: 12, color: PulsColors.amber),
-                      const SizedBox(width: 3),
-                      Text(
-                        _reputation > 0
-                            ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
-                            : 'Reputation: builds as it trades',
-                        style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600),
-                      ),
-                      if (_agentId != null) ...[
-                        const SizedBox(width: 5),
-                        Text('· Agent #$_agentId', style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+                  GestureDetector(
+                    onTap: addr.isEmpty ? null : () => launchUrl(
+                        Uri.parse('https://testnet.arcscan.app/address/$addr'),
+                        mode: LaunchMode.externalApplication),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.workspace_premium_rounded, size: 12, color: PulsColors.amber),
+                        const SizedBox(width: 3),
+                        Text(
+                          _reputation > 0
+                              ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
+                              : 'Reputation: builds as it trades',
+                          style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600),
+                        ),
+                        if (_agentId != null) ...[
+                          const SizedBox(width: 5),
+                          Text('· Agent #$_agentId', style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+                        ],
+                        const SizedBox(width: 3),
+                        Icon(Icons.open_in_new_rounded, size: 10, color: t.textSubtle),
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ],
