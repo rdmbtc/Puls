@@ -39,6 +39,41 @@ class _AgentScreenState extends State<AgentScreen> {
   String? get _userId => WalletServiceScope.of(context).state.userId;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_resumed && _userId != null) {
+      _resumed = true;
+      _resume();
+    }
+  }
+
+  bool _resumed = false;
+
+  // Restore an existing agent on page load so funds + agent aren't "lost" after a reload.
+  Future<void> _resume() async {
+    final uid = _userId;
+    if (uid == null) return;
+    try {
+      final res = await _client
+          .get(Uri.parse('$backendUrl/api/agent/status?userId=$uid'))
+          .timeout(const Duration(seconds: 20));
+      final r = jsonDecode(res.body) as Map<String, dynamic>;
+      if (r['exists'] == true && mounted) {
+        final bal = double.tryParse('${r['balance']}') ?? 0;
+        setState(() {
+          _started = true;
+          _agentAddress = r['agentAddress'] as String?;
+          _registered = r['registered'] == true;
+          _budgetVal = bal;
+          _spent = 0;
+          _msgs.add(_Msg(true,
+              'Welcome back. Your agent is live with \$${bal.toStringAsFixed(2)} USDC available. Ask me to trade, or withdraw the funds back to your wallet anytime.'));
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     _client.close();
     _input.dispose();
@@ -102,6 +137,25 @@ class _AgentScreenState extends State<AgentScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
       _scrollDown();
+    }
+  }
+
+  Future<void> _withdraw() async {
+    final uid = _userId;
+    if (uid == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final r = await _post('/api/agent/withdraw', {'userId': uid});
+      final w = (r['withdrawn'] as num?)?.toDouble() ?? 0;
+      setState(() {
+        _spent = _budgetVal; // remaining now 0
+        _msgs.add(_Msg(true,
+            w > 0 ? 'Withdrew \$${w.toStringAsFixed(2)} USDC back to your wallet.' : 'Nothing to withdraw.'));
+      });
+    } catch (e) {
+      _toast(e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -256,6 +310,17 @@ class _AgentScreenState extends State<AgentScreen> {
               ],
             ),
           ),
+          if (remaining > 0.01)
+            TextButton(
+              onPressed: _busy ? null : _withdraw,
+              style: TextButton.styleFrom(
+                foregroundColor: t.brand,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                backgroundColor: t.brandSubtle,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Withdraw', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            ),
         ],
       ),
     );
