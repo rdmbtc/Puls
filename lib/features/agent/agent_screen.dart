@@ -34,6 +34,8 @@ class _AgentScreenState extends State<AgentScreen> {
   bool _busy = false;
   String? _agentAddress;
   bool _registered = false;
+  int _reputation = 0;
+  String? _agentId;
   double _budgetVal = 0, _spent = 0;
   final List<_Msg> _msgs = [];
 
@@ -65,6 +67,8 @@ class _AgentScreenState extends State<AgentScreen> {
           _started = true;
           _agentAddress = r['agentAddress'] as String?;
           _registered = r['registered'] == true;
+          _reputation = (r['reputation'] as num?)?.toInt() ?? 0;
+          _agentId = r['agentId'] as String?;
           _budgetVal = bal;
           _spent = 0;
           _msgs.add(_Msg(true,
@@ -103,6 +107,8 @@ class _AgentScreenState extends State<AgentScreen> {
         _started = true;
         _agentAddress = r['agentAddress'] as String?;
         _registered = r['registered'] == true;
+        _reputation = (r['reputation'] as num?)?.toInt() ?? 0;
+        _agentId = r['agentId'] as String?;
         _budgetVal = (r['budget'] as num?)?.toDouble() ?? 0;
         _spent = (r['spent'] as num?)?.toDouble() ?? 0;
         _msgs.add(_Msg(true,
@@ -132,6 +138,7 @@ class _AgentScreenState extends State<AgentScreen> {
         _msgs.add(_Msg(true, r['reply'] as String? ?? 'Done.',
             txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?));
         if (r['remaining'] != null) _spent = _budgetVal - (r['remaining'] as num).toDouble();
+        if (r['reputation'] != null) _reputation = (r['reputation'] as num).toInt();
       });
       // Agent placed a trade → refresh balance + portfolio instantly.
       if (trade != null && mounted) WalletServiceScope.of(context).notifyTrade();
@@ -433,6 +440,25 @@ class _AgentScreenState extends State<AgentScreen> {
                 const SizedBox(height: 2),
                 Text('Budget \$${remaining.toStringAsFixed(2)} / \$${_budgetVal.toStringAsFixed(2)} USDC',
                     style: TextStyle(color: t.textMuted, fontSize: 11)),
+                if (_registered) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.workspace_premium_rounded, size: 12, color: PulsColors.amber),
+                      const SizedBox(width: 3),
+                      Text(
+                        _reputation > 0
+                            ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
+                            : 'Reputation: builds as it trades',
+                        style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600),
+                      ),
+                      if (_agentId != null) ...[
+                        const SizedBox(width: 5),
+                        Text('· Agent #$_agentId', style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+                      ],
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
