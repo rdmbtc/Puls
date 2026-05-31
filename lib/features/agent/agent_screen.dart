@@ -94,7 +94,7 @@ class _AgentScreenState extends State<AgentScreen> {
       final trade = r['trade'] as Map<String, dynamic>?;
       setState(() {
         _msgs.add(_Msg(true, r['reply'] as String? ?? 'Done.',
-            txId: trade?['txId'] as String?, contract: trade?['contractAddress'] as String?));
+            txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?));
         if (r['remaining'] != null) _spent = _budgetVal - (r['remaining'] as num).toDouble();
       });
     } catch (e) {
@@ -296,6 +296,17 @@ class _AgentScreenState extends State<AgentScreen> {
                   Icon(Icons.open_in_new_rounded, size: 11, color: t.brand),
                 ],
               ),
+            ),
+          ] else if (m.contract != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: t.textSubtle)),
+                const SizedBox(width: 6),
+                Text('Trade submitted · confirming on-chain…',
+                    style: TextStyle(color: t.textSubtle, fontSize: 11)),
+              ],
             ),
           ],
         ],
