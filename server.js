@@ -1688,14 +1688,15 @@ app.post('/api/agent/chat', async (req, res) => {
       const pmRes = await fetch('https://gamma-api.polymarket.com/markets?limit=40&active=true&closed=false&order=volume&ascending=false', { headers: { Accept: 'application/json' } });
       if (pmRes.ok) {
         const list = await pmRes.json();
+        const nowSec = Math.floor(Date.now() / 1000);
         feed = list.map(j => {
           const slug = j.slug;
           const cached = deployedMarketsCache.get(slug);
           const endRaw = j.endDate || j.endDateIso;
-          const deadline = endRaw ? Math.floor(new Date(endRaw).getTime() / 1000) : Math.floor(Date.now() / 1000) + 30 * 86400;
+          const deadline = endRaw ? Math.floor(new Date(endRaw).getTime() / 1000) : nowSec + 30 * 86400;
           return { slug, question: j.question || slug, deployed: !!cached, deadline };
-        }).filter(m => m.slug);
-        // Deployed-first so the LLM tends to pick instant markets.
+        }).filter(m => m.slug && m.deadline > nowSec + 3600); // exclude expired / about-to-expire
+        // Deployed-first so the LLM tends to pick instant, tradeable markets.
         feed.sort((a, b) => (b.deployed ? 1 : 0) - (a.deployed ? 1 : 0));
         feed = feed.slice(0, 25);
       }
@@ -1736,6 +1737,8 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
       const market = feedBySlug[slug] || (deployedMarketsCache.has(slug) ? { slug, deadline: deployedMarketsCache.get(slug).deadline } : null);
       if (!market) {
         intent.reply = `I can't trade "${slug}" — it isn't in the live feed.`;
+      } else if (market.deadline && market.deadline <= Math.floor(Date.now() / 1000)) {
+        intent.reply = `I can't trade "${slug}" — that market has already closed. Pick another one.`;
       } else if (!(amount > 0) || amount > remaining) {
         intent.reply = `That would exceed my remaining budget of ${remaining.toFixed(2)} USDC.`;
       } else {
@@ -1759,24 +1762,29 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
             fee: { type: 'level', config: { feeLevel: 'HIGH' } },
           });
           const circleId = txRes.data.id;
-          // Poll for the real on-chain tx hash (Circle returns a UUID, not a 0x hash).
-          let txHash = null;
+          // Poll for the on-chain tx hash + final state (Circle returns a UUID, not a 0x hash).
+          let txHash = null, finalState = null;
           for (let i = 0; i < 20; i++) {
             await new Promise(r => setTimeout(r, 1500));
             try {
               const st = await circle.getTransaction({ id: circleId });
               const tx = st.data?.transaction;
-              if (tx?.txHash) { txHash = tx.txHash; }
-              if (tx?.txHash || ['COMPLETE', 'FAILED', 'DENIED'].includes(tx?.state)) break;
+              if (tx?.txHash) txHash = tx.txHash;
+              finalState = tx?.state;
+              if (['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED'].includes(finalState)) break;
             } catch (_) {}
           }
-          await saveTrade(userId, {
-            tx_id: circleId, side, usdc_amount: amount, entry_price: 0.5,
-            question: `🤖 Agent: ${market.question || slug}`, market_id: contractAddress,
-            state: 'INITIATED', tx_hash: txHash,
-          });
-          spentNow = amount;
-          trade = { slug, side, usdcAmount: amount, txHash, txId: circleId, contractAddress };
+          if (['FAILED', 'DENIED', 'CANCELLED'].includes(finalState)) {
+            intent.reply = `The trade didn't go through (on-chain ${finalState.toLowerCase()}). Your budget is unchanged — try a different market or amount.`;
+          } else {
+            await saveTrade(userId, {
+              tx_id: circleId, side, usdc_amount: amount, entry_price: 0.5,
+              question: `🤖 Agent: ${market.question || slug}`, market_id: contractAddress,
+              state: finalState === 'COMPLETE' ? 'COMPLETE' : 'INITIATED', tx_hash: txHash,
+            });
+            spentNow = amount;
+            trade = { slug, side, usdcAmount: amount, txHash, txId: circleId, contractAddress };
+          }
         } catch (e) {
           intent.reply = `Trade failed: ${e.message}`;
         }
