@@ -56,23 +56,18 @@ class _PulsAppState extends State<PulsApp> {
   }
 }
 
-// ── InheritedWidget scope for WalletService ───────────────────────────────────
-class WalletServiceScope extends InheritedWidget {
+// ── InheritedNotifier scope for WalletService ─────────────────────────────────
+class WalletServiceScope extends InheritedNotifier<WalletService> {
   const WalletServiceScope({
-    required this.service,
+    required WalletService service,
     required super.child,
     super.key,
-  });
-
-  final WalletService service;
+  }) : super(notifier: service);
 
   static WalletService of(BuildContext context) {
     final scope =
         context.dependOnInheritedWidgetOfExactType<WalletServiceScope>();
     assert(scope != null, 'WalletServiceScope not found');
-    return scope!.service;
+    return scope!.notifier!;
   }
-
-  @override
-  bool updateShouldNotify(WalletServiceScope old) => service != old.service;
 }

@@ -32,21 +32,33 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   bool _loading = true;
   String? _error;
   RealtimeChannel? _tradeChannel;
+  String? _lastUserId;
+  bool _initialized = false;
+  bool _newestFirst = true;
   final _supabase = Supabase.instance.client;
   final http.Client _client = http.Client();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _load();
-    _setupRealtime();
+    // Reactive: re-fires when wallet state changes. Only (re)subscribe + reload
+    // when the signed-in user actually changes (e.g. sign-in after first build).
+    final userId = WalletServiceScope.of(context).state.userId;
+    if (!_initialized || userId != _lastUserId) {
+      _initialized = true;
+      _lastUserId = userId;
+      _setupRealtime();
+      _load();
+    }
   }
 
   void _setupRealtime() {
     final ws = WalletServiceScope.of(context).state;
+    _tradeChannel?.unsubscribe();
+    _tradeChannel = null;
     if (ws.userId == null) return;
-    
-    _tradeChannel ??= _supabase.channel('public:trades:portfolio')
+
+    _tradeChannel = _supabase.channel('public:trades:portfolio')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',
@@ -63,6 +75,36 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       .subscribe();
   }
 
+  void _applySort() {
+    _positions.sort((a, b) {
+      final ta = DateTime.tryParse(a['timestamp'] as String? ?? '') ?? DateTime(1970);
+      final tb = DateTime.tryParse(b['timestamp'] as String? ?? '') ?? DateTime(1970);
+      return _newestFirst ? tb.compareTo(ta) : ta.compareTo(tb);
+    });
+  }
+
+  Widget _sortToggle(PulsThemeColors t) {
+    return GestureDetector(
+      onTap: () => setState(() { _newestFirst = !_newestFirst; _applySort(); }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: t.surfaceRaised,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_newestFirst ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 12, color: t.textMuted),
+            const SizedBox(width: 4),
+            Text(_newestFirst ? 'Newest' : 'Oldest', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _tradeChannel?.unsubscribe();
@@ -73,7 +115,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   Future<void> _load() async {
     final ws = WalletServiceScope.of(context).state;
     if (ws.userId == null) {
-      setState(() { _loading = false; });
+      setState(() { _positions = []; _totalSpent = '0.00'; _loading = false; });
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -83,11 +125,13 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       );
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode != 200) throw Exception(data['error']);
+      final positions = (data['positions'] as List).cast<Map<String, dynamic>>();
       setState(() {
-        _positions = (data['positions'] as List).cast<Map<String, dynamic>>();
+        _positions = positions;
         _totalSpent = data['totalSpent'] as String? ?? '0.00';
         _loading = false;
       });
+      _applySort();
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
     }
@@ -215,6 +259,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       children: [
                         Text('Positions', style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
                         const Spacer(),
+                        if (_positions.length > 1) ...[ _sortToggle(t), const SizedBox(width: 8) ],
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -289,6 +334,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       children: [
                         Text('Positions', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                         const Spacer(),
+                        if (_positions.length > 1) ...[ _sortToggle(t), const SizedBox(width: 8) ],
                         Text('${_positions.length} trades', style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),

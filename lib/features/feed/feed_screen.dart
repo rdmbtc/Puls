@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
+import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
@@ -388,54 +391,219 @@ class _WebFeedBody extends StatefulWidget {
 
 class _WebFeedBodyState extends State<_WebFeedBody> {
   String? _selectedCategory;
-  late final Timer _activityTimer;
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final List<_BetActivity> _activities = [];
+  bool _isLoadingActivities = true;
+  bool _useFallbackMock = false;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
-    // Populate initial activities
-    _activities.addAll([
-      _BetActivity(username: '0x8f2d…e11a', action: 'bought', question: 'Will Donald Trump launch a new token in 2026?', amount: 520, time: 'Just now', isYes: true),
-      _BetActivity(username: 'arbitrum_whale', action: 'bought', question: 'Will BTC exceed \$100k in 2026?', amount: 2500, time: '1m ago', isYes: true),
-      _BetActivity(username: '0x4c99…88b2', action: 'bought', question: 'Will the Fed cut interest rates in June?', amount: 150, time: '3m ago', isYes: false),
-      _BetActivity(username: 'puls_trader_9', action: 'bought', question: 'Will OpenAI announce GPT-5 before July?', amount: 800, time: '5m ago', isYes: true),
-      _BetActivity(username: 'degen_king', action: 'bought', question: 'Will Champions League final go to penalties?', amount: 4300, time: '8m ago', isYes: false),
-    ]);
-
-    // Timer to add new bet activities
-    _activityTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (!mounted) return;
-      final markets = widget.appState.feedMarkets;
-      if (markets.isEmpty) return;
-
-      final random = Random();
-      final market = markets[random.nextInt(markets.length)];
-      final usernames = ['solana_maxi', '0x12a9…cd45', 'crypto_ninja', 'betting_dave', 'pulse_master', '0x7e51…33b9', 'whale_watcher', 'trade_lord'];
-      final user = usernames[random.nextInt(usernames.length)];
-      final isYes = random.nextBool();
-      final amount = (random.nextInt(90) + 10) * 50.0; // multiples of 50 between 500 and 5000
-
-      setState(() {
-        _activities.insert(0, _BetActivity(
-          username: user,
-          action: 'bought',
-          question: market.question,
-          amount: amount,
-          time: 'Just now',
-          isYes: isYes,
-        ));
-        if (_activities.length > 20) {
-          _activities.removeLast();
-        }
-      });
-    });
+    _startPolling();
   }
 
   @override
   void dispose() {
-    _activityTimer.cancel();
+    _pollingTimer?.cancel();
     super.dispose();
+  }
+
+  void _startPolling() {
+    _fetchRecentTrades();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _fetchRecentTrades();
+    });
+  }
+
+  String _formatUserId(String userId) {
+    if (userId.startsWith('eth_')) {
+      final addr = userId.substring(4);
+      if (addr.length > 10) {
+        return '${addr.substring(0, 6)}…${addr.substring(addr.length - 4)}';
+      }
+      return addr;
+    }
+    if (userId.startsWith('supabase_')) {
+      final uuid = userId.substring(9);
+      if (uuid.length > 8) {
+        return 'user_${uuid.substring(0, 4)}…${uuid.substring(uuid.length - 4)}';
+      }
+      return 'user_$uuid';
+    }
+    if (userId.length > 12) {
+      return '${userId.substring(0, 6)}…${userId.substring(userId.length - 4)}';
+    }
+    return userId;
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().toUtc().difference(dt.toUtc());
+    if (diff.isNegative || diff.inSeconds < 60) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${diff.inDays}d ago';
+    }
+  }
+
+  Future<void> _fetchRecentTrades() async {
+    try {
+      final url = Uri.parse('$backendUrl/api/trade/recent');
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          _useFallbackMock = false;
+          _processRecentTrades(data);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Feed] Error fetching recent trades from backend: $e. Falling back to mock feed.');
+    }
+    
+    if (_activities.isEmpty) {
+      _useFallbackMock = true;
+      _initializeMockActivities();
+    } else if (_useFallbackMock) {
+      _addMockActivity();
+    }
+  }
+
+  void _initializeMockActivities() {
+    final mockData = [
+      _BetActivity(id: 'mock_1', username: '0x8f2d…e11a', action: 'bought', question: 'Will Donald Trump launch a new token in 2026?', amount: 520, time: 'Just now', isYes: true, createdAt: DateTime.now()),
+      _BetActivity(id: 'mock_2', username: 'arbitrum_whale', action: 'bought', question: 'Will BTC exceed \$100k in 2026?', amount: 2500, time: '1m ago', isYes: true, createdAt: DateTime.now().subtract(const Duration(minutes: 1))),
+      _BetActivity(id: 'mock_3', username: '0x4c99…88b2', action: 'bought', question: 'Will the Fed cut interest rates in June?', amount: 150, time: '3m ago', isYes: false, createdAt: DateTime.now().subtract(const Duration(minutes: 3))),
+      _BetActivity(id: 'mock_4', username: 'puls_trader_9', action: 'bought', question: 'Will OpenAI announce GPT-5 before July?', amount: 800, time: '5m ago', isYes: true, createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
+      _BetActivity(id: 'mock_5', username: 'degen_king', action: 'bought', question: 'Will Champions League final go to penalties?', amount: 4300, time: '8m ago', isYes: false, createdAt: DateTime.now().subtract(const Duration(minutes: 8))),
+    ];
+    
+    setState(() {
+      _activities.addAll(mockData);
+      _isLoadingActivities = false;
+    });
+  }
+
+  void _addMockActivity() {
+    final markets = widget.appState.feedMarkets;
+    if (markets.isEmpty) return;
+
+    final random = Random();
+    final market = markets[random.nextInt(markets.length)];
+    final usernames = ['solana_maxi', '0x12a9…cd45', 'crypto_ninja', 'betting_dave', 'pulse_master', '0x7e51…33b9', 'whale_watcher', 'trade_lord'];
+    final user = usernames[random.nextInt(usernames.length)];
+    final isYes = random.nextBool();
+    final amount = (random.nextInt(90) + 10) * 50.0;
+
+    final newAct = _BetActivity(
+      id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
+      username: user,
+      action: 'bought',
+      question: market.question,
+      amount: amount,
+      time: 'Just now',
+      isYes: isYes,
+      createdAt: DateTime.now(),
+    );
+
+    _activities.insert(0, newAct);
+    _listKey.currentState?.insertItem(
+      0,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    if (_activities.length > 20) {
+      _activities.removeLast();
+      _listKey.currentState?.removeItem(
+        _activities.length,
+        (context, animation) => const SizedBox.shrink(),
+        duration: Duration.zero,
+      );
+    }
+  }
+
+  void _processRecentTrades(List<dynamic> data) {
+    final List<_BetActivity> fetched = data.map((jsonItem) {
+      final id = jsonItem['id'] as String;
+      final userId = jsonItem['user_id'] as String;
+      final side = jsonItem['side'] as String;
+      final usdcAmount = double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
+      final question = jsonItem['question'] as String? ?? 'Prediction Market';
+      final createdAtStr = jsonItem['created_at'] as String;
+      final createdAt = DateTime.tryParse(createdAtStr) ?? DateTime.now();
+
+      final isBuy = usdcAmount >= 0;
+      final absAmount = usdcAmount.abs();
+
+      return _BetActivity(
+        id: id,
+        username: _formatUserId(userId),
+        action: isBuy ? 'bought' : 'sold',
+        question: question,
+        amount: absAmount,
+        time: _formatTimeAgo(createdAt),
+        isYes: side.toUpperCase() == 'YES',
+        createdAt: createdAt,
+      );
+    }).toList();
+
+    fetched.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (!mounted) return;
+
+    if (_activities.isEmpty) {
+      setState(() {
+        _activities.addAll(fetched.take(20));
+        _isLoadingActivities = false;
+      });
+      return;
+    }
+
+    final existingIds = _activities.map((a) => a.id).toSet();
+    final newItems = fetched.where((item) => !existingIds.contains(item.id)).toList();
+
+    if (newItems.isNotEmpty) {
+      newItems.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      for (final item in newItems) {
+        _activities.insert(0, item);
+        _listKey.currentState?.insertItem(
+          0,
+          duration: const Duration(milliseconds: 500),
+        );
+
+        if (_activities.length > 20) {
+          _activities.removeLast();
+          _listKey.currentState?.removeItem(
+            _activities.length,
+            (context, animation) => const SizedBox.shrink(),
+            duration: Duration.zero,
+          );
+        }
+      }
+    } else {
+      setState(() {
+        for (var i = 0; i < _activities.length; i++) {
+          final old = _activities[i];
+          _activities[i] = _BetActivity(
+            id: old.id,
+            username: old.username,
+            action: old.action,
+            question: old.question,
+            amount: old.amount,
+            time: _formatTimeAgo(old.createdAt),
+            isYes: old.isYes,
+            createdAt: old.createdAt,
+          );
+        }
+      });
+    }
   }
 
   void _openDetails(BuildContext context, Market market) {
@@ -698,88 +866,28 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: ListView.separated(
-                        itemCount: _activities.length,
-                        separatorBuilder: (_, __) => Divider(color: t.border, height: 16),
-                        itemBuilder: (context, i) {
-                          final act = _activities[i];
-                          final sideColor = act.isYes ? t.yes : t.no;
-                          final sideText = act.isYes ? 'YES' : 'NO';
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    act.username,
-                                    style: TextStyle(
-                                      color: t.brand,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    act.action,
-                                    style: TextStyle(
-                                      color: t.textSubtle,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    act.time,
-                                    style: TextStyle(
-                                      color: t.textSubtle,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                act.question,
-                                style: TextStyle(
-                                  color: t.text,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                      child: _isLoadingActivities
+                          ? Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: t.brand,
+                                  strokeWidth: 2,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: sideColor.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      sideText,
-                                      style: TextStyle(
-                                        color: sideColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '\$${act.amount.toStringAsFixed(0)} USDC',
-                                    style: TextStyle(
-                                      color: t.text,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                            )
+                          : AnimatedList(
+                              key: _listKey,
+                              initialItemCount: _activities.length,
+                              itemBuilder: (context, index, animation) {
+                                if (index >= _activities.length) return const SizedBox.shrink();
+                                final act = _activities[index];
+                                final sideColor = act.isYes ? t.yes : t.no;
+                                final sideText = act.isYes ? 'YES' : 'NO';
+                                return _buildActivityItem(act, sideColor, sideText, animation);
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -790,21 +898,121 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       ],
     );
   }
+
+  Widget _buildActivityItem(
+    _BetActivity act,
+    Color sideColor,
+    String sideText,
+    Animation<double> animation,
+  ) {
+    final t = widget.t;
+    return FadeTransition(
+      opacity: animation,
+      child: SizeTransition(
+        sizeFactor: CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    act.username,
+                    style: TextStyle(
+                      color: t.brand,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    act.action,
+                    style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    act.time,
+                    style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                act.question,
+                style: TextStyle(
+                  color: t.text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: sideColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      sideText,
+                      style: TextStyle(
+                        color: sideColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '\$${act.amount.toStringAsFixed(act.amount % 1 == 0 ? 0 : 2)} USDC',
+                    style: TextStyle(
+                      color: t.text,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Divider(color: t.border, height: 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _BetActivity {
   _BetActivity({
+    required this.id,
     required this.username,
     required this.action,
     required this.question,
     required this.amount,
     required this.time,
     required this.isYes,
+    required this.createdAt,
   });
+  final String id;
   final String username;
   final String action;
   final String question;
   final double amount;
   final String time;
   final bool isYes;
+  final DateTime createdAt;
 }
