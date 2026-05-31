@@ -8,6 +8,7 @@ import '../../core/utils/image_util.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
+import '../shell/web_layout.dart';
 import 'trade_preview_sheet.dart';
 
 class MarketDetailScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
     final trendColor = trendPositive ? t.yes : t.no;
 
     final body = ListView(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, kIsWeb ? 40 : 110),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, kIsWeb ? 40 : 110),
       children: [
         // ── Hero image ──────────────────────────────────────────────────
         if (market.imageUrl.isNotEmpty) ...[
@@ -123,7 +124,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           ),
         ],
       ),
-      body: kIsWeb ? body : body,
+      body: kIsWeb ? WebLayout(maxWidth: 720, child: body) : body,
       bottomNavigationBar: kIsWeb ? null : SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
@@ -426,7 +427,7 @@ class _StatsGrid extends StatelessWidget {
       ('Category', market.category),
     ];
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: MediaQuery.sizeOf(context).width >= 600 ? 4 : 2,
       childAspectRatio: 2.4,
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
