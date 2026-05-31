@@ -1715,6 +1715,43 @@ app.get('/api/agent/status', async (req, res) => {
   }
 });
 
+// Add more USDC from the user's wallet into the agent wallet (top-up after withdraw, etc.).
+app.post('/api/agent/deposit', async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const amt = parseFloat(amount);
+    if (!(amt > 0)) return res.status(400).json({ error: 'amount must be > 0' });
+    const agent = await getAgent(userId);
+    if (!agent) return res.status(400).json({ error: 'No agent' });
+    const userWalletId = await getWalletId(userId);
+    if (!userWalletId) return res.status(400).json({ error: 'No user wallet' });
+
+    const tx = await circle.createTransaction({
+      walletId: userWalletId,
+      tokenAddress: USDC,
+      blockchain: 'ARC-TESTNET',
+      destinationAddress: agent.address,
+      amount: [amt.toFixed(6)],
+      fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+    });
+    // Wait for settle so the returned balance reflects the deposit.
+    const txId = tx.data?.id;
+    let ok = true;
+    for (let i = 0; txId && i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const s = (await circle.getTransaction({ id: txId })).data?.transaction?.state;
+      if (s === 'COMPLETE') break;
+      if (s === 'FAILED' || s === 'DENIED') { ok = false; break; }
+    }
+    const balance = parseFloat((await getWalletInfo(agent.walletId)).usdcBalance) || 0;
+    res.json({ deposited: ok ? amt : 0, balance });
+  } catch (e) {
+    console.error('agent deposit error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Return the agent's remaining USDC back to the user's wallet.
 app.post('/api/agent/withdraw', async (req, res) => {
   try {
