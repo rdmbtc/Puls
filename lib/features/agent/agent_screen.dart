@@ -91,7 +91,7 @@ class _AgentScreenState extends State<AgentScreen> {
     final res = await _client
         .post(Uri.parse('$backendUrl$path'),
             headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 60));
+        .timeout(const Duration(seconds: 150));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
     return data;
