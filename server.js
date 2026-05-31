@@ -1485,6 +1485,240 @@ async function warmupTopMarkets() {
   }
 }
 
+// ── Agentic Economy (ERC-8004 + autonomous trading) ───────────────────────────
+
+const LLM_URL = (process.env.AGENT_LLM_URL || 'https://opengateway.gitlawb.com/v1/chat/completions').trim();
+const LLM_KEY = (process.env.AGENT_LLM_KEY || '').trim();
+const LLM_MODEL = (process.env.AGENT_MODEL || 'mimo-v2.5-pro').trim();
+const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
+const AGENT_METADATA_URI = 'ipfs://bafkreibdi6623n3xpf7ymk62ckb4bo75o3qemwkpfvp5i25j66itxvsoei';
+
+async function getAgent(userId) {
+  const walletId = await getWalletId(`agent_${userId}`);
+  if (!walletId) return null;
+  const info = await getWalletInfo(walletId);
+  return { walletId, address: info.address, balance: info.usdcBalance };
+}
+
+// In-memory guard so we only register each agent on ERC-8004 once per process.
+const registeredAgents = new Set();
+
+// Streams an OpenAI-compatible SSE chat completion and returns the full text.
+async function llmComplete(messages) {
+  if (!LLM_KEY) throw new Error('Agent LLM key not configured');
+  const r = await fetch(LLM_URL, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${LLM_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: LLM_MODEL, messages, stream: true }),
+  });
+  if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', out = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith('data:')) continue;
+      const payload = s.slice(5).trim();
+      if (payload === '[DONE]') continue;
+      try {
+        const j = JSON.parse(payload);
+        const c = j.choices?.[0]?.delta?.content;
+        if (c) out += c;
+      } catch (_) {}
+    }
+  }
+  return out.trim();
+}
+
+// Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
+app.post('/api/agent/start', async (req, res) => {
+  try {
+    const { userId, budget } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const budgetNum = Math.max(0, parseFloat(budget ?? '0'));
+    const agentKey = `agent_${userId}`;
+
+    let agentWalletId = await getWalletId(agentKey);
+    let agentAddress;
+    if (!agentWalletId) {
+      const setId = await ensureWalletSet();
+      const createRes = await circle.createWallets({
+        accountType: 'EOA', blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
+      });
+      const w = createRes.data.wallets[0];
+      agentWalletId = w.id;
+      agentAddress = w.address;
+      await saveWallet(agentKey, w.id);
+    } else {
+      agentAddress = (await getWalletInfo(agentWalletId)).address;
+    }
+
+    // Fund the agent wallet from the user's wallet up to the requested budget.
+    // The agent's USDC balance IS the budget cap — it cannot spend more than it holds.
+    const userWalletId = await getWalletId(userId);
+    let funded = 0;
+    if (userWalletId && budgetNum > 0) {
+      const current = parseFloat((await getWalletInfo(agentWalletId)).usdcBalance) || 0;
+      const need = budgetNum - current;
+      if (need > 0.01) {
+        try {
+          await circle.createTransaction({
+            walletId: userWalletId,
+            tokenAddress: USDC,
+            destinationAddress: agentAddress,
+            amount: [need.toFixed(6)],
+            fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+          });
+          funded = need;
+        } catch (e) {
+          console.error('agent funding error:', e.message);
+        }
+      }
+    }
+
+    // ERC-8004: register the agent's onchain identity once per process.
+    let registered = registeredAgents.has(agentKey);
+    if (!registered) {
+      try {
+        await circle.createContractExecutionTransaction({
+          walletId: agentWalletId,
+          contractAddress: IDENTITY_REGISTRY,
+          abiFunctionSignature: 'register(string)',
+          abiParameters: [AGENT_METADATA_URI],
+          fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+        });
+        registeredAgents.add(agentKey);
+        registered = true;
+      } catch (e) {
+        console.error('ERC-8004 register error:', e.message);
+      }
+    }
+
+    const balance = parseFloat((await getWalletInfo(agentWalletId)).usdcBalance) || 0;
+    res.json({
+      agentAddress,
+      budget: balance + funded, // reflects post-funding balance even before settlement
+      balance,
+      funded,
+      registered,
+      identityRegistry: IDENTITY_REGISTRY,
+    });
+  } catch (e) {
+    console.error('agent start error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/agent/status', async (req, res) => {
+  try {
+    const agent = await getAgent(req.query.userId);
+    if (!agent) return res.json({ exists: false });
+    res.json({
+      exists: true,
+      agentAddress: agent.address,
+      balance: agent.balance,
+      registered: registeredAgents.has(`agent_${req.query.userId}`),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Chat with the agent. The LLM returns a structured intent; the backend validates
+// budget + market and executes the buy autonomously from the agent wallet.
+app.post('/api/agent/chat', async (req, res) => {
+  try {
+    const { userId, message } = req.body;
+    if (!userId || !message) return res.status(400).json({ error: 'userId and message required' });
+
+    const agent = await getAgent(userId);
+    if (!agent) return res.status(400).json({ error: 'Agent not started' });
+
+    // Budget = the agent wallet's own balance (on-chain cap, cannot overspend).
+    const remaining = parseFloat(agent.balance) || 0;
+
+    // Offer the LLM only pre-deployed (instant) markets so trades never cold-deploy.
+    const markets = [...deployedMarketsCache.entries()]
+      .filter(([, v]) => !v.resolved)
+      .slice(0, 25)
+      .map(([slug]) => slug);
+
+    const sys = `You are Puls Agent, an autonomous trading agent on Arc Testnet. You have a budget of ${remaining.toFixed(2)} USDC remaining.
+Available market slugs: ${markets.join(', ') || '(none)'}.
+When the user wants you to buy a prediction, respond with a single line of JSON only:
+{"action":"buy","slug":"<one of the slugs>","side":"YES|NO","usdcAmount":<number <= remaining budget>,"reply":"<short human explanation>"}
+If no trade is needed, respond with: {"action":"none","reply":"<your message>"}
+Never exceed the remaining budget. Output ONLY the JSON object, nothing else.`;
+
+    let intent = { action: 'none', reply: '' };
+    try {
+      const raw = await llmComplete([
+        { role: 'system', content: sys },
+        { role: 'user', content: message },
+      ]);
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) intent = JSON.parse(m[0]);
+      else intent.reply = raw;
+    } catch (e) {
+      return res.status(502).json({ error: `LLM error: ${e.message}` });
+    }
+
+    // Validate + execute autonomously within budget.
+    let trade = null;
+    let spentNow = 0;
+    if (intent.action === 'buy') {
+      const slug = intent.slug;
+      const amount = parseFloat(intent.usdcAmount);
+      const side = intent.side === 'NO' ? 'NO' : 'YES';
+      const cached = deployedMarketsCache.get(slug);
+      if (!cached) {
+        intent.reply = `I can't trade "${slug}" — it isn't an available market yet.`;
+      } else if (!(amount > 0) || amount > remaining) {
+        intent.reply = `That would exceed my remaining budget of ${remaining.toFixed(2)} USDC.`;
+      } else {
+        const contractAddress = cached.contractAddress;
+        const amountMicro = Math.round(amount * 1_000_000).toString();
+        try {
+          if (!(await isApproved(agent.walletId, contractAddress))) {
+            const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+            await circle.createContractExecutionTransaction({
+              walletId: agent.walletId, contractAddress: USDC,
+              abiFunctionSignature: 'approve(address,uint256)', abiParameters: [contractAddress, MAX],
+              fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+            });
+            await new Promise(r => setTimeout(r, 4500));
+          }
+          const txRes = await circle.createContractExecutionTransaction({
+            walletId: agent.walletId, contractAddress,
+            abiFunctionSignature: side === 'YES' ? 'buyYes(uint256)' : 'buyNo(uint256)',
+            abiParameters: [amountMicro],
+            fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+          });
+          await saveTrade(userId, {
+            tx_id: txRes.data.id, side, usdc_amount: amount, entry_price: 0.5,
+            question: `🤖 Agent: ${slug}`, market_id: contractAddress, state: 'INITIATED',
+          });
+          spentNow = amount;
+          trade = { slug, side, usdcAmount: amount, txId: txRes.data.id, contractAddress };
+        } catch (e) {
+          intent.reply = `Trade failed: ${e.message}`;
+        }
+      }
+    }
+
+    res.json({ reply: intent.reply || 'Done.', trade, remaining: Math.max(0, remaining - spentNow) });
+  } catch (e) {
+    console.error('agent chat error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
