@@ -1640,6 +1640,34 @@ app.get('/api/agent/status', async (req, res) => {
   }
 });
 
+// Return the agent's remaining USDC back to the user's wallet.
+app.post('/api/agent/withdraw', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const agent = await getAgent(userId);
+    if (!agent) return res.status(400).json({ error: 'No agent' });
+    const userWalletId = await getWalletId(userId);
+    if (!userWalletId) return res.status(400).json({ error: 'No user wallet' });
+    const userAddress = (await getWalletInfo(userWalletId)).address;
+    const balance = parseFloat(agent.balance) || 0;
+    if (balance < 0.01) return res.json({ withdrawn: 0, balance: 0 });
+
+    const tx = await circle.createTransaction({
+      walletId: agent.walletId,
+      tokenAddress: USDC,
+      blockchain: 'ARC-TESTNET',
+      destinationAddress: userAddress,
+      amount: [balance.toFixed(6)],
+      fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+    });
+    res.json({ withdrawn: balance, txId: tx.data?.id });
+  } catch (e) {
+    console.error('agent withdraw error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Chat with the agent. The LLM returns a structured intent; the backend validates
 // budget + market and executes the buy autonomously from the agent wallet.
 app.post('/api/agent/chat', async (req, res) => {
