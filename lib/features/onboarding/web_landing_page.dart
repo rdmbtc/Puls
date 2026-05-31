@@ -453,8 +453,15 @@ class _HeroContent extends StatelessWidget {
           child: isMobile
               ? Column(
                   children: [
-                    _PrimaryButton(label: 'Sign in with Google', onTap: appState.completeOnboarding)
-                        .animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
+                    Builder(
+                      builder: (context) {
+                        final wallet = WalletServiceScope.of(context);
+                        return _PrimaryButton(
+                          label: wallet.state.isLoading ? 'Connecting…' : 'Sign in with Google',
+                          onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
+                        );
+                      },
+                    ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
                     const SizedBox(height: 12),
                     Builder(
                       builder: (context) {
@@ -475,8 +482,15 @@ class _HeroContent extends StatelessWidget {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _PrimaryButton(label: 'Sign in with Google', onTap: appState.completeOnboarding)
-                        .animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
+                    Builder(
+                      builder: (context) {
+                        final wallet = WalletServiceScope.of(context);
+                        return _PrimaryButton(
+                          label: wallet.state.isLoading ? 'Connecting…' : 'Sign in with Google',
+                          onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
+                        );
+                      },
+                    ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
                     const SizedBox(width: 12),
                     Builder(
                       builder: (context) {
@@ -1302,7 +1316,7 @@ class _FooterLink extends StatelessWidget {
 class _PrimaryButton extends StatefulWidget {
   const _PrimaryButton({required this.label, required this.onTap, this.small = false});
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool small;
 
   @override

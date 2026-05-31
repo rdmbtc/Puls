@@ -45,7 +45,7 @@ class _PulsAppState extends State<PulsApp> {
               theme: PulsTheme.light(),
               darkTheme: PulsTheme.dark(),
               themeMode: _state.themeMode,
-              home: _state.onboardingComplete
+              home: (_state.onboardingComplete || _walletService.state.userId != null)
                   ? const PulsShell()
                   : const OnboardingScreen(),
             ),
