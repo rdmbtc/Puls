@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart' show backendUrl;
+import '../shell/web_layout.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text, {this.txId, this.contract});
@@ -131,7 +132,7 @@ class _AgentScreenState extends State<AgentScreen> {
           ],
         ),
       ),
-      body: SafeArea(child: _started ? _chat(t) : _setup(t)),
+      body: SafeArea(child: WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t))),
     );
   }
 
