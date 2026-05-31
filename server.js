@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { createPublicClient, createWalletClient, http, decodeEventLog } from 'viem';
+import { createPublicClient, createWalletClient, http, decodeEventLog, keccak256, toHex, parseAbiItem } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 
@@ -1502,6 +1502,7 @@ const LLM_URL = (process.env.AGENT_LLM_URL || 'https://opengateway.gitlawb.com/v
 const LLM_KEY = (process.env.AGENT_LLM_KEY || '').trim();
 const LLM_MODEL = (process.env.AGENT_MODEL || 'mimo-v2.5-pro').trim();
 const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
+const REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
 const AGENT_METADATA_URI = 'ipfs://bafkreibdi6623n3xpf7ymk62ckb4bo75o3qemwkpfvp5i25j66itxvsoei';
 
 async function getAgent(userId) {
@@ -1513,6 +1514,60 @@ async function getAgent(userId) {
 
 // In-memory guard so we only register each agent on ERC-8004 once per process.
 const registeredAgents = new Set();
+const agentTokenIds = new Map();   // agentKey -> ERC-8004 token id (string)
+const agentRepCount = new Map();   // agentKey -> number of reputation events recorded
+
+// Find an agent's ERC-8004 token id from the IdentityRegistry Transfer (mint) event.
+async function resolveAgentTokenId(agentKey, agentAddress) {
+  if (agentTokenIds.has(agentKey)) return agentTokenIds.get(agentKey);
+  try {
+    const latest = await publicClient.getBlockNumber();
+    const fromBlock = latest > 9000n ? latest - 9000n : 0n;
+    const logs = await publicClient.getLogs({
+      address: IDENTITY_REGISTRY,
+      event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'),
+      args: { to: agentAddress },
+      fromBlock,
+      toBlock: latest,
+    });
+    if (logs.length > 0) {
+      const id = logs[logs.length - 1].args.tokenId.toString();
+      agentTokenIds.set(agentKey, id);
+      return id;
+    }
+  } catch (e) {
+    console.error('resolveAgentTokenId error:', e.message);
+  }
+  return null;
+}
+
+// Record ERC-8004 reputation from the ADMIN wallet (an independent validator —
+// ERC-8004 forbids an agent owner from rating its own agent). score 0..100.
+async function recordAgentReputation(agentKey, agentAddress, score, tag) {
+  try {
+    if (!walletClient || !adminAccount) return;
+    const tokenId = await resolveAgentTokenId(agentKey, agentAddress);
+    if (!tokenId) return;
+    await walletClient.writeContract({
+      address: REPUTATION_REGISTRY,
+      abi: [{
+        name: 'giveFeedback', type: 'function', stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'agentId', type: 'uint256' }, { name: 'score', type: 'int128' },
+          { name: 'feedbackType', type: 'uint8' }, { name: 'tag', type: 'string' },
+          { name: 'metadataURI', type: 'string' }, { name: 'evidenceURI', type: 'string' },
+          { name: 'comment', type: 'string' }, { name: 'feedbackHash', type: 'bytes32' },
+        ],
+        outputs: [],
+      }],
+      functionName: 'giveFeedback',
+      args: [BigInt(tokenId), BigInt(score), 0, tag, '', '', '', keccak256(toHex(`${tag}-${Date.now()}`))],
+    });
+    agentRepCount.set(agentKey, (agentRepCount.get(agentKey) || 0) + 1);
+  } catch (e) {
+    console.error('recordAgentReputation error:', e.shortMessage || e.message);
+  }
+}
 
 // Streams an OpenAI-compatible SSE chat completion and returns the full text.
 async function llmComplete(messages) {
@@ -1616,9 +1671,14 @@ app.post('/api/agent/start', async (req, res) => {
         });
         registeredAgents.add(agentKey);
         registered = true;
+        // Give the mint a moment, then cache the agent's ERC-8004 token id.
+        await new Promise(r => setTimeout(r, 3000));
+        await resolveAgentTokenId(agentKey, agentAddress);
       } catch (e) {
         console.error('ERC-8004 register error:', e.message);
       }
+    } else {
+      resolveAgentTokenId(agentKey, agentAddress).catch(() => {});
     }
 
     const balance = parseFloat((await getWalletInfo(agentWalletId)).usdcBalance) || 0;
@@ -1628,6 +1688,8 @@ app.post('/api/agent/start', async (req, res) => {
       balance,
       funded,
       registered,
+      agentId: agentTokenIds.get(agentKey) ?? null,
+      reputation: agentRepCount.get(agentKey) ?? 0,
       identityRegistry: IDENTITY_REGISTRY,
     });
   } catch (e) {
@@ -1645,6 +1707,8 @@ app.get('/api/agent/status', async (req, res) => {
       agentAddress: agent.address,
       balance: agent.balance,
       registered: registeredAgents.has(`agent_${req.query.userId}`),
+      agentId: agentTokenIds.get(`agent_${req.query.userId}`) ?? null,
+      reputation: agentRepCount.get(`agent_${req.query.userId}`) ?? 0,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1817,6 +1881,9 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
             });
             spentNow = amount;
             trade = { slug, side, usdcAmount: amount, txHash, txId: circleId, contractAddress };
+            // ERC-8004: an independent validator (admin wallet) attests the agent
+            // executed a successful trade. Non-blocking so the chat stays snappy.
+            recordAgentReputation(`agent_${userId}`, agent.address, 90, 'successful_trade').catch(() => {});
           }
         } catch (e) {
           intent.reply = `Trade failed: ${e.message}`;
@@ -1824,7 +1891,7 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
       }
     }
 
-    res.json({ reply: intent.reply || 'Done.', trade, remaining: Math.max(0, remaining - spentNow) });
+    res.json({ reply: intent.reply || 'Done.', trade, remaining: Math.max(0, remaining - spentNow), reputation: agentRepCount.get(`agent_${userId}`) ?? 0 });
   } catch (e) {
     console.error('agent chat error:', e.message);
     res.status(500).json({ error: e.message });
