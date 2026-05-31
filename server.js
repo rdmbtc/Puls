@@ -839,15 +839,19 @@ app.post('/api/trade/buy', async (req, res) => {
 
 app.post('/api/trade/sell', async (req, res) => {
   try {
-    const { userId, side, shares, question, slug } = req.body;
-    if (!userId || !side || !shares || !slug) return res.status(400).json({ error: 'Missing fields' });
+    const { userId, side, shares, question, slug, contractAddress: reqContract } = req.body;
+    if (!userId || !side || !shares) return res.status(400).json({ error: 'Missing fields' });
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
 
-    const cached = deployedMarketsCache.get(slug);
-    if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
-    const contractAddress = cached.contractAddress;
+    // Prefer the position's own contract; fall back to slug -> cache.
+    let contractAddress = (reqContract && /^0x[0-9a-fA-F]{40}$/.test(reqContract)) ? reqContract : null;
+    if (!contractAddress) {
+      const cached = slug ? deployedMarketsCache.get(slug) : null;
+      if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
+      contractAddress = cached.contractAddress;
+    }
 
     const isYes = side === 'YES';
     const sharesAmount = parseFloat(shares);
@@ -882,15 +886,19 @@ app.post('/api/trade/sell', async (req, res) => {
 
 app.post('/api/trade/claim', async (req, res) => {
   try {
-    const { userId, slug } = req.body;
-    if (!userId || !slug) return res.status(400).json({ error: 'Missing fields' });
+    const { userId, slug, contractAddress: reqContract } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Missing fields' });
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
 
-    const cached = deployedMarketsCache.get(slug);
-    if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
-    const contractAddress = cached.contractAddress;
+    // Prefer the position's own contract; fall back to slug -> cache.
+    let contractAddress = (reqContract && /^0x[0-9a-fA-F]{40}$/.test(reqContract)) ? reqContract : null;
+    if (!contractAddress) {
+      const cached = slug ? deployedMarketsCache.get(slug) : null;
+      if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
+      contractAddress = cached.contractAddress;
+    }
 
     const txRes = await circle.createContractExecutionTransaction({
       walletId,
