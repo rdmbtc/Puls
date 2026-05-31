@@ -957,6 +957,27 @@ app.post('/api/trade/save-external', async (req, res) => {
   }
 });
 
+app.get('/api/trade/recent', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const limitNum = Math.min(100, parseInt(limit) || 20);
+    const { data, error } = await supabase
+      .from('trades')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limitNum);
+
+    if (error) {
+      console.error('Error fetching recent trades:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(data ?? []);
+  } catch (e) {
+    console.error('recent trades error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/portfolio ────────────────────────────────────────────────────────
 app.get('/api/portfolio', async (req, res) => {
   try {
