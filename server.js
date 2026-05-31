@@ -1693,9 +1693,12 @@ app.post('/api/agent/chat', async (req, res) => {
           const slug = j.slug;
           const cached = deployedMarketsCache.get(slug);
           const endRaw = j.endDate || j.endDateIso;
-          const deadline = endRaw ? Math.floor(new Date(endRaw).getTime() / 1000) : nowSec + 30 * 86400;
-          return { slug, question: j.question || slug, deployed: !!cached, deadline };
-        }).filter(m => m.slug && m.deadline > nowSec + 3600); // exclude expired / about-to-expire
+          const feedDeadline = endRaw ? Math.floor(new Date(endRaw).getTime() / 1000) : nowSec + 30 * 86400;
+          // For deployed markets, the contract's deadline (cached at deploy) is authoritative.
+          const deadline = cached?.deadline ? Number(cached.deadline) : feedDeadline;
+          const resolved = cached?.resolved === true;
+          return { slug, question: j.question || slug, deployed: !!cached, deadline, resolved };
+        }).filter(m => m.slug && !m.resolved && m.deadline > nowSec + 3600); // exclude expired/resolved
         // Deployed-first so the LLM tends to pick instant, tradeable markets.
         feed.sort((a, b) => (b.deployed ? 1 : 0) - (a.deployed ? 1 : 0));
         feed = feed.slice(0, 25);
@@ -1745,6 +1748,25 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
         try {
           // Deploy-on-demand if needed (instant if already deployed).
           const contractAddress = await getOrDeployMarket(slug, market.deadline);
+
+          // Verify the CONTRACT's actual on-chain deadline (cached markets may have a
+          // stale/past deadline that differs from the live feed) before attempting a buy.
+          try {
+            const info = await publicClient.readContract({
+              address: contractAddress,
+              abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
+                { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
+                { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
+                { name: '_yesOutstanding', type: 'uint256' }, { name: '_noOutstanding', type: 'uint256' } ] }],
+              functionName: 'getMarketInfo',
+            });
+            const onChainDeadline = Number(info[1]);
+            const onChainResolved = info[2];
+            if (onChainResolved || onChainDeadline <= Math.floor(Date.now() / 1000)) {
+              return res.json({ reply: `That market is already closed on-chain. Ask me to pick a different one.`, trade: null, remaining });
+            }
+          } catch (_) {}
+
           const amountMicro = Math.round(amount * 1_000_000).toString();
           if (!(await isApproved(agent.walletId, contractAddress))) {
             const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
