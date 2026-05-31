@@ -403,6 +403,7 @@ class WalletService extends ChangeNotifier {
         'entryPrice': entryPrice.toStringAsFixed(4),
         'slug': slug,
         'deadline': deadline,
+        if (contractAddress != null && contractAddress.isNotEmpty) 'contractAddress': contractAddress,
       });
 
       // Trigger a sync in the background immediately
@@ -444,6 +445,7 @@ class WalletService extends ChangeNotifier {
     final res = await _post('/api/trade/claim', {
       'userId': _state.userId!,
       'slug': slug ?? '',
+      if (contractAddress != null && contractAddress.isNotEmpty) 'contractAddress': contractAddress,
     });
     // Refresh immediately + again after 8s for on-chain confirmation
     refreshBalance();
