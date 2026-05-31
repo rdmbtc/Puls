@@ -1568,14 +1568,24 @@ app.post('/api/agent/start', async (req, res) => {
       const need = budgetNum - current;
       if (need > 0.01) {
         try {
-          await circle.createTransaction({
+          const tx = await circle.createTransaction({
             walletId: userWalletId,
             tokenAddress: USDC,
+            blockchain: 'ARC-TESTNET',
             destinationAddress: agentAddress,
             amount: [need.toFixed(6)],
             fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
           });
           funded = need;
+          // Wait for the transfer to settle so the agent balance reflects the funds.
+          const txId = tx.data?.id;
+          for (let i = 0; txId && i < 20; i++) {
+            await new Promise(r => setTimeout(r, 1500));
+            const st = await circle.getTransaction({ id: txId });
+            const s = st.data?.transaction?.state;
+            if (s === 'COMPLETE') break;
+            if (s === 'FAILED' || s === 'DENIED') { funded = 0; break; }
+          }
         } catch (e) {
           console.error('agent funding error:', e.message);
         }
@@ -1643,18 +1653,37 @@ app.post('/api/agent/chat', async (req, res) => {
     // Budget = the agent wallet's own balance (on-chain cap, cannot overspend).
     const remaining = parseFloat(agent.balance) || 0;
 
-    // Offer the LLM only pre-deployed (instant) markets so trades never cold-deploy.
-    const markets = [...deployedMarketsCache.entries()]
-      .filter(([, v]) => !v.resolved)
-      .slice(0, 25)
-      .map(([slug]) => slug);
+    // Pull the live feed (same source as /api/markets) so the agent knows real markets.
+    // Mark which are already deployed (instant) and keep their deadline for on-demand deploy.
+    let feed = [];
+    try {
+      const pmRes = await fetch('https://gamma-api.polymarket.com/markets?limit=40&active=true&closed=false&order=volume&ascending=false', { headers: { Accept: 'application/json' } });
+      if (pmRes.ok) {
+        const list = await pmRes.json();
+        feed = list.map(j => {
+          const slug = j.slug;
+          const cached = deployedMarketsCache.get(slug);
+          const endRaw = j.endDate || j.endDateIso;
+          const deadline = endRaw ? Math.floor(new Date(endRaw).getTime() / 1000) : Math.floor(Date.now() / 1000) + 30 * 86400;
+          return { slug, question: j.question || slug, deployed: !!cached, deadline };
+        }).filter(m => m.slug);
+        // Deployed-first so the LLM tends to pick instant markets.
+        feed.sort((a, b) => (b.deployed ? 1 : 0) - (a.deployed ? 1 : 0));
+        feed = feed.slice(0, 25);
+      }
+    } catch (e) {
+      console.error('agent feed fetch error:', e.message);
+    }
+    const feedBySlug = Object.fromEntries(feed.map(m => [m.slug, m]));
 
-    const sys = `You are Puls Agent, an autonomous trading agent on Arc Testnet. You have a budget of ${remaining.toFixed(2)} USDC remaining.
-Available market slugs: ${markets.join(', ') || '(none)'}.
-When the user wants you to buy a prediction, respond with a single line of JSON only:
-{"action":"buy","slug":"<one of the slugs>","side":"YES|NO","usdcAmount":<number <= remaining budget>,"reply":"<short human explanation>"}
-If no trade is needed, respond with: {"action":"none","reply":"<your message>"}
-Never exceed the remaining budget. Output ONLY the JSON object, nothing else.`;
+    const marketLines = feed.map(m => `- ${m.slug}: "${m.question}"${m.deployed ? ' [ready]' : ''}`).join('\n');
+    const sys = `You are Puls Agent, an autonomous trading agent on Arc Testnet with ${remaining.toFixed(2)} USDC to spend.
+These are the live prediction markets you can trade (slug: question):
+${marketLines || '(none available)'}
+When the user wants you to buy, pick the most relevant market and respond with ONE line of JSON only:
+{"action":"buy","slug":"<exact slug from the list>","side":"YES|NO","usdcAmount":<number <= ${remaining.toFixed(2)}>,"reply":"<short explanation of your pick>"}
+Otherwise respond: {"action":"none","reply":"<your message>"}
+Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON object.`;
 
     let intent = { action: 'none', reply: '' };
     try {
@@ -1676,15 +1705,16 @@ Never exceed the remaining budget. Output ONLY the JSON object, nothing else.`;
       const slug = intent.slug;
       const amount = parseFloat(intent.usdcAmount);
       const side = intent.side === 'NO' ? 'NO' : 'YES';
-      const cached = deployedMarketsCache.get(slug);
-      if (!cached) {
-        intent.reply = `I can't trade "${slug}" — it isn't an available market yet.`;
+      const market = feedBySlug[slug] || (deployedMarketsCache.has(slug) ? { slug, deadline: deployedMarketsCache.get(slug).deadline } : null);
+      if (!market) {
+        intent.reply = `I can't trade "${slug}" — it isn't in the live feed.`;
       } else if (!(amount > 0) || amount > remaining) {
         intent.reply = `That would exceed my remaining budget of ${remaining.toFixed(2)} USDC.`;
       } else {
-        const contractAddress = cached.contractAddress;
-        const amountMicro = Math.round(amount * 1_000_000).toString();
         try {
+          // Deploy-on-demand if needed (instant if already deployed).
+          const contractAddress = await getOrDeployMarket(slug, market.deadline);
+          const amountMicro = Math.round(amount * 1_000_000).toString();
           if (!(await isApproved(agent.walletId, contractAddress))) {
             const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
             await circle.createContractExecutionTransaction({
@@ -1702,7 +1732,7 @@ Never exceed the remaining budget. Output ONLY the JSON object, nothing else.`;
           });
           await saveTrade(userId, {
             tx_id: txRes.data.id, side, usdc_amount: amount, entry_price: 0.5,
-            question: `🤖 Agent: ${slug}`, market_id: contractAddress, state: 'INITIATED',
+            question: `🤖 Agent: ${market.question || slug}`, market_id: contractAddress, state: 'INITIATED',
           });
           spentNow = amount;
           trade = { slug, side, usdcAmount: amount, txId: txRes.data.id, contractAddress };
