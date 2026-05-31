@@ -169,6 +169,50 @@ class _AgentScreenState extends State<AgentScreen> {
     }
   }
 
+  Future<void> _deposit() async {
+    final uid = _userId;
+    if (uid == null || _busy) return;
+    final ctrl = TextEditingController(text: '5');
+    final t = context.puls;
+    final amount = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: t.surfaceRaised,
+        title: Text('Deposit to Agent', style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: TextStyle(color: t.text),
+          decoration: InputDecoration(prefixText: '\$', prefixStyle: TextStyle(color: t.text), labelText: 'USDC amount', labelStyle: TextStyle(color: t.textMuted)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: t.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text('Deposit', style: TextStyle(color: t.brand, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    if (amount == null || amount.trim().isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final r = await _post('/api/agent/deposit', {'userId': uid, 'amount': amount});
+      final d = (r['deposited'] as num?)?.toDouble() ?? 0;
+      final bal = (r['balance'] as num?)?.toDouble() ?? _budgetVal;
+      setState(() {
+        _budgetVal = bal;
+        _spent = 0;
+        _msgs.add(_Msg(true, d > 0
+            ? 'Deposited \$${d.toStringAsFixed(2)} USDC. I now have \$${bal.toStringAsFixed(2)} to trade.'
+            : 'Deposit didn\'t go through. Check your wallet balance and try again.'));
+      });
+      if (mounted) WalletServiceScope.of(context).notifyTrade();
+    } catch (e) {
+      _toast(e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _scrollDown() => WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
           _scroll.animateTo(_scroll.position.maxScrollExtent,
@@ -469,17 +513,36 @@ class _AgentScreenState extends State<AgentScreen> {
               ],
             ),
           ),
-          if (remaining > 0.01)
-            TextButton(
-              onPressed: _busy ? null : _withdraw,
-              style: TextButton.styleFrom(
-                foregroundColor: t.brand,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                backgroundColor: t.brandSubtle,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: _busy ? null : _deposit,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  backgroundColor: t.brand,
+                  minimumSize: const Size(84, 28),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Deposit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
               ),
-              child: const Text('Withdraw', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-            ),
+              if (remaining > 0.01) ...[
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: _busy ? null : _withdraw,
+                  style: TextButton.styleFrom(
+                    foregroundColor: t.brand,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    backgroundColor: t.brandSubtle,
+                    minimumSize: const Size(84, 28),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Withdraw', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
