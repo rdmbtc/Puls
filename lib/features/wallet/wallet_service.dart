@@ -472,9 +472,16 @@ class WalletService extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
     final res = await _client.post(
       Uri.parse('$_backendUrl$path'),
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 15));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -484,7 +491,12 @@ class WalletService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> _get(String path, Map<String, String> params) async {
     final uri = Uri.parse('$_backendUrl$path').replace(queryParameters: params);
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
     return data;
