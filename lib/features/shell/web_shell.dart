@@ -9,6 +9,7 @@ import '../feed/feed_screen.dart';
 import '../home/home_screen.dart';
 import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
+import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
 
 class WebShell extends StatefulWidget {
@@ -30,6 +31,7 @@ class _WebShellState extends State<WebShell>
     DiscoverScreen(),
     HomeScreen(),
     PortfolioScreen(),
+    LeaderboardScreen(),
     AgentScreen(),
     ProfileScreen(),
   ];
@@ -39,6 +41,7 @@ class _WebShellState extends State<WebShell>
     _NavItem(Picons.compass, 'Discover'),
     _NavItem(Picons.playCircle, 'Home'),
     _NavItem(Picons.chartBar, 'Portfolio'),
+    _NavItem(Picons.trophy, 'Leaderboard'),
     _NavItem(Picons.robot, 'Agent'),
     _NavItem(Picons.userCircle, 'Profile'),
   ];

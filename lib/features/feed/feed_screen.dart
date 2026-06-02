@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
+import '../profile/notifications_screen.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
 
@@ -265,6 +266,24 @@ class _FeedHeader extends StatelessWidget {
             ],
           ),
           const Spacer(),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: t.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: t.border),
+              ),
+              child: Icon(Icons.notifications_outlined, color: t.textSubtle, size: 18),
+            ),
+          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

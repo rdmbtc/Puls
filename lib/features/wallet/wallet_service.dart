@@ -464,6 +464,171 @@ class WalletService extends ChangeNotifier {
     return res;
   }
 
+  // ── Profiles & Leaderboard ────────────────────────────────────────────────
+  
+  Future<List<dynamic>> getLeaderboard({String sort = 'pnl', int limit = 50}) async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final uri = Uri.parse('$backendUrl/api/leaderboard').replace(queryParameters: {
+      'sort': sort,
+      'limit': limit.toString(),
+    });
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      throw Exception(data['error'] ?? 'Failed to load leaderboard');
+    }
+    return jsonDecode(res.body) as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final uri = Uri.parse('$backendUrl/api/profile/$userId');
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Failed to load profile');
+    return data;
+  }
+
+  Future<void> updateProfile({
+    required String displayName,
+    required String bio,
+    required String avatarUrl,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    await _post('/api/profile/update', {
+      'userId': _state.userId!,
+      'displayName': displayName,
+      'bio': bio,
+      'avatarUrl': avatarUrl,
+    });
+  }
+
+  // ── Push Notifications & FCM ──────────────────────────────────────────────
+
+  Future<void> registerFcmToken(String token) async {
+    if (_state.userId == null) return;
+    try {
+      await _post('/api/notifications/register-token', {
+        'userId': _state.userId!,
+        'fcmToken': token,
+      });
+    } catch (e) {
+      debugPrint('[WalletService] Failed to register FCM token: $e');
+    }
+  }
+
+  Future<List<dynamic>> getNotifications() async {
+    if (_state.userId == null) return [];
+    try {
+      final res = await _get('/api/notifications', {'userId': _state.userId!});
+      return res['notifications'] as List<dynamic>? ?? res as List<dynamic>? ?? [];
+    } catch (e) {
+      debugPrint('[WalletService] Failed to fetch notifications: $e');
+      return [];
+    }
+  }
+
+  Future<void> markNotificationsRead({String? notificationId}) async {
+    if (_state.userId == null) return;
+    try {
+      await _post('/api/notifications/mark-read', {
+        'userId': _state.userId!,
+        if (notificationId != null) 'notificationId': notificationId,
+      });
+    } catch (e) {
+      debugPrint('[WalletService] Failed to mark notifications as read: $e');
+    }
+  }
+
+  // ── Custom Markets ────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> createCustomMarket({
+    required String question,
+    required String description,
+    required String category,
+    required int deadline,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    final res = await _post('/api/markets/create', {
+      'userId': _state.userId!,
+      'question': question,
+      'description': description,
+      'category': category,
+      'deadline': deadline,
+    });
+    notifyTrade(); // refresh balance since 10 USDC is deducted
+    return res;
+  }
+
+  // ── Limit Orders ──────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> placeLimitOrder({
+    required bool isBuy,
+    required bool isYes,
+    required double amount,
+    required double targetPrice,
+    required String slug,
+    required String marketId,
+    required int deadline,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    if (!_state.hasWallet) throw Exception('No wallet');
+    
+    // Optimistically subtract USDC balance if BUY order
+    if (isBuy) {
+      final currentVal = double.tryParse(_state.usdcBalance) ?? 0.0;
+      final newVal = (currentVal - amount).clamp(0.0, double.infinity);
+      _setState(_state.copyWith(usdcBalance: newVal.toStringAsFixed(2)));
+    }
+    
+    try {
+      final res = await _post('/api/trade/limit-order', {
+        'userId': _state.userId!,
+        'marketId': marketId,
+        'slug': slug,
+        'side': isYes ? 'YES' : 'NO',
+        'type': isBuy ? 'BUY' : 'SELL',
+        'usdcAmount': isBuy ? amount.toStringAsFixed(6) : '0',
+        'shares': !isBuy ? amount.toStringAsFixed(6) : '0',
+        'targetPrice': targetPrice.toStringAsFixed(4),
+      });
+      
+      refreshBalance();
+      return res;
+    } catch (e) {
+      refreshBalance(); // Revert optimistic update on failure
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getLimitOrders() async {
+    if (_state.userId == null) return [];
+    try {
+      final res = await _get('/api/trade/limit-orders', {'userId': _state.userId!});
+      return res['orders'] as List<dynamic>? ?? res as List<dynamic>? ?? [];
+    } catch (e) {
+      debugPrint('[WalletService] Failed to fetch limit orders: $e');
+      return [];
+    }
+  }
+
+  Future<void> cancelLimitOrder(String orderId) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    await _post('/api/trade/limit-order/cancel', {
+      'userId': _state.userId!,
+      'orderId': orderId,
+    });
+    refreshBalance();
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   void _setState(WalletState s) {

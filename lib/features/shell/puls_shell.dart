@@ -9,6 +9,7 @@ import '../discover/discover_screen.dart';
 import '../feed/feed_screen.dart';
 import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
+import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
 import '../../features/home/home_screen.dart';
 import 'web_shell.dart';
@@ -43,6 +44,7 @@ class _PulsShellState extends State<_MobileShell> {
     DiscoverScreen(),
     HomeScreen(),
     PortfolioScreen(),
+    LeaderboardScreen(),
     AgentScreen(),
     ProfileScreen(),
   ];
@@ -95,6 +97,7 @@ class _DynamicIslandNav extends StatelessWidget {
     _Item(Picons.compass, 'Discover'),
     _Item(Picons.playCircle, 'Home'),
     _Item(Picons.chartBar, 'Portfolio'),
+    _Item(Picons.trophy, 'Leaderboard'),
     _Item(Picons.robot, 'Agent'),
     _Item(Picons.userCircle, 'Profile'),
   ];

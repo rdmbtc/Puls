@@ -65,6 +65,9 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
     }
     return str;
   }
+  bool _isLimit = false;
+  double _limitPrice = 0.5;
+  late final TextEditingController _limitPriceCtrl;
 
   @override
   void initState() {
@@ -72,11 +75,16 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
     _isBuy = widget.initialIsBuy;
     _amount = _isBuy ? 50.0 : (widget.maxShares ?? 10.0);
     _ctrl = TextEditingController(text: _isBuy ? _amount.toStringAsFixed(0) : _formatShares(_amount));
+    
+    final initialPrice = widget.side == MarketSide.yes ? widget.market.yesPrice : widget.market.noPrice;
+    _limitPrice = initialPrice;
+    _limitPriceCtrl = TextEditingController(text: _limitPrice.toStringAsFixed(2));
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _limitPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -92,8 +100,8 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
     final sideLabel = isYes ? 'YES' : 'NO';
     
     // Dynamic price calculation
-    final price = isYes ? widget.market.yesPrice : widget.market.noPrice;
-    final estShares = _isBuy ? (_amount / price) : _amount;
+    final price = _isLimit ? _limitPrice : (isYes ? widget.market.yesPrice : widget.market.noPrice);
+    final estShares = _isBuy ? (price > 0 ? _amount / price : 0.0) : _amount;
     final estPayout = _isBuy ? estShares : (_amount * price);
     final profit = _isBuy ? (estPayout - _amount) : 0.0;
     
@@ -201,6 +209,78 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+              
+              // Order Type Tabs: MARKET vs LIMIT
+              Container(
+                decoration: BoxDecoration(
+                  color: t.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: t.border),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isLimit = false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: !_isLimit ? t.surfaceRaised : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Market Order',
+                              style: TextStyle(
+                                color: !_isLimit ? t.text : t.textMuted,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          final wallet = WalletServiceScope.of(context).state;
+                          final supportsLimit = wallet.userId != null && wallet.hasWallet && !wallet.isExternalWallet;
+                          if (!supportsLimit) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Limit orders are only available with email-authenticated Puls custodial wallets.'),
+                                backgroundColor: t.no,
+                              ),
+                            );
+                          } else {
+                            setState(() => _isLimit = true);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _isLimit ? t.surfaceRaised : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Limit Order 🎯',
+                              style: TextStyle(
+                                color: _isLimit ? t.text : t.textMuted,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -250,6 +330,23 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                 onChanged: (v) =>
                     setState(() => _amount = double.tryParse(v) ?? 0),
               ),
+              if (_isLimit) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _limitPriceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(color: t.text),
+                  decoration: InputDecoration(
+                    labelText: 'Limit Price (USDC per share)',
+                    labelStyle: TextStyle(color: t.textMuted),
+                    prefixText: '\$',
+                    prefixStyle: TextStyle(color: t.text),
+                    hintText: 'e.g. 0.45',
+                  ),
+                  onChanged: (v) =>
+                      setState(() => _limitPrice = double.tryParse(v) ?? 0.5),
+                ),
+              ],
               const SizedBox(height: 12),
               
               // Quick action buttons
@@ -418,36 +515,56 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                           try {
                             if (hasRealWallet) {
                               final Map<String, dynamic> result;
-                              if (_isBuy) {
-                                result = await walletService.buyPosition(
+                              if (_isLimit) {
+                                result = await walletService.placeLimitOrder(
+                                  isBuy: _isBuy,
                                   isYes: isYes,
-                                  usdcAmount: _amount,
-                                  question: widget.market.question,
-                                  entryPrice: price,
-                                  contractAddress: widget.market.contractAddress,
+                                  amount: _amount,
+                                  targetPrice: _limitPrice,
                                   slug: widget.market.slug,
+                                  marketId: widget.market.contractAddress ?? '',
                                   deadline: widget.market.deadline.millisecondsSinceEpoch ~/ 1000,
+                                );
+                                if (!context.mounted) return;
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('🎯 Limit order placed to ${_isBuy ? "buy" : "sell"} $sideLabel at \$${_limitPrice.toStringAsFixed(2)}'),
+                                    backgroundColor: t.brand,
+                                  ),
                                 );
                               } else {
-                                result = await walletService.sellPosition(
-                                  isYes: isYes,
-                                  shares: _amount,
-                                  question: widget.market.question,
-                                  entryPrice: price,
-                                  contractAddress: widget.market.contractAddress,
-                                  slug: widget.market.slug,
-                                  deadline: widget.market.deadline.millisecondsSinceEpoch ~/ 1000,
+                                if (_isBuy) {
+                                  result = await walletService.buyPosition(
+                                    isYes: isYes,
+                                    usdcAmount: _amount,
+                                    question: widget.market.question,
+                                    entryPrice: price,
+                                    contractAddress: widget.market.contractAddress,
+                                    slug: widget.market.slug,
+                                    deadline: widget.market.deadline.millisecondsSinceEpoch ~/ 1000,
+                                  );
+                                } else {
+                                  result = await walletService.sellPosition(
+                                    isYes: isYes,
+                                    shares: _amount,
+                                    question: widget.market.question,
+                                    entryPrice: price,
+                                    contractAddress: widget.market.contractAddress,
+                                    slug: widget.market.slug,
+                                    deadline: widget.market.deadline.millisecondsSinceEpoch ~/ 1000,
+                                  );
+                                }
+                                if (!context.mounted) return;
+                                Navigator.of(context).pop();
+                                TxStatusSheet.show(
+                                  context,
+                                  txId: result['txId'] as String,
+                                  side: isYes ? 'YES' : 'NO',
+                                  amount: _amount,
+                                  walletService: walletService,
                                 );
                               }
-                              if (!context.mounted) return;
-                              Navigator.of(context).pop();
-                              TxStatusSheet.show(
-                                context,
-                                txId: result['txId'] as String,
-                                side: isYes ? 'YES' : 'NO',
-                                amount: _amount,
-                                walletService: walletService,
-                              );
                             } else {
                               // Demo trade
                               if (_isBuy) {

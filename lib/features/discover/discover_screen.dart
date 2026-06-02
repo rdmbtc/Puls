@@ -12,6 +12,8 @@ import '../../data/polymarket/price_history_service.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../shell/web_layout.dart';
+import '../../app/puls_app.dart';
+import 'create_market_dialog.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -95,6 +97,32 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         letterSpacing: -1.0,
                       )),
                   const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      final ws = WalletServiceScope.of(context).state;
+                      if (ws.userId == null || !ws.hasWallet) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Please sign in and connect a wallet to create custom markets.'),
+                            backgroundColor: t.no,
+                          ),
+                        );
+                      } else {
+                        CreateMarketDialog.show(context);
+                      }
+                    },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: t.brandSubtle,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+                      ),
+                      child: Icon(Icons.add_rounded, color: t.brand, size: 20),
+                    ),
+                  ),
                   Container(
                     width: 38,
                     height: 38,

@@ -20,18 +20,235 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  String? _displayName;
+  String? _bio;
+  String? _avatarUrl;
+  bool _loadingProfile = false;
+
   @override
   void initState() {
     super.initState();
     Supabase.instance.client.auth.onAuthStateChange.listen((_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        _loadProfileData();
+      }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wallet = WalletServiceScope.of(context);
       if (wallet.state.userId != null) {
         wallet.refreshBalance();
+        _loadProfileData();
       }
     });
+  }
+
+  Future<void> _loadProfileData() async {
+    final wallet = WalletServiceScope.of(context);
+    final userId = wallet.state.userId;
+    if (userId == null) return;
+
+    if (mounted) setState(() => _loadingProfile = true);
+    try {
+      final data = await wallet.getUserProfile(userId);
+      if (mounted) {
+        setState(() {
+          _displayName = data['profile']?['display_name'];
+          _bio = data['profile']?['bio'];
+          _avatarUrl = data['profile']?['avatar_url'];
+          _loadingProfile = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingProfile = false);
+      }
+    }
+  }
+
+  void _showEditProfileDialog() {
+    final wallet = WalletServiceScope.of(context);
+    final ws = wallet.state;
+    if (ws.userId == null) return;
+
+    final defaultName = ws.isExternalWallet 
+        ? (ws.walletAddress != null && ws.walletAddress!.length > 10
+            ? '${ws.walletAddress!.substring(0, 6)}...${ws.walletAddress!.substring(ws.walletAddress!.length - 4)}'
+            : ws.walletAddress ?? 'Puls Trader')
+        : (Supabase.instance.client.auth.currentUser?.userMetadata?['full_name']
+            ?? Supabase.instance.client.auth.currentUser?.userMetadata?['name']
+            ?? 'Puls Trader') as String;
+
+    final nameController = TextEditingController(text: _displayName ?? defaultName);
+    final bioController = TextEditingController(text: _bio ?? '');
+    final avatarController = TextEditingController(text: _avatarUrl ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final t = context.puls;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: GlassCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Edit Profile',
+                      style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('DISPLAY NAME', style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      style: TextStyle(color: t.text, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Enter name...',
+                        hintStyle: TextStyle(color: t.textMuted),
+                        filled: true,
+                        fillColor: t.surface,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.brand)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('BIO', style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: bioController,
+                      style: TextStyle(color: t.text, fontSize: 14),
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Tell us about yourself...',
+                        hintStyle: TextStyle(color: t.textMuted),
+                        filled: true,
+                        fillColor: t.surface,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.brand)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('AVATAR URL', style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: avatarController,
+                            style: TextStyle(color: t.text, fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: 'Paste image URL...',
+                              hintStyle: TextStyle(color: t.textMuted),
+                              filled: true,
+                              fillColor: t.surface,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.border)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: t.brand)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: () {
+                            final rand = 'trader_' + DateTime.now().millisecondsSinceEpoch.toString();
+                            final seedType = ws.isExternalWallet ? 'identicon' : 'bottts';
+                            avatarController.text = 'https://api.dicebear.com/7.x/$seedType/svg?seed=$rand';
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: t.brand,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.casino_rounded, color: Colors.white, size: 18),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Cancel', style: TextStyle(color: t.textSubtle, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final newName = nameController.text.trim();
+                            final newBio = bioController.text.trim();
+                            final newAvatar = avatarController.text.trim();
+
+                            if (newName.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Name cannot be empty')),
+                              );
+                              return;
+                            }
+
+                            Navigator.of(context).pop();
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Updating profile...'), duration: Duration(seconds: 1)),
+                            );
+
+                            try {
+                              await wallet.updateProfile(
+                                displayName: newName,
+                                bio: newBio,
+                                avatarUrl: newAvatar,
+                              );
+
+                              if (!ws.isExternalWallet) {
+                                await Supabase.instance.client.auth.updateUser(
+                                  UserAttributes(
+                                    data: {
+                                      'full_name': newName,
+                                      'avatar_url': newAvatar,
+                                    },
+                                  ),
+                                );
+                              }
+
+                              await _loadProfileData();
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Profile updated successfully!')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to update profile: $e')),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: t.brand,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -60,7 +277,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ProfileCard(t: t, supaUser: supaUser),
+                    _ProfileCard(
+                      t: t,
+                      supaUser: supaUser,
+                      ws: ws,
+                      displayName: _displayName,
+                      avatarUrl: _avatarUrl,
+                      onEditTap: _showEditProfileDialog,
+                    ),
                     const SizedBox(height: 20),
                     _WalletCard(ws: ws, wallet: wallet, t: t),
                   ],
@@ -188,7 +412,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FadeInUp(
             delay: const Duration(milliseconds: 60),
             duration: const Duration(milliseconds: 350),
-            child: _ProfileCard(t: t, supaUser: supaUser),
+            child: _ProfileCard(
+              t: t,
+              supaUser: supaUser,
+              ws: ws,
+              displayName: _displayName,
+              avatarUrl: _avatarUrl,
+              onEditTap: _showEditProfileDialog,
+            ),
           ),
           const SizedBox(height: 16),
           FadeInUp(
@@ -403,17 +634,38 @@ class _GlassCardState extends State<GlassCard> {
 
 // ── Profile details ──────────────────────────────────────────────────────────
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.t, this.supaUser});
+  const _ProfileCard({
+    required this.t,
+    this.supaUser,
+    required this.ws,
+    this.displayName,
+    this.avatarUrl,
+    this.onEditTap,
+  });
   final PulsThemeColors t;
   final dynamic supaUser;
+  final WalletState ws;
+  final String? displayName;
+  final String? avatarUrl;
+  final VoidCallback? onEditTap;
 
   @override
   Widget build(BuildContext context) {
-    final name = (supaUser?.userMetadata?['full_name']
+    final hasWallet = ws.userId != null;
+    final defaultName = ws.isExternalWallet 
+        ? (ws.walletAddress != null && ws.walletAddress!.length > 10
+            ? '${ws.walletAddress!.substring(0, 6)}...${ws.walletAddress!.substring(ws.walletAddress!.length - 4)}'
+            : ws.walletAddress ?? 'Puls Trader')
+        : (supaUser?.userMetadata?['full_name']
             ?? supaUser?.userMetadata?['name']
             ?? 'Puls Trader') as String;
-    final email = (supaUser?.email ?? 'trader@puls.arc') as String;
-    final avatarUrl = supaUser?.userMetadata?['avatar_url'] as String?;
+            
+    final name = displayName ?? defaultName;
+    final email = ws.isExternalWallet
+        ? 'Connected via Web3'
+        : (supaUser?.email ?? 'trader@puls.arc') as String;
+        
+    final avatar = avatarUrl ?? supaUser?.userMetadata?['avatar_url'] as String?;
 
     return GlassCard(
       padding: const EdgeInsets.all(24),
@@ -432,8 +684,8 @@ class _ProfileCard extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: avatarUrl != null
-                  ? Image.network(avatarUrl, width: 60, height: 60, fit: BoxFit.cover,
+              child: avatar != null && avatar.isNotEmpty
+                  ? Image.network(avatar, width: 60, height: 60, fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _fallback(name))
                   : _fallback(name),
             ),
@@ -450,34 +702,52 @@ class _ProfileCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          supaUser != null
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                      color: t.yesBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: t.yes.withValues(alpha: 0.2)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              hasWallet
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: t.yesBg,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: t.yes.withValues(alpha: 0.2)),
+                      ),
+                      child: Text(ws.isExternalWallet ? 'Web3 Wallet' : 'Connected',
+                          style: TextStyle(
+                              color: t.yes,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800)),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: PulsColors.indigoLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: PulsColors.indigo.withValues(alpha: 0.2)),
+                      ),
+                      child: const Text('DEMO MODE',
+                          style: TextStyle(
+                              color: PulsColors.indigo,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5)),
+                    ),
+              if (hasWallet && onEditTap != null) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: onEditTap,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text('Connected',
-                      style: TextStyle(
-                          color: t.yes,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800)),
-                )
-              : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                      color: PulsColors.indigoLight,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: PulsColors.indigo.withValues(alpha: 0.2)),
-                  ),
-                  child: const Text('DEMO MODE',
-                      style: TextStyle(
-                          color: PulsColors.indigo,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5)),
+                  icon: Icon(Icons.edit_rounded, size: 12, color: t.brand),
+                  label: Text('Edit', style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
+              ],
+            ],
+          ),
         ],
       ),
     );

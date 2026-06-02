@@ -28,6 +28,8 @@ class PortfolioScreen extends StatefulWidget {
 
 class _PortfolioScreenState extends State<PortfolioScreen> {
   List<Map<String, dynamic>> _positions = [];
+  List<Map<String, dynamic>> _limitOrders = [];
+  bool _showOrdersTab = false;
   String _totalSpent = '0.00';
   bool _loading = true;
   String? _error;
@@ -124,9 +126,15 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   }
 
   Future<void> _load() async {
-    final ws = WalletServiceScope.of(context).state;
+    final wallet = WalletServiceScope.of(context);
+    final ws = wallet.state;
     if (ws.userId == null) {
-      setState(() { _positions = []; _totalSpent = '0.00'; _loading = false; });
+      setState(() {
+        _positions = [];
+        _limitOrders = [];
+        _totalSpent = '0.00';
+        _loading = false;
+      });
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -137,8 +145,18 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode != 200) throw Exception(data['error']);
       final positions = (data['positions'] as List).cast<Map<String, dynamic>>();
+
+      List<Map<String, dynamic>> limitOrders = [];
+      try {
+        final ordersData = await wallet.getLimitOrders();
+        limitOrders = ordersData.cast<Map<String, dynamic>>();
+      } catch (e) {
+        debugPrint('Failed to load limit orders: $e');
+      }
+
       setState(() {
         _positions = positions;
+        _limitOrders = limitOrders;
         _totalSpent = data['totalSpent'] as String? ?? '0.00';
         _loading = false;
       });
@@ -146,6 +164,83 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
     }
+  }
+
+  Future<void> _cancelLimitOrder(String orderId) async {
+    final wallet = WalletServiceScope.of(context);
+    setState(() { _loading = true; });
+    try {
+      await wallet.cancelLimitOrder(orderId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Limit order cancelled successfully.')),
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed to cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
+        );
+      }
+      setState(() { _loading = false; });
+    }
+  }
+
+  Widget _tabToggle(PulsThemeColors t) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: t.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _showOrdersTab = false),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: !_showOrdersTab ? t.brand : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Positions (${_positions.length})',
+                  style: TextStyle(
+                    color: !_showOrdersTab ? Colors.white : t.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _showOrdersTab = true),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _showOrdersTab ? t.brand : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Limit Orders (${_limitOrders.length})',
+                  style: TextStyle(
+                    color: _showOrdersTab ? Colors.white : t.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   double? _calcPnl(Map<String, dynamic> position, dynamic appState) {
@@ -268,44 +363,57 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   children: [
                     Row(
                       children: [
-                        Text('Positions', style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
-                        const Spacer(),
-                        if (_positions.length > 1) ...[ _sortToggle(t), const SizedBox(width: 8) ],
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: t.surfaceRaised,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: t.border),
-                          ),
-                          child: Text('${_positions.length} active', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-                        ),
+                        Expanded(child: _tabToggle(t)),
+                        const SizedBox(width: 16),
+                        if (!_showOrdersTab && _positions.length > 1) _sortToggle(t),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: _positions.isEmpty
-                          ? _Empty(
-                              icon: Icons.bar_chart_rounded,
-                              message: 'No positions yet',
-                              sub: 'Buy YES or NO on any prediction to get started.',
-                              t: t,
-                            )
-                          : ListView.separated(
-                              itemCount: _positions.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 12),
-                              itemBuilder: (context, i) => FadeInUp(
-                                delay: Duration(milliseconds: i * 40),
-                                duration: const Duration(milliseconds: 250),
-                                child: _PositionCard(
-                                  position: _positions[i],
+                      child: _showOrdersTab
+                          ? _limitOrders.isEmpty
+                              ? _Empty(
+                                  icon: Icons.history_rounded,
+                                  message: 'No pending orders',
+                                  sub: 'Place a limit order on any prediction to see it here.',
                                   t: t,
-                                  appState: appState,
-                                  walletService: WalletServiceScope.of(context),
-                                  onRefresh: _load,
+                                )
+                              : ListView.separated(
+                                  itemCount: _limitOrders.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                  itemBuilder: (context, i) => FadeInUp(
+                                    delay: Duration(milliseconds: i * 40),
+                                    duration: const Duration(milliseconds: 250),
+                                    child: _LimitOrderCard(
+                                      order: _limitOrders[i],
+                                      t: t,
+                                      appState: appState,
+                                      onCancel: () => _cancelLimitOrder(_limitOrders[i]['id'] as String),
+                                    ),
+                                  ),
+                                )
+                          : _positions.isEmpty
+                              ? _Empty(
+                                  icon: Icons.bar_chart_rounded,
+                                  message: 'No positions yet',
+                                  sub: 'Buy YES or NO on any prediction to get started.',
+                                  t: t,
+                                )
+                              : ListView.separated(
+                                  itemCount: _positions.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                  itemBuilder: (context, i) => FadeInUp(
+                                    delay: Duration(milliseconds: i * 40),
+                                    duration: const Duration(milliseconds: 250),
+                                    child: _PositionCard(
+                                      position: _positions[i],
+                                      t: t,
+                                      appState: appState,
+                                      walletService: WalletServiceScope.of(context),
+                                      onRefresh: _load,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                     ),
                   ],
                 ),
@@ -343,10 +451,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     const SizedBox(height: 24),
                     Row(
                       children: [
-                        Text('Positions', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                        const Spacer(),
-                        if (_positions.length > 1) ...[ _sortToggle(t), const SizedBox(width: 8) ],
-                        Text('${_positions.length} trades', style: Theme.of(context).textTheme.bodyMedium),
+                        Expanded(child: _tabToggle(t)),
+                        if (!_showOrdersTab && _positions.length > 1) ...[
+                          const SizedBox(width: 8),
+                          _sortToggle(t),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -354,40 +463,74 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                 ),
               ),
             ),
-            if (_positions.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _Empty(
-                    icon: Icons.bar_chart_rounded,
-                    message: 'No positions yet',
-                    sub: 'Buy YES or NO on any prediction to get started.',
-                    t: t,
-                    imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
+            if (_showOrdersTab)
+              if (_limitOrders.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _Empty(
+                      icon: Icons.history_rounded,
+                      message: 'No pending orders',
+                      sub: 'Place a limit order on any prediction to see it here.',
+                      t: t,
+                    ),
                   ),
-                ),
-              )
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  sliver: SliverList.builder(
+                    itemCount: _limitOrders.length,
+                    itemBuilder: (context, i) => FadeInUp(
+                      delay: Duration(milliseconds: i * 40),
+                      duration: const Duration(milliseconds: 250),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _LimitOrderCard(
+                          order: _limitOrders[i],
+                          t: t,
+                          appState: appState,
+                          onCancel: () => _cancelLimitOrder(_limitOrders[i]['id'] as String),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
             else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                sliver: SliverList.builder(
-                  itemCount: _positions.length,
-                  itemBuilder: (context, i) => FadeInUp(
-                    delay: Duration(milliseconds: i * 40),
-                    duration: const Duration(milliseconds: 250),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PositionCard(
-                        position: _positions[i],
-                        t: t,
-                        appState: appState,
-                        walletService: WalletServiceScope.of(context),
-                        onRefresh: _load,
+              if (_positions.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _Empty(
+                      icon: Icons.bar_chart_rounded,
+                      message: 'No positions yet',
+                      sub: 'Buy YES or NO on any prediction to get started.',
+                      t: t,
+                      imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  sliver: SliverList.builder(
+                    itemCount: _positions.length,
+                    itemBuilder: (context, i) => FadeInUp(
+                      delay: Duration(milliseconds: i * 40),
+                      duration: const Duration(milliseconds: 250),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PositionCard(
+                          position: _positions[i],
+                          t: t,
+                          appState: appState,
+                          walletService: WalletServiceScope.of(context),
+                          onRefresh: _load,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
           ],
         );
       }
@@ -1001,5 +1144,147 @@ class _Empty extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _LimitOrderCard extends StatelessWidget {
+  const _LimitOrderCard({
+    required this.order,
+    required this.t,
+    required this.appState,
+    required this.onCancel,
+  });
+  final Map<String, dynamic> order;
+  final PulsThemeColors t;
+  final dynamic appState;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final side = order['side'] as String? ?? 'YES';
+    final type = order['type'] as String? ?? 'BUY';
+    final isYes = side == 'YES';
+    final isBuy = type == 'BUY';
+    
+    final sideBg = isYes ? t.yesBg : t.noBg;
+    final sideFg = isYes ? t.yes : t.no;
+    
+    final status = order['status'] as String? ?? 'PENDING';
+    final targetPrice = double.tryParse(order['target_price']?.toString() ?? '0') ?? 0.0;
+    final usdcAmount = double.tryParse(order['usdc_amount']?.toString() ?? '0') ?? 0.0;
+    final shares = double.tryParse(order['shares']?.toString() ?? '0') ?? 0.0;
+    final txHash = order['tx_hash'] as String?;
+    final createdAt = order['created_at'] as String?;
+
+    // Match market to get question
+    Market? market;
+    try {
+      market = (appState.markets as List).firstWhere(
+        (m) => m.slug == order['slug'] || m.id == order['marketId'] || m.contractAddress == order['marketId']
+      ) as Market;
+    } catch (_) {}
+
+    final question = market?.question ?? order['slug'] ?? 'Prediction Market';
+
+    Color statusColor;
+    switch (status) {
+      case 'PENDING':
+        statusColor = PulsColors.amber;
+        break;
+      case 'EXECUTED':
+        statusColor = t.yes;
+        break;
+      case 'CANCELLED':
+        statusColor = t.textSubtle;
+        break;
+      default:
+        statusColor = t.no;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: sideBg, borderRadius: BorderRadius.circular(6)),
+                child: Text('$type $side', style: TextStyle(color: sideFg, fontWeight: FontWeight.w800, fontSize: 11)),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize: 11)),
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (isBuy)
+                    Text('\$${usdcAmount.toStringAsFixed(2)} USDC', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14))
+                  else
+                    Text('${shares.toStringAsFixed(0)} shares', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14)),
+                  Text('Limit: ${(targetPrice * 100).toStringAsFixed(0)}¢', style: TextStyle(color: t.textSubtle, fontWeight: FontWeight.w600, fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(question, style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (createdAt != null)
+                Text(_formatTime(createdAt), style: TextStyle(color: t.textSubtle, fontSize: 11)),
+              const Spacer(),
+              if (status == 'PENDING')
+                SizedBox(
+                  height: 28,
+                  child: TextButton.icon(
+                    onPressed: onCancel,
+                    icon: Icon(Icons.cancel_outlined, size: 12, color: t.no),
+                    label: Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.no)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                )
+              else if (txHash != null)
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/$txHash'), mode: LaunchMode.externalApplication),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}',
+                          style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 3),
+                      Icon(Icons.open_in_new_rounded, size: 11, color: t.brand),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
   }
 }
