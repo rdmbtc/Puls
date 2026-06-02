@@ -1,4 +1,4 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart' hide CandlestickChart;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +10,8 @@ import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
 import '../shell/web_layout.dart';
 import 'trade_preview_sheet.dart';
+import 'ai_copilot_sheet.dart';
+import 'advanced_charts.dart';
 
 class MarketDetailScreen extends StatefulWidget {
   const MarketDetailScreen({required this.marketId, super.key});
@@ -78,6 +80,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
 
         // ── Price chart ──────────────────────────────────────────────────
         _ChartSection(
+          market: market,
           history: _history,
           loading: _historyLoading,
           trendColor: trendColor,
@@ -117,6 +120,10 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
         ),
         title: const Text('Market'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.auto_awesome_rounded, size: 20, color: t.brand),
+            onPressed: () => AiCopilotSheet.show(context, market),
+          ),
           IconButton(
             icon: Icon(Icons.bookmark_rounded, size: 20,
               color: appState.isWatchlisted(market.id) ? PulsColors.amber : t.textSubtle),
@@ -261,8 +268,9 @@ class _ProbabilityPanel extends StatelessWidget {
 }
 
 // ── Chart section ─────────────────────────────────────────────────────────────
-class _ChartSection extends StatelessWidget {
+class _ChartSection extends StatefulWidget {
   const _ChartSection({
+    required this.market,
     required this.history,
     required this.loading,
     required this.trendColor,
@@ -270,6 +278,7 @@ class _ChartSection extends StatelessWidget {
     required this.trend,
     required this.t,
   });
+  final Market market;
   final List<double> history;
   final bool loading;
   final Color trendColor;
@@ -278,7 +287,42 @@ class _ChartSection extends StatelessWidget {
   final PulsThemeColors t;
 
   @override
+  State<_ChartSection> createState() => _ChartSectionState();
+}
+
+class _ChartSectionState extends State<_ChartSection> {
+  String _activeTab = 'line'; // 'line', 'candle', 'depth'
+
+  @override
   Widget build(BuildContext context) {
+    final t = widget.t;
+    
+    Widget chartWidget;
+    if (widget.loading) {
+      chartWidget = Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2));
+    } else if (widget.history.isEmpty) {
+      chartWidget = Center(child: Text('No chart data available', style: TextStyle(color: t.textSubtle, fontSize: 13)));
+    } else {
+      switch (_activeTab) {
+        case 'candle':
+          chartWidget = CandlestickChart(
+            prices: widget.history,
+            upColor: t.yes,
+            downColor: t.no,
+          );
+          break;
+        case 'depth':
+          chartWidget = DepthChart(
+            currentPrice: widget.market.yesPrice,
+            t: t,
+          );
+          break;
+        case 'line':
+        default:
+          chartWidget = _FullChart(prices: widget.history, color: widget.trendColor);
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -291,44 +335,82 @@ class _ChartSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Price History', style: Theme.of(context).textTheme.titleMedium),
+              Text('Price Analytics', style: Theme.of(context).textTheme.titleMedium),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: trendPositive ? t.yesBg : t.noBg,
+                  color: widget.trendPositive ? t.yesBg : t.noBg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${trendPositive ? '+' : ''}${TradeMath.formatPercent(trend)} 24h',
-                  style: TextStyle(color: trendColor, fontWeight: FontWeight.w700, fontSize: 12),
+                  '${widget.trendPositive ? '+' : ''}${TradeMath.formatPercent(widget.trend)} 24h',
+                  style: TextStyle(color: widget.trendColor, fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: kIsWeb ? 240 : 140,
-            child: loading
-                ? Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2))
-                : history.length >= 2
-                    ? _FullChart(prices: history, color: trendColor)
-                    : Center(child: Text('No chart data available',
-                        style: TextStyle(color: t.textSubtle, fontSize: 13))),
+          const SizedBox(height: 12),
+          
+          // Chart Type Selector Toggles
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: t.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _tabBtn('line', 'Line', t),
+                _tabBtn('candle', 'Candlestick', t),
+                _tabBtn('depth', 'Depth', t),
+              ],
+            ),
           ),
-          if (history.length >= 2) ...[
+          const SizedBox(height: 16),
+          
+          SizedBox(
+            height: kIsWeb ? 260 : 160,
+            child: chartWidget,
+          ),
+          
+          if (_activeTab == 'line' && widget.history.length >= 2) ...[
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${(history.first * 100).toStringAsFixed(0)}¢ open',
+                Text('${(widget.history.first * 100).toStringAsFixed(0)}¢ open',
                     style: TextStyle(color: t.textSubtle, fontSize: 11)),
-                Text('${(history.last * 100).toStringAsFixed(0)}¢ now',
-                    style: TextStyle(color: trendColor, fontSize: 11, fontWeight: FontWeight.w700)),
+                Text('${(widget.history.last * 100).toStringAsFixed(0)}¢ now',
+                    style: TextStyle(color: widget.trendColor, fontSize: 11, fontWeight: FontWeight.w700)),
               ],
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _tabBtn(String key, String label, PulsThemeColors t) {
+    final active = _activeTab == key;
+    return GestureDetector(
+      onTap: () => setState(() => _activeTab = key),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? t.brand : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : t.textSubtle,
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

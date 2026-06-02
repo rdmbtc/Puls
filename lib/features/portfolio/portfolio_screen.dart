@@ -15,6 +15,7 @@ import '../../core/theme/app_theme.dart';
 import '../shell/web_layout.dart';
 import '../../data/models/market.dart';
 import '../market/trade_preview_sheet.dart';
+import 'share_bet_card_dialog.dart';
 
 import '../../core/config.dart' show backendUrl;
 const _backendUrl = backendUrl;
@@ -946,7 +947,19 @@ class _PositionCardState extends State<_PositionCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('\$${amount.toStringAsFixed(2)} USDC', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('\$${amount.toStringAsFixed(2)} USDC', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14)),
+                      if (state == 'COMPLETE') ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => ShareBetCardDialog.show(context, position, pnl),
+                          child: Icon(Icons.share_rounded, size: 14, color: t.brand),
+                        ),
+                      ],
+                    ],
+                  ),
                   if (pnl != null && pnl.abs() >= 0.01)
                     Text('${pnl >= 0 ? '+' : ''}\$${pnl.toStringAsFixed(2)}',
                         style: TextStyle(color: pnl >= 0 ? t.yes : t.no, fontWeight: FontWeight.w800, fontSize: 12)),
