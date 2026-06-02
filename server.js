@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { createPublicClient, createWalletClient, http, decodeEventLog, keccak256, toHex, parseAbiItem } from 'viem';
@@ -12,9 +13,77 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[UNHANDLED REJECTION]', reason?.message || reason);
 });
 
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 150, // Limit each IP to 150 requests per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // Limit each IP to 30 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Rate limit exceeded. Please slow down.' }
+});
+
+const activateMarketLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Limit each IP to 10 market activations per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Market activation rate limit exceeded. Max 10 activations per hour.' }
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(generalLimiter); // Apply general rate limit globally
+
+// Supabase JWT Authenticate Middleware
+const authenticateUser = async (req, res, next) => {
+  try {
+    let requestedUserId = req.body?.userId || req.query?.userId;
+    
+    // Check if the request is for an agent-owned wallet (e.g. agent_supabase_UUID)
+    if (requestedUserId && requestedUserId.startsWith('agent_')) {
+      requestedUserId = requestedUserId.replace('agent_', '');
+    }
+
+    // Bypass JWT authentication for Web3/MetaMask users (public read/on-chain actions)
+    if (requestedUserId && (requestedUserId.startsWith('0x') || requestedUserId.startsWith('eth_0x'))) {
+      return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing token' });
+    }
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+    req.user = user;
+    
+    // Ensure authenticated user matches requested userId
+    if (requestedUserId) {
+      const expectedUserId = `supabase_${user.id}`;
+      if (requestedUserId !== expectedUserId) {
+        console.warn(`[Auth Warning] UserId mismatch. Authenticated: ${expectedUserId}, Requested: ${requestedUserId}`);
+        return res.status(403).json({ error: 'Forbidden: User identity mismatch' });
+      }
+    }
+    
+    next();
+  } catch (err) {
+    console.error('[Auth Error]', err.message);
+    res.status(401).json({ error: 'Unauthorized: Token verification failed' });
+  }
+};
+
 
 const circle = initiateDeveloperControlledWalletsClient({
   apiKey: process.env.CIRCLE_API_KEY ? process.env.CIRCLE_API_KEY.trim() : undefined,
@@ -382,6 +451,8 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
       .order('created_at', { ascending: false })
       .limit(1);
 
+    const amount = Math.abs(amountUsdc);
+
     if (error) {
       console.error('Error fetching existing trade for sync:', error.message);
     }
@@ -397,6 +468,12 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
         })
         .eq('id', trade.id);
       console.log(`[QuickNode Webhook] Synced initiated trade ID ${trade.id} to COMPLETE`);
+      createNotification(
+        userId,
+        'Trade Confirmed ⚡',
+        `Successfully ${amountUsdc > 0 ? 'bought' : 'sold'} $${amount.toFixed(2)} of ${side} shares for "${question}"`,
+        'trade'
+      ).catch(console.error);
     } else {
       const { data: dup } = await supabase
         .from('trades')
@@ -423,6 +500,12 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
           tx_hash: txHash,
         });
       console.log(`[QuickNode Webhook] Inserted new completed trade for tx ${txHash}`);
+      createNotification(
+        userId,
+        'Trade Confirmed ⚡',
+        `Successfully ${amountUsdc > 0 ? 'bought' : 'sold'} $${amount.toFixed(2)} of ${side} shares for "${question || 'Prediction Market'}"`,
+        'trade'
+      ).catch(console.error);
     }
   } catch (err) {
     console.error('Error syncing completed trade:', err.message);
@@ -494,7 +577,7 @@ async function getWalletInfo(walletId) {
 }
 
 // POST /api/wallet/get-or-create
-app.post('/api/wallet/get-or-create', async (req, res) => {
+app.post('/api/wallet/get-or-create', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -530,7 +613,7 @@ app.post('/api/wallet/get-or-create', async (req, res) => {
 });
 
 // GET /api/wallet/balance
-app.get('/api/wallet/balance', async (req, res) => {
+app.get('/api/wallet/balance', authenticateUser, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -574,7 +657,7 @@ app.get('/api/wallet/balance', async (req, res) => {
 });
 
 // GET /api/wallet/export
-app.get('/api/wallet/export', async (req, res) => {
+app.get('/api/wallet/export', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     const walletId = await getWalletId(userId);
@@ -599,16 +682,89 @@ app.get('/api/markets', async (req, res) => {
     const limit = req.query.limit || 50;
     const offset = req.query.offset || 0;
     
+    // Fetch custom user-created markets from database
+    const { data: dbCustomMarkets, error: customErr } = await supabase
+      .from('deployed_markets')
+      .select('*')
+      .eq('is_user_created', true);
+
+    const customList = [];
+    if (!customErr && dbCustomMarkets) {
+      for (const row of dbCustomMarkets) {
+        const slug = row.slug;
+        const contractAddress = row.contract_address;
+        
+        let yesPrice = 0.5, noPrice = 0.5, poolYes = 0, poolNo = 0, totalVolume = 0;
+        
+        try {
+          const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain, yesOutstanding, noOutstanding] = await publicClient.readContract({
+            address: contractAddress,
+            abi: [
+              {
+                name: 'getMarketInfo',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [],
+                outputs: [
+                  { name: '_slug', type: 'string' },
+                  { name: '_deadline', type: 'uint256' },
+                  { name: '_resolved', type: 'bool' },
+                  { name: '_outcome', type: 'bool' },
+                  { name: '_yesOutstanding', type: 'uint256' },
+                  { name: '_noOutstanding', type: 'uint256' }
+                ]
+              }
+            ],
+            functionName: 'getMarketInfo'
+          });
+
+          poolYes = Number(yesOutstanding) / 1_000_000;
+          poolNo = Number(noOutstanding) / 1_000_000;
+          
+          const bVal = 10;
+          const maxQ = Math.max(poolYes, poolNo);
+          const expYes = Math.exp((poolYes - maxQ) / bVal);
+          const expNo = Math.exp((poolNo - maxQ) / bVal);
+          yesPrice = expYes / (expYes + expNo);
+          noPrice = expNo / (expYes + expNo);
+          totalVolume = poolYes + poolNo;
+        } catch (err) {
+          console.error(`Error reading custom market ${contractAddress} on-chain:`, err.message);
+        }
+
+        customList.push({
+          id: slug,
+          slug,
+          contractAddress,
+          question: row.title || slug,
+          description: row.description || '',
+          category: row.category || 'General',
+          yesPrice: parseFloat(yesPrice.toFixed(4)),
+          noPrice: parseFloat(noPrice.toFixed(4)),
+          poolYes,
+          poolNo,
+          resolved: row.resolved,
+          outcome: row.outcome,
+          totalVolume,
+          image: row.image_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`,
+          endDateIso: new Date(Number(row.deadline) * 1000).toISOString(),
+          outcomePrices: JSON.stringify([yesPrice.toString(), noPrice.toString()]),
+          featured: false
+        });
+      }
+    }
+
     const pmUrl = `https://gamma-api.polymarket.com/markets?limit=${limit}&active=true&closed=false&order=volume&ascending=false&offset=${offset}`;
     const pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' } });
     
-    if (!pmRes.ok) {
-      return res.status(500).json({ error: 'Failed to fetch from Polymarket' });
+    let list = [];
+    if (pmRes.ok) {
+      list = await pmRes.json();
+    } else {
+      console.warn('Failed to fetch from Polymarket, returning custom markets only.');
     }
     
-    const list = await pmRes.json();
-    
-    const mergedList = await Promise.all(list.map(async (j) => {
+    const pmMergedList = await Promise.all(list.map(async (j) => {
       const slug = j.slug;
       const cached = deployedMarketsCache.get(slug);
       
@@ -682,6 +838,8 @@ app.get('/api/markets', async (req, res) => {
       };
     }));
 
+    const mergedList = [...customList, ...pmMergedList];
+
     // Sort: deployed (pre-warmed) markets first for instant trades
     mergedList.sort((a, b) => {
       const aDep = a.contractAddress ? 1 : 0;
@@ -697,12 +855,33 @@ app.get('/api/markets', async (req, res) => {
 });
 
 // POST /api/market/activate
-app.post('/api/market/activate', async (req, res) => {
+app.post('/api/market/activate', activateMarketLimiter, async (req, res) => {
   try {
     const { slug, deadline } = req.body;
     if (!slug || !deadline) {
       return res.status(400).json({ error: 'slug and deadline required' });
     }
+
+    // Verify the slug exists and is active on Polymarket
+    try {
+      const pmUrl = `https://gamma-api.polymarket.com/markets?slug=${slug}`;
+      const pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' } });
+      if (!pmRes.ok) {
+        console.warn(`[Activate Warning] Polymarket status ${pmRes.status} check failed, skipping verify.`);
+      } else {
+        const data = await pmRes.json();
+        if (!data || data.length === 0) {
+          return res.status(400).json({ error: 'Invalid market slug: Not found on Polymarket' });
+        }
+        const pmMarket = data[0];
+        if (pmMarket.closed || pmMarket.resolved) {
+          return res.status(400).json({ error: 'Invalid market slug: Market is closed or resolved' });
+        }
+      }
+    } catch (err) {
+      console.warn(`[Activate Warning] Polymarket verification failed: ${err.message}. Proceeding anyway.`);
+    }
+
     const contractAddress = await getOrDeployMarket(slug, deadline);
     res.json({ contractAddress });
   } catch (e) {
@@ -773,7 +952,7 @@ app.get('/api/market/info', async (req, res) => {
 
 // ── Trade ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/trade/buy', async (req, res) => {
+app.post('/api/trade/buy', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, side, usdcAmount, question, slug, deadline } = req.body;
     if (!userId || !side || !usdcAmount || !slug || !deadline) return res.status(400).json({ error: 'Missing fields' });
@@ -837,7 +1016,7 @@ app.post('/api/trade/buy', async (req, res) => {
   }
 });
 
-app.post('/api/trade/sell', async (req, res) => {
+app.post('/api/trade/sell', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, side, shares, question, slug, contractAddress: reqContract } = req.body;
     if (!userId || !side || !shares) return res.status(400).json({ error: 'Missing fields' });
@@ -884,7 +1063,7 @@ app.post('/api/trade/sell', async (req, res) => {
   }
 });
 
-app.post('/api/trade/claim', async (req, res) => {
+app.post('/api/trade/claim', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, slug, contractAddress: reqContract } = req.body;
     if (!userId) return res.status(400).json({ error: 'Missing fields' });
@@ -943,12 +1122,40 @@ app.get('/api/trade/status', async (req, res) => {
   }
 });
 
-app.post('/api/trade/save-external', async (req, res) => {
+app.post('/api/trade/save-external', strictLimiter, async (req, res) => {
   try {
     const { userId, side, usdcAmount, entryPrice, question, txHash, marketId } = req.body;
     if (!userId || !side || !usdcAmount || !entryPrice || !question || !txHash) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
+
+    // Verify transaction on-chain
+    try {
+      const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+      if (!receipt) {
+        return res.status(400).json({ error: 'Transaction receipt not found on-chain' });
+      }
+      if (receipt.status !== 'success') {
+        return res.status(400).json({ error: 'Transaction failed on-chain' });
+      }
+
+      // Verify transaction sender matches the requested user address
+      const expectedAddress = userId.replace('eth_', '').toLowerCase();
+      if (receipt.from.toLowerCase() !== expectedAddress) {
+        console.warn(`[Save-External Warning] Sender mismatch. Expected: ${expectedAddress}, Got: ${receipt.from}`);
+        return res.status(403).json({ error: 'Forbidden: Transaction sender mismatch' });
+      }
+
+      // Verify transaction destination/target matches marketId contract address
+      if (marketId && receipt.to.toLowerCase() !== marketId.toLowerCase()) {
+        console.warn(`[Save-External Warning] Market mismatch. Expected: ${marketId}, Got: ${receipt.to}`);
+        return res.status(403).json({ error: 'Forbidden: Market address mismatch' });
+      }
+    } catch (err) {
+      console.error('[Save-External Verification Error]', err.message);
+      return res.status(400).json({ error: `On-chain verification failed: ${err.message}` });
+    }
+
     await saveTrade(userId, {
       tx_id: `ext_${Date.now()}`,
       side,
@@ -987,7 +1194,7 @@ app.get('/api/trade/recent', async (req, res) => {
 });
 
 // ── GET /api/portfolio ────────────────────────────────────────────────────────
-app.get('/api/portfolio', async (req, res) => {
+app.get('/api/portfolio', authenticateUser, async (req, res) => {
   try {
     const { userId } = req.query;
     let userAddress = null;
@@ -1256,6 +1463,27 @@ async function handleQuickNodeLog(log) {
           cached.outcome = outcome;
         }
         console.log(`[QuickNode Webhook] Successfully updated resolved state in DB & cache for ${slug}`);
+        
+        // Notify traders who participated in this market
+        (async () => {
+          try {
+            const { data: participants } = await supabase
+              .from('trades')
+              .select('user_id')
+              .eq('market_id', contractAddress);
+            const uniqueUserIds = [...new Set(participants?.map(p => p.user_id) || [])];
+            for (const uId of uniqueUserIds) {
+              createNotification(
+                uId,
+                'Market Resolved 🔮',
+                `Market "${question}" has resolved to ${outcome ? 'YES' : 'NO'}. Claim your winnings now!`,
+                'resolution'
+              ).catch(console.error);
+            }
+          } catch (err) {
+            console.error('Failed to send resolution notifications:', err.message);
+          }
+        })().catch(console.error);
       }
     } else if (eventName === 'Claimed') {
       const userAddress = args.user.toLowerCase();
@@ -1332,7 +1560,7 @@ app.post('/api/webhook/quicknode', async (req, res) => {
 });
 
 // ── Market resolution (owner fallback / manual) ──────────────────────────────
-app.post('/api/market/resolve', async (req, res) => {
+app.post('/api/market/resolve', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, slug, outcome } = req.body; // outcome: true=YES wins, false=NO wins
     if (!userId || !slug || outcome === undefined) return res.status(400).json({ error: 'userId, slug and outcome required' });
@@ -1496,6 +1724,361 @@ async function warmupTopMarkets() {
   }
 }
 
+
+// ── Leaderboard & Profiles Service ───────────────────────────────────────────
+
+async function updateLeaderboard() {
+  console.log('Running leaderboard update...');
+  try {
+    const { data: trades, error } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('state', 'COMPLETE');
+      
+    if (error) {
+      console.error('Failed to fetch trades for leaderboard:', error.message);
+      return;
+    }
+    
+    const userTrades = new Map();
+    for (const t of (trades || [])) {
+      if (!t.user_id) continue;
+      if (!userTrades.has(t.user_id)) {
+        userTrades.set(t.user_id, []);
+      }
+      userTrades.get(t.user_id).push(t);
+    }
+    
+    for (const [userId, tradesList] of userTrades.entries()) {
+      try {
+        let totalVolume = 0;
+        let tradesCount = 0;
+        let totalPnL = 0;
+        let resolvedMarketsCount = 0;
+        let winningMarketsCount = 0;
+        
+        const marketTrades = new Map();
+        for (const t of tradesList) {
+          if (!t.market_id) continue;
+          if (!marketTrades.has(t.market_id)) {
+            marketTrades.set(t.market_id, []);
+          }
+          marketTrades.get(t.market_id).push(t);
+        }
+        
+        for (const [marketAddress, mTrades] of marketTrades.entries()) {
+          let totalPaid = 0;
+          let totalReceived = 0;
+          
+          for (const t of mTrades) {
+            const amt = parseFloat(t.usdc_amount);
+            if (t.side === 'CLAIM') {
+              // Claims are handled implicitly by resolved state calculation
+            } else if (amt > 0) {
+              totalPaid += amt;
+              totalVolume += amt;
+              tradesCount++;
+            } else if (amt < 0) {
+              totalReceived += Math.abs(amt);
+              totalVolume += Math.abs(amt);
+              tradesCount++;
+            }
+          }
+          
+          let resolved = false;
+          let outcome = null;
+          let yesPrice = 0.5;
+          let noPrice = 0.5;
+          
+          const slug = contractToSlugCache.get(marketAddress.toLowerCase());
+          const cached = slug ? deployedMarketsCache.get(slug) : null;
+          if (cached) {
+            resolved = cached.resolved;
+            outcome = cached.outcome;
+          }
+          
+          let yesShares = 0;
+          let noShares = 0;
+          let claimed = false;
+          
+          try {
+            const userAddress = userIdToAddressCache.get(userId);
+            if (userAddress) {
+              const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
+                address: marketAddress,
+                abi: [{
+                  name: 'getUserPosition',
+                  type: 'function',
+                  stateMutability: 'view',
+                  inputs: [{ name: 'user', type: 'address' }],
+                  outputs: [
+                    { name: '_yesShares', type: 'uint256' },
+                    { name: '_noShares', type: 'uint256' },
+                    { name: '_claimed', type: 'bool' }
+                  ]
+                }],
+                functionName: 'getUserPosition',
+                args: [userAddress]
+              });
+              yesShares = Number(yesSharesRaw) / 1_000_000;
+              noShares = Number(noSharesRaw) / 1_000_000;
+              claimed = claimedRaw;
+            }
+          } catch (err) {
+            const yesBuys = mTrades.filter(t => t.side === 'YES' && parseFloat(t.usdc_amount) > 0).reduce((s, t) => s + (parseFloat(t.usdc_amount) / parseFloat(t.entry_price || 0.5)), 0);
+            const yesSells = mTrades.filter(t => t.side === 'YES' && parseFloat(t.usdc_amount) < 0).reduce((s, t) => s + Math.abs(parseFloat(t.usdc_amount)), 0);
+            const noBuys = mTrades.filter(t => t.side === 'NO' && parseFloat(t.usdc_amount) > 0).reduce((s, t) => s + (parseFloat(t.usdc_amount) / parseFloat(t.entry_price || 0.5)), 0);
+            const noSells = mTrades.filter(t => t.side === 'NO' && parseFloat(t.usdc_amount) < 0).reduce((s, t) => s + Math.abs(parseFloat(t.usdc_amount)), 0);
+            yesShares = Math.max(0, yesBuys - yesSells);
+            noShares = Math.max(0, noBuys - noSells);
+          }
+          
+          let currentVal = 0;
+          if (resolved) {
+            const yesBuys = mTrades.filter(t => t.side === 'YES' && parseFloat(t.usdc_amount) > 0).reduce((s, t) => s + (parseFloat(t.usdc_amount) / parseFloat(t.entry_price || 0.5)), 0);
+            const yesSells = mTrades.filter(t => t.side === 'YES' && parseFloat(t.usdc_amount) < 0).reduce((s, t) => s + Math.abs(parseFloat(t.usdc_amount)), 0);
+            const noBuys = mTrades.filter(t => t.side === 'NO' && parseFloat(t.usdc_amount) > 0).reduce((s, t) => s + (parseFloat(t.usdc_amount) / parseFloat(t.entry_price || 0.5)), 0);
+            const noSells = mTrades.filter(t => t.side === 'NO' && parseFloat(t.usdc_amount) < 0).reduce((s, t) => s + Math.abs(parseFloat(t.usdc_amount)), 0);
+            const netYes = Math.max(0, yesBuys - yesSells);
+            const netNo = Math.max(0, noBuys - noSells);
+            
+            currentVal = outcome === true ? netYes : netNo;
+            resolvedMarketsCount++;
+            
+            const marketPnL = (totalReceived + currentVal) - totalPaid;
+            if (marketPnL > 0.05) {
+              winningMarketsCount++;
+            }
+          } else {
+            if (cached) {
+              try {
+                const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain, yesOutstanding, noOutstanding] = await publicClient.readContract({
+                  address: marketAddress,
+                  abi: [{
+                    name: 'getMarketInfo',
+                    type: 'function',
+                    stateMutability: 'view',
+                    inputs: [],
+                    outputs: [
+                      { name: '_slug', type: 'string' },
+                      { name: '_deadline', type: 'uint256' },
+                      { name: '_resolved', type: 'bool' },
+                      { name: '_outcome', type: 'bool' },
+                      { name: '_yesOutstanding', type: 'uint256' },
+                      { name: '_noOutstanding', type: 'uint256' }
+                    ]
+                  }],
+                  functionName: 'getMarketInfo'
+                });
+                
+                const poolYes = Number(yesOutstanding) / 1_000_000;
+                const poolNo = Number(noOutstanding) / 1_000_000;
+                const bVal = 10;
+                const maxQ = Math.max(poolYes, poolNo);
+                const expYes = Math.exp((poolYes - maxQ) / bVal);
+                const expNo = Math.exp((poolNo - maxQ) / bVal);
+                yesPrice = expYes / (expYes + expNo);
+                noPrice = expNo / (expYes + expNo);
+              } catch (e) {
+                // Keep default 0.5
+              }
+            }
+            currentVal = yesShares * yesPrice + noShares * noPrice;
+          }
+          
+          const marketPnL = (totalReceived + currentVal) - totalPaid;
+          totalPnL += marketPnL;
+        }
+        
+        const winRate = resolvedMarketsCount > 0 ? (winningMarketsCount / resolvedMarketsCount) * 100 : 0;
+        
+        // Ensure profile exists
+        let displayName = 'Puls Trader';
+        let avatarUrl = null;
+        
+        if (userId.startsWith('supabase_')) {
+          try {
+            const { data: existingProf } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', userId)
+              .single();
+            if (existingProf) {
+              displayName = existingProf.display_name;
+              avatarUrl = existingProf.avatar_url;
+            } else {
+              avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
+              await supabase.from('profiles').insert({
+                user_id: userId,
+                display_name: displayName,
+                avatar_url: avatarUrl,
+                bio: 'Trading prediction markets on Arc Testnet.'
+              });
+            }
+          } catch (e) {
+            console.error('Failed to create default supabase profile:', e.message);
+          }
+        } else if (userId.startsWith('eth_')) {
+          const addr = userId.replace('eth_', '');
+          displayName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+          avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+          
+          await supabase.from('profiles').upsert({
+            user_id: userId,
+            display_name: displayName,
+            avatar_url: avatarUrl,
+            bio: 'Trading via MetaMask on Arc Testnet.'
+          }, { onConflict: 'user_id' });
+        }
+        
+        await supabase.from('leaderboard').upsert({
+          user_id: userId,
+          volume: parseFloat(totalVolume.toFixed(2)),
+          pnl: parseFloat(totalPnL.toFixed(2)),
+          trades_count: tradesCount,
+          win_rate: parseFloat(winRate.toFixed(1)),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        
+      } catch (err) {
+        console.error(`Error calculating leaderboard stats for user ${userId}:`, err.message);
+      }
+    }
+    console.log('Leaderboard updated successfully.');
+  } catch (e) {
+    console.error('updateLeaderboard error:', e.message);
+  }
+}
+
+// Run leaderboard update every 10 minutes
+setInterval(updateLeaderboard, 10 * 60 * 1000);
+
+// Endpoints
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const { sort = 'pnl', limit = 50 } = req.query;
+    const sortBy = sort === 'volume' ? 'volume' : 'pnl';
+    
+    const { data, error } = await supabase
+      .from('leaderboard')
+      .select(`
+        user_id,
+        volume,
+        pnl,
+        trades_count,
+        win_rate,
+        profiles (
+          display_name,
+          avatar_url,
+          bio
+        )
+      `)
+      .order(sortBy, { ascending: false })
+      .limit(Math.min(100, parseInt(limit) || 50));
+      
+    if (error) throw error;
+    
+    // Format response to flatten profiles join
+    const formatted = (data || []).map(row => ({
+      userId: row.user_id,
+      volume: parseFloat(row.volume),
+      pnl: parseFloat(row.pnl),
+      tradesCount: row.trades_count,
+      winRate: parseFloat(row.win_rate),
+      displayName: row.profiles?.display_name || 'Puls Trader',
+      avatarUrl: row.profiles?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`,
+      bio: row.profiles?.bio || ''
+    }));
+    
+    res.json(formatted);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+      
+    if (profErr) {
+      // Return a default profile if it doesn't exist yet but has trades
+      let name = 'Puls Trader';
+      let avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
+      if (userId.startsWith('eth_')) {
+        const addr = userId.replace('eth_', '');
+        name = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+        avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+      }
+      return res.json({
+        profile: {
+          user_id: userId,
+          display_name: name,
+          avatar_url: avatar,
+          bio: 'Active trader on PulsMarket.'
+        },
+        stats: { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 },
+        trades: []
+      });
+    }
+    
+    const { data: stats } = await supabase
+      .from('leaderboard')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+      
+    const { data: trades } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('state', 'COMPLETE')
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    res.json({
+      profile,
+      stats: stats ? {
+        volume: parseFloat(stats.volume),
+        pnl: parseFloat(stats.pnl),
+        tradesCount: stats.trades_count,
+        winRate: parseFloat(stats.win_rate)
+      } : { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 },
+      trades: trades ?? []
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId, displayName, bio, avatarUrl } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({
+        user_id: userId,
+        display_name: displayName,
+        bio: bio,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Agentic Economy (ERC-8004 + autonomous trading) ───────────────────────────
 
 const LLM_URL = (process.env.AGENT_LLM_URL || 'https://opengateway.gitlawb.com/v1/chat/completions').trim();
@@ -1603,7 +2186,7 @@ async function llmComplete(messages) {
 }
 
 // Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
-app.post('/api/agent/start', async (req, res) => {
+app.post('/api/agent/start', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, budget } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -1698,7 +2281,7 @@ app.post('/api/agent/start', async (req, res) => {
   }
 });
 
-app.get('/api/agent/status', async (req, res) => {
+app.get('/api/agent/status', authenticateUser, async (req, res) => {
   try {
     const agent = await getAgent(req.query.userId);
     if (!agent) return res.json({ exists: false });
@@ -1716,7 +2299,7 @@ app.get('/api/agent/status', async (req, res) => {
 });
 
 // Add more USDC from the user's wallet into the agent wallet (top-up after withdraw, etc.).
-app.post('/api/agent/deposit', async (req, res) => {
+app.post('/api/agent/deposit', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -1753,7 +2336,7 @@ app.post('/api/agent/deposit', async (req, res) => {
 });
 
 // Return the agent's remaining USDC back to the user's wallet.
-app.post('/api/agent/withdraw', async (req, res) => {
+app.post('/api/agent/withdraw', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -1782,7 +2365,7 @@ app.post('/api/agent/withdraw', async (req, res) => {
 
 // Chat with the agent. The LLM returns a structured intent; the backend validates
 // budget + market and executes the buy autonomously from the agent wallet.
-app.post('/api/agent/chat', async (req, res) => {
+app.post('/api/agent/chat', authenticateUser, strictLimiter, async (req, res) => {
   try {
     const { userId, message } = req.body;
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' });
@@ -1935,6 +2518,523 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
   }
 });
 
+// POST /api/copilot/chat
+// An interactive AI copilot helping the user analyze a specific prediction market.
+app.post('/api/copilot/chat', authenticateUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId, message, question, slug, currentYesPrice, currentNoPrice } = req.body;
+    if (!userId || !message) {
+      return res.status(400).json({ error: 'userId and message are required' });
+    }
+
+    const sys = `You are Puls AI Trading Copilot, an expert prediction market analyst.
+You are helping the user analyze the following prediction market:
+- Question: "${question || 'Unknown Prediction'}"
+- Slug: "${slug || 'unknown-slug'}"
+- Current YES Price: ${currentYesPrice ? (parseFloat(currentYesPrice) * 100).toFixed(0) + '¢' : '50¢'}
+- Current NO Price: ${currentNoPrice ? (parseFloat(currentNoPrice) * 100).toFixed(0) + '¢' : '50¢'}
+
+Your goals:
+1. Provide insight on market sentiment, historical context, and potential resolution.
+2. Suggest trading strategies (e.g. buying YES vs buying NO depending on news/odds).
+3. If they ask for a strategy, you can propose one and end with a structured action recommendation.
+4. Keep your replies helpful, concise (maximum 3 short paragraphs), and formatting clean.
+5. If suggesting a trade, format the final recommendation on a new line like:
+[TRADE RECOMMENDATION]: BUY YES or BUY NO with short rationale.`;
+
+    const reply = await llmComplete([
+      { role: 'system', content: sys },
+      { role: 'user', content: message },
+    ]);
+
+    res.json({ reply });
+  } catch (e) {
+    console.error('copilot chat error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Push Notifications & In-App Notifications ─────────────────────────────────
+
+async function createNotification(userId, title, message, type) {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        title,
+        message,
+        type,
+        read: false
+      });
+      
+    if (error) {
+      console.error('[Notification Error] Failed to save in-app notification:', error.message);
+    } else {
+      console.log(`[Notification] Saved notification for user ${userId}: "${title}"`);
+    }
+
+    // Try to retrieve user's FCM token for push delivery
+    const { data: tokenRow } = await supabase
+      .from('fcm_tokens')
+      .select('fcm_token')
+      .eq('user_id', userId)
+      .single();
+      
+    if (tokenRow && tokenRow.fcm_token) {
+      console.log(`[Notification Push] Simulating push notification to ${tokenRow.fcm_token}: "${title}" - "${message}"`);
+    }
+  } catch (err) {
+    console.error('[Notification Error] Failed to trigger notification:', err.message);
+  }
+}
+
+// POST /api/notifications/register-token
+app.post('/api/notifications/register-token', authenticateUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
+    if (!userId || !fcmToken) return res.status(400).json({ error: 'userId and fcmToken required' });
+    
+    const { error } = await supabase
+      .from('fcm_tokens')
+      .upsert({
+        user_id: userId,
+        fcm_token: fcmToken,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/notifications
+app.get('/api/notifications', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/notifications/mark-read
+app.post('/api/notifications/mark-read', authenticateUser, async (req, res) => {
+  try {
+    const { userId, notificationId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    let query = supabase.from('notifications').update({ read: true }).eq('user_id', userId);
+    if (notificationId) {
+      query = query.eq('id', notificationId);
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── User-Created Markets ─────────────────────────────────────────────────────
+
+app.post('/api/markets/create', authenticateUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId, question, description, category, deadline } = req.body;
+    if (!userId || !question || !deadline) {
+      return res.status(400).json({ error: 'userId, question and deadline required' });
+    }
+
+    const userWalletId = await getWalletId(userId);
+    if (!userWalletId) return res.status(400).json({ error: 'User wallet not found' });
+    const userWalletInfo = await getWalletInfo(userWalletId);
+    
+    // Check user balance: lockup cost is ~10 USDC initial funding
+    const creatorUSDCBalance = parseFloat(userWalletInfo.usdcBalance) || 0;
+    if (creatorUSDCBalance < 10) {
+      return res.status(400).json({
+        error: `Insufficient balance to create a market. Locked initial funding requires 10.00 USDC. Your balance is $${creatorUSDCBalance.toFixed(2)}.`
+      });
+    }
+
+    // 1. Transfer 10 USDC from user to admin
+    console.log(`[Custom Market] Transferring 10 USDC initial funding from creator ${userWalletInfo.address} to admin...`);
+    const tx = await circle.createTransaction({
+      walletId: userWalletId,
+      tokenAddress: USDC,
+      blockchain: 'ARC-TESTNET',
+      destinationAddress: adminAccount.address,
+      amount: ['10.000000'],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+    
+    const txId = tx.data?.id;
+    let transferSuccess = false;
+    for (let i = 0; txId && i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const st = await circle.getTransaction({ id: txId });
+      if (st.data?.transaction?.state === 'COMPLETE') {
+        transferSuccess = true;
+        break;
+      }
+      if (['FAILED', 'DENIED', 'CANCELLED'].includes(st.data?.transaction?.state)) break;
+    }
+    
+    if (!transferSuccess) {
+      return res.status(500).json({ error: 'Failed to process initial funding transfer' });
+    }
+
+    // 2. Deploy market contract via admin deployer
+    const slug = `user-${question.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now()}`;
+    const deadlineSeconds = Number(deadline);
+    
+    console.log(`[Custom Market] Deploying on-chain contract for custom market: ${slug}`);
+    const contractAddress = await getOrDeployMarket(slug, deadlineSeconds);
+    
+    // 3. Update database row with custom fields
+    await supabase.from('deployed_markets').update({
+      is_user_created: true,
+      creator_id: userId,
+      title: question,
+      description: description || '',
+      category: category || 'General',
+      image_url: `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`
+    }).eq('slug', slug);
+
+    // Update local cache manually with new properties
+    const cached = deployedMarketsCache.get(slug);
+    if (cached) {
+      cached.is_user_created = true;
+      cached.creator_id = userId;
+      cached.title = question;
+      cached.description = description || '';
+      cached.category = category || 'General';
+      cached.image_url = `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`;
+    }
+
+    // Notify user
+    createNotification(
+      userId,
+      'Market Created 🎉',
+      `Your custom market "${question}" has been deployed on Arc Testnet!`,
+      'system'
+    ).catch(console.error);
+
+    res.json({ slug, contractAddress });
+  } catch (e) {
+    console.error('[Custom Market Error] Failed to create custom market:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Limit Orders Engine ──────────────────────────────────────────────────────
+
+// POST /api/trade/limit-order
+app.post('/api/trade/limit-order', authenticateUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId, marketId, slug, side, type, usdcAmount, shares, targetPrice } = req.body;
+    if (!userId || !marketId || !slug || !side || !type || targetPrice === undefined) {
+      return res.status(400).json({ error: 'Missing required limit order parameters' });
+    }
+
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(400).json({ error: 'User wallet not found' });
+    
+    // Enforce balance verification
+    const walletInfo = await getWalletInfo(walletId);
+    if (type === 'BUY') {
+      const amount = parseFloat(usdcAmount);
+      const balance = parseFloat(walletInfo.usdcBalance) || 0;
+      if (balance < amount) {
+        return res.status(400).json({ error: `Insufficient USDC. Balance: $${balance.toFixed(2)}, Need: $${amount.toFixed(2)}.` });
+      }
+    }
+    
+    // Write limit order to Supabase
+    const { data, error } = await supabase
+      .from('limit_orders')
+      .insert({
+        user_id: userId,
+        market_id: marketId,
+        slug,
+        side, // 'YES' or 'NO'
+        type, // 'BUY' or 'SELL'
+        usdc_amount: type === 'BUY' ? parseFloat(usdcAmount) : 0,
+        shares: type === 'SELL' ? parseFloat(shares) : 0,
+        target_price: parseFloat(targetPrice),
+        status: 'PENDING'
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    
+    createNotification(
+      userId,
+      'Limit Order Placed 🎯',
+      `Placed limit ${type.toLowerCase()} order for ${side} at target price $${parseFloat(targetPrice).toFixed(2)}`,
+      'limit_order'
+    ).catch(console.error);
+
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/trade/limit-orders
+app.get('/api/trade/limit-orders', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const { data, error } = await supabase
+      .from('limit_orders')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/trade/limit-order/cancel
+app.post('/api/trade/limit-order/cancel', authenticateUser, async (req, res) => {
+  try {
+    const { userId, orderId } = req.body;
+    if (!userId || !orderId) return res.status(400).json({ error: 'userId and orderId required' });
+    
+    const { data, error } = await supabase
+      .from('limit_orders')
+      .update({ status: 'CANCELLED' })
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    
+    createNotification(
+      userId,
+      'Order Cancelled 🚫',
+      `Limit order for ${data.side} at target price $${parseFloat(data.target_price).toFixed(2)} was cancelled.`,
+      'limit_order'
+    ).catch(console.error);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// The Limit Orders Execution Engine (monitors and triggers trades on-chain)
+async function checkAndExecuteLimitOrders() {
+  console.log('Running limit orders matching check...');
+  try {
+    const { data: pendingOrders, error } = await supabase
+      .from('limit_orders')
+      .select('*')
+      .eq('status', 'PENDING');
+      
+    if (error) {
+      console.error('Failed to load pending limit orders:', error.message);
+      return;
+    }
+    
+    if (!pendingOrders || pendingOrders.length === 0) {
+      console.log('No pending limit orders to check.');
+      return;
+    }
+    
+    console.log(`Checking ${pendingOrders.length} pending limit orders...`);
+    
+    for (const order of pendingOrders) {
+      try {
+        const { id: orderId, user_id: userId, market_id: marketId, slug, side, type, usdc_amount: amount, shares, target_price: targetPrice } = order;
+        
+        let currentPrice = 0.5;
+        let poolYes = 0;
+        let poolNo = 0;
+        
+        try {
+          const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain, yesOutstanding, noOutstanding] = await publicClient.readContract({
+            address: marketId,
+            abi: [
+              {
+                name: 'getMarketInfo',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [],
+                outputs: [
+                  { name: '_slug', type: 'string' },
+                  { name: '_deadline', type: 'uint256' },
+                  { name: '_resolved', type: 'bool' },
+                  { name: '_outcome', type: 'bool' },
+                  { name: '_yesOutstanding', type: 'uint256' },
+                  { name: '_noOutstanding', type: 'uint256' }
+                ]
+              }
+            ],
+            functionName: 'getMarketInfo'
+          });
+
+          poolYes = Number(yesOutstanding) / 1_000_000;
+          poolNo = Number(noOutstanding) / 1_000_000;
+          
+          const bVal = 10;
+          const maxQ = Math.max(poolYes, poolNo);
+          const expYes = Math.exp((poolYes - maxQ) / bVal);
+          const expNo = Math.exp((poolNo - maxQ) / bVal);
+          const yesPrice = expYes / (expYes + expNo);
+          const noPrice = expNo / (expYes + expNo);
+          
+          currentPrice = side === 'YES' ? yesPrice : noPrice;
+        } catch (err) {
+          console.error(`Failed to read current price for limit order ${orderId} on market ${marketId}:`, err.message);
+          continue;
+        }
+        
+        const isBuy = type === 'BUY';
+        const conditionMet = isBuy ? (currentPrice <= targetPrice) : (currentPrice >= targetPrice);
+        
+        if (!conditionMet) {
+          console.log(`Order ${orderId} condition not met: Current ${side} price is ${currentPrice.toFixed(4)}, Target is ${parseFloat(targetPrice).toFixed(4)}`);
+          continue;
+        }
+        
+        console.log(`🔥 Match found for order ${orderId}! Current ${side} price ${currentPrice.toFixed(4)} matches target ${parseFloat(targetPrice).toFixed(4)}.`);
+        
+        const { error: lockErr } = await supabase
+          .from('limit_orders')
+          .update({ status: 'EXECUTING' })
+          .eq('id', orderId)
+          .eq('status', 'PENDING');
+          
+        if (lockErr) continue; 
+        
+        const walletId = await getWalletId(userId);
+        if (!walletId) {
+          await supabase.from('limit_orders').update({ status: 'FAILED' }).eq('id', orderId);
+          continue;
+        }
+        
+        const isYes = side === 'YES';
+        let txRes;
+        
+        if (isBuy) {
+          const amountMicro = Math.round(parseFloat(amount) * 1_000_000).toString();
+          
+          if (!(await isApproved(walletId, marketId))) {
+            const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+            await circle.createContractExecutionTransaction({
+              walletId,
+              contractAddress: USDC,
+              abiFunctionSignature: 'approve(address,uint256)',
+              abiParameters: [marketId, MAX],
+              fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+            });
+            await new Promise(r => setTimeout(r, 4500));
+          }
+          
+          txRes = await circle.createContractExecutionTransaction({
+            walletId,
+            contractAddress: marketId,
+            abiFunctionSignature: isYes ? 'buyYes(uint256)' : 'buyNo(uint256)',
+            abiParameters: [amountMicro],
+            fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+          });
+        } else {
+          const sharesMicro = Math.round(parseFloat(shares) * 1_000_000).toString();
+          txRes = await circle.createContractExecutionTransaction({
+            walletId,
+            contractAddress: marketId,
+            abiFunctionSignature: isYes ? 'sellYes(uint256)' : 'sellNo(uint256)',
+            abiParameters: [sharesMicro],
+            fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+          });
+        }
+        
+        const circleId = txRes.data.id;
+        
+        let txHash = null, finalState = null;
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          try {
+            const st = await circle.getTransaction({ id: circleId });
+            txHash = st.data?.transaction?.txHash;
+            finalState = st.data?.transaction?.state;
+            if (['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED'].includes(finalState)) break;
+          } catch (_) {}
+        }
+        
+        if (finalState === 'COMPLETE') {
+          await supabase
+            .from('limit_orders')
+            .update({
+              status: 'EXECUTED',
+              tx_hash: txHash
+            })
+            .eq('id', orderId);
+            
+          await saveTrade(userId, {
+            tx_id: circleId,
+            side,
+            usdc_amount: isBuy ? parseFloat(amount) : -parseFloat(shares),
+            entry_price: currentPrice,
+            question: `🎯 Limit: ${slug.split('-').join(' ')}`,
+            market_id: marketId,
+            state: 'COMPLETE',
+            tx_hash: txHash
+          });
+          
+          createNotification(
+            userId,
+            'Limit Order Triggered! ⚡',
+            `Your limit order to ${type.toLowerCase()} ${side} at $${parseFloat(targetPrice).toFixed(2)} was executed successfully on-chain!`,
+            'limit_order'
+          ).catch(console.error);
+        } else {
+          await supabase
+            .from('limit_orders')
+            .update({ status: 'FAILED' })
+            .eq('id', orderId);
+            
+          createNotification(
+            userId,
+            'Limit Order Failed ❌',
+            `Your limit order to ${type.toLowerCase()} ${side} at $${parseFloat(targetPrice).toFixed(2)} failed to execute.`,
+            'limit_order'
+          ).catch(console.error);
+        }
+      } catch (err) {
+        console.error(`Error processing limit order ${order.id}:`, err.message);
+        await supabase.from('limit_orders').update({ status: 'PENDING' }).eq('id', order.id);
+      }
+    }
+  } catch (e) {
+    console.error('checkAndExecuteLimitOrders error:', e.message);
+  }
+}
+
+// Run matching engine every 20 seconds
+setInterval(checkAndExecuteLimitOrders, 20 * 1000);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
@@ -1942,4 +3042,5 @@ app.listen(PORT, async () => {
   loadWalletAddressMapping().catch(console.error);
   checkAndResolveMarkets().catch(console.error);
   warmupTopMarkets().catch(console.error);
+  updateLeaderboard().catch(console.error);
 });
