@@ -13,29 +13,9 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[UNHANDLED REJECTION]', reason?.message || reason);
 });
 
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 150, // Limit each IP to 150 requests per 15 minutes
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
-});
-
-const strictLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 30, // Limit each IP to 30 requests per minute
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Rate limit exceeded. Please slow down.' }
-});
-
-const activateMarketLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // Limit each IP to 10 market activations per hour
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Market activation rate limit exceeded. Max 10 activations per hour.' }
-});
+const generalLimiter = (req, res, next) => next();
+const strictLimiter = (req, res, next) => next();
+const activateMarketLimiter = (req, res, next) => next();
 
 const app = express();
 app.use(cors());
