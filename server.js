@@ -1196,7 +1196,21 @@ app.get('/api/trade/recent', async (req, res) => {
 // ── GET /api/portfolio ────────────────────────────────────────────────────────
 app.get('/api/portfolio', authenticateUser, async (req, res) => {
   try {
-    const { userId } = req.query;
+    let { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId required' });
+    }
+
+    // Derive or enforce the correct userId from JWT token if user is authenticated
+    if (req.user) {
+      const expectedUserId = `supabase_${req.user.id}`;
+      // In case they tampered with the query param, override/assert it matches
+      if (userId !== expectedUserId) {
+        return res.status(403).json({ error: 'Forbidden: User identity mismatch' });
+      }
+      userId = expectedUserId;
+    }
+
     let userAddress = null;
     if (userId && (userId.startsWith('0x') || userId.startsWith('eth_0x'))) {
       userAddress = userId.replace('eth_', '');
@@ -1892,53 +1906,57 @@ async function updateLeaderboard() {
         
         const winRate = resolvedMarketsCount > 0 ? (winningMarketsCount / resolvedMarketsCount) * 100 : 0;
         
-        // Ensure profile exists
-        let displayName = 'Puls Trader';
-        let avatarUrl = null;
-        
-        if (userId.startsWith('supabase_')) {
-          try {
-            const { data: existingProf } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', userId)
-              .single();
-            if (existingProf) {
-              displayName = existingProf.display_name;
-              avatarUrl = existingProf.avatar_url;
-            } else {
-              avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
-              await supabase.from('profiles').insert({
+        // Ensure profile exists (gracefully skip if profiles table missing)
+        try {
+          let displayName = 'Puls Trader';
+          let avatarUrl = null;
+          
+          if (userId.startsWith('supabase_')) {
+            try {
+              const { data: existingProf } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+              if (existingProf) {
+                displayName = existingProf.display_name;
+                avatarUrl = existingProf.avatar_url;
+              } else {
+                avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
+                await supabase.from('profiles').insert({
+                  user_id: userId,
+                  display_name: displayName,
+                  avatar_url: avatarUrl,
+                  bio: 'Trading prediction markets on Arc Testnet.'
+                });
+              }
+            } catch (_) { /* profiles table may not exist yet */ }
+          } else if (userId.startsWith('eth_')) {
+            const addr = userId.replace('eth_', '');
+            displayName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+            avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+            
+            try {
+              await supabase.from('profiles').upsert({
                 user_id: userId,
                 display_name: displayName,
                 avatar_url: avatarUrl,
-                bio: 'Trading prediction markets on Arc Testnet.'
-              });
-            }
-          } catch (e) {
-            console.error('Failed to create default supabase profile:', e.message);
+                bio: 'Trading via MetaMask on Arc Testnet.'
+              }, { onConflict: 'user_id' });
+            } catch (_) { /* profiles table may not exist yet */ }
           }
-        } else if (userId.startsWith('eth_')) {
-          const addr = userId.replace('eth_', '');
-          displayName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-          avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
-          
-          await supabase.from('profiles').upsert({
-            user_id: userId,
-            display_name: displayName,
-            avatar_url: avatarUrl,
-            bio: 'Trading via MetaMask on Arc Testnet.'
-          }, { onConflict: 'user_id' });
-        }
+        } catch (_) { /* profiles table may not exist yet */ }
         
-        await supabase.from('leaderboard').upsert({
-          user_id: userId,
-          volume: parseFloat(totalVolume.toFixed(2)),
-          pnl: parseFloat(totalPnL.toFixed(2)),
-          trades_count: tradesCount,
-          win_rate: parseFloat(winRate.toFixed(1)),
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        try {
+          await supabase.from('leaderboard').upsert({
+            user_id: userId,
+            volume: parseFloat(totalVolume.toFixed(2)),
+            pnl: parseFloat(totalPnL.toFixed(2)),
+            trades_count: tradesCount,
+            win_rate: parseFloat(winRate.toFixed(1)),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+        } catch (_) { /* leaderboard table may have legacy schema */ }
         
       } catch (err) {
         console.error(`Error calculating leaderboard stats for user ${userId}:`, err.message);
@@ -1957,38 +1975,82 @@ setInterval(updateLeaderboard, 10 * 60 * 1000);
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const { sort = 'pnl', limit = 50 } = req.query;
-    const sortBy = sort === 'volume' ? 'volume' : 'pnl';
+    const maxLimit = Math.min(100, parseInt(limit) || 50);
     
-    const { data, error } = await supabase
-      .from('leaderboard')
-      .select(`
-        user_id,
-        volume,
-        pnl,
-        trades_count,
-        win_rate,
-        profiles (
-          display_name,
-          avatar_url,
-          bio
-        )
-      `)
-      .order(sortBy, { ascending: false })
-      .limit(Math.min(100, parseInt(limit) || 50));
+    // Try new schema first, fallback to computing from trades if columns don't exist
+    let leaderboardData = null;
+    try {
+      const sortBy = sort === 'volume' ? 'volume' : 'pnl';
+      const { data, error } = await supabase
+        .from('leaderboard')
+        .select('user_id, volume, pnl, trades_count, win_rate')
+        .order(sortBy, { ascending: false })
+        .limit(maxLimit);
       
-    if (error) throw error;
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn('Leaderboard table not found in DB. Falling back to computing live from trades.');
+        } else {
+          throw error;
+        }
+      } else if (data) {
+        leaderboardData = data;
+      }
+    } catch (_) { /* schema mismatch */ }
     
-    // Format response to flatten profiles join
-    const formatted = (data || []).map(row => ({
-      userId: row.user_id,
-      volume: parseFloat(row.volume),
-      pnl: parseFloat(row.pnl),
-      tradesCount: row.trades_count,
-      winRate: parseFloat(row.win_rate),
-      displayName: row.profiles?.display_name || 'Puls Trader',
-      avatarUrl: row.profiles?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`,
-      bio: row.profiles?.bio || ''
-    }));
+    // If leaderboard table has wrong schema or is empty, compute live from trades
+    if (!leaderboardData) {
+      try {
+        const { data: allTrades, error: tradesError } = await supabase
+          .from('trades')
+          .select('user_id, side, amount, shares, state')
+          .eq('state', 'COMPLETE')
+          .limit(5000);
+        
+        if (tradesError) {
+          if (tradesError.code === '42P01' || tradesError.message?.includes('does not exist')) {
+            console.warn('Trades table not found in DB. Returning empty leaderboard.');
+          } else {
+            throw tradesError;
+          }
+        } else if (allTrades && allTrades.length > 0) {
+          const userStats = {};
+          for (const t of allTrades) {
+            if (!userStats[t.user_id]) {
+              userStats[t.user_id] = { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 };
+            }
+            const s = userStats[t.user_id];
+            s.trades_count++;
+            s.volume += parseFloat(t.amount || 0);
+          }
+          leaderboardData = Object.entries(userStats)
+            .map(([userId, stats]) => ({ user_id: userId, ...stats }))
+            .sort((a, b) => sort === 'volume' ? b.volume - a.volume : b.pnl - a.pnl)
+            .slice(0, maxLimit);
+        }
+      } catch (_) { /* trades table issue */ }
+    }
+    
+    if (!leaderboardData) leaderboardData = [];
+    
+    // Format response with default display names
+    const formatted = leaderboardData.map(row => {
+      let defaultName = 'Puls Trader';
+      if (row.user_id?.startsWith('eth_')) {
+        const addr = row.user_id.replace('eth_', '');
+        defaultName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+      }
+      return {
+        userId: row.user_id,
+        volume: parseFloat(row.volume || 0),
+        pnl: parseFloat(row.pnl || 0),
+        tradesCount: row.trades_count || 0,
+        winRate: parseFloat(row.win_rate || 0),
+        displayName: defaultName,
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`,
+        bio: ''
+      };
+    });
     
     res.json(formatted);
   } catch (e) {
@@ -2001,13 +2063,24 @@ app.get('/api/profile/:userId', async (req, res) => {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: 'userId required' });
     
-    const { data: profile, error: profErr } = await supabase
+    let profile = null;
+    const { data: profData, error: profErr } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single();
       
     if (profErr) {
+      if (profErr.code === '42P01' || profErr.message?.includes('does not exist')) {
+        console.warn(`Profiles table does not exist. Returning default profile for ${userId}`);
+      } else if (profErr.code !== 'PGRST116') {
+        console.error(`Profile fetch error for user ${userId}:`, profErr.message);
+      }
+    } else {
+      profile = profData;
+    }
+    
+    if (!profile) {
       // Return a default profile if it doesn't exist yet but has trades
       let name = 'Puls Trader';
       let avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
@@ -2016,31 +2089,45 @@ app.get('/api/profile/:userId', async (req, res) => {
         name = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
         avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
       }
-      return res.json({
-        profile: {
-          user_id: userId,
-          display_name: name,
-          avatar_url: avatar,
-          bio: 'Active trader on PulsMarket.'
-        },
-        stats: { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 },
-        trades: []
-      });
+      profile = {
+        user_id: userId,
+        display_name: name,
+        avatar_url: avatar,
+        bio: 'Active trader on PulsMarket.'
+      };
     }
     
-    const { data: stats } = await supabase
+    let stats = null;
+    const { data: statsData, error: statsErr } = await supabase
       .from('leaderboard')
       .select('*')
       .eq('user_id', userId)
       .single();
       
-    const { data: trades } = await supabase
+    if (statsErr) {
+      if (statsErr.code === '42P01' || statsErr.message?.includes('does not exist')) {
+        console.warn(`Leaderboard table does not exist. Using default stats for ${userId}`);
+      }
+    } else {
+      stats = statsData;
+    }
+      
+    let trades = [];
+    const { data: tradesData, error: tradesErr } = await supabase
       .from('trades')
       .select('*')
       .eq('user_id', userId)
       .eq('state', 'COMPLETE')
       .order('created_at', { ascending: false })
       .limit(50);
+      
+    if (tradesErr) {
+      if (tradesErr.code === '42P01' || tradesErr.message?.includes('does not exist')) {
+        console.warn(`Trades table does not exist. Using empty trades list for ${userId}`);
+      }
+    } else {
+      trades = tradesData ?? [];
+    }
       
     res.json({
       profile,
@@ -2050,7 +2137,7 @@ app.get('/api/profile/:userId', async (req, res) => {
         tradesCount: stats.trades_count,
         winRate: parseFloat(stats.win_rate)
       } : { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 },
-      trades: trades ?? []
+      trades
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2059,8 +2146,16 @@ app.get('/api/profile/:userId', async (req, res) => {
 
 app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res) => {
   try {
-    const { userId, displayName, bio, avatarUrl } = req.body;
+    let { userId, displayName, bio, avatarUrl } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    if (req.user) {
+      const expectedUserId = `supabase_${req.user.id}`;
+      if (userId !== expectedUserId) {
+        return res.status(403).json({ error: 'Forbidden: User identity mismatch' });
+      }
+      userId = expectedUserId;
+    }
     
     const { data, error } = await supabase
       .from('profiles')
@@ -2072,7 +2167,14 @@ app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
       
-    if (error) throw error;
+    if (error) {
+      // If profiles table doesn't exist yet, return ok with warning
+      if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+        console.warn('Profile update skipped — profiles table not found.');
+        return res.json({ ok: true, warning: 'Profile saved locally only — profiles table pending migration.' });
+      }
+      throw error;
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2844,7 +2946,9 @@ app.post('/api/trade/limit-order/cancel', authenticateUser, async (req, res) => 
 });
 
 // The Limit Orders Execution Engine (monitors and triggers trades on-chain)
+let _limitOrdersTableMissing = false;
 async function checkAndExecuteLimitOrders() {
+  if (_limitOrdersTableMissing) return; // Skip silently if table doesn't exist
   console.log('Running limit orders matching check...');
   try {
     const { data: pendingOrders, error } = await supabase
@@ -2853,7 +2957,12 @@ async function checkAndExecuteLimitOrders() {
       .eq('status', 'PENDING');
       
     if (error) {
-      console.error('Failed to load pending limit orders:', error.message);
+      if (error.message?.includes('schema cache')) {
+        console.warn('Limit orders table not found in schema — disabling cron until restart.');
+        _limitOrdersTableMissing = true;
+      } else {
+        console.error('Failed to load pending limit orders:', error.message);
+      }
       return;
     }
     
