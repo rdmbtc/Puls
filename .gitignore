@@ -10,7 +10,7 @@ build/
 coverage/
 out/
 cache/
-
+scratch/
 *.py
 
 android/.gradle/
