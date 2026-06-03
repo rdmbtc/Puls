@@ -140,8 +140,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     }
     setState(() { _loading = true; _error = null; });
     try {
+      final headers = <String, String>{};
+      final session = _supabase.auth.currentSession;
+      if (session != null) {
+        headers['Authorization'] = 'Bearer ${session.accessToken}';
+      }
       final res = await _client.get(
         Uri.parse('$_backendUrl/api/portfolio?userId=${ws.userId}'),
+        headers: headers,
       );
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode != 200) throw Exception(data['error']);
