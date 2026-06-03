@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
@@ -57,8 +58,16 @@ class _AgentScreenState extends State<AgentScreen> {
     final uid = _userId;
     if (uid == null) return;
     try {
+      final headers = <String, String>{};
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        headers['Authorization'] = 'Bearer ${session.accessToken}';
+      }
       final res = await _client
-          .get(Uri.parse('$backendUrl/api/agent/status?userId=$uid'))
+          .get(
+            Uri.parse('$backendUrl/api/agent/status?userId=$uid'),
+            headers: headers,
+          )
           .timeout(const Duration(seconds: 20));
       final r = jsonDecode(res.body) as Map<String, dynamic>;
       if (r['exists'] == true && mounted) {
@@ -88,9 +97,19 @@ class _AgentScreenState extends State<AgentScreen> {
   }
 
   Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
     final res = await _client
-        .post(Uri.parse('$backendUrl$path'),
-            headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
+        .post(
+          Uri.parse('$backendUrl$path'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
         .timeout(const Duration(seconds: 150));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
