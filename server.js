@@ -1951,11 +1951,21 @@ async function updateLeaderboard() {
 // Run leaderboard update every 10 minutes
 setInterval(updateLeaderboard, 10 * 60 * 1000);
 
-// Endpoints
+// In-memory leaderboard cache (60s TTL) to avoid Supabase rate limits
+const leaderboardCache = new Map(); // key: "sort:limit" → { data, ts }
+const LEADERBOARD_CACHE_TTL = 60_000; // 60 seconds
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const { sort = 'pnl', limit = 50 } = req.query;
     const maxLimit = Math.min(500, parseInt(limit) || 50);
+    
+    // Check cache first
+    const cacheKey = `${sort}:${maxLimit}`;
+    const cached = leaderboardCache.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < LEADERBOARD_CACHE_TTL) {
+      return res.json(cached.data);
+    }
     
     // Try new schema first, fallback to computing from trades if columns don't exist
     let leaderboardData = null;
@@ -2051,6 +2061,9 @@ app.get('/api/leaderboard', async (req, res) => {
         bio: profile?.bio || ''
       };
     });
+    
+    // Cache the result
+    leaderboardCache.set(cacheKey, { data: formatted, ts: Date.now() });
     
     res.json(formatted);
   } catch (e) {
