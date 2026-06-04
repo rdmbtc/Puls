@@ -462,7 +462,14 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
         .limit(1);
       
       if (dup && dup.length > 0) {
-        console.log(`[QuickNode Webhook] Trade for tx ${txHash} already exists, skipping duplicate insert.`);
+        const existingTrade = dup[0];
+        if (existingTrade.usdc_amount !== amountUsdc) {
+          await supabase
+            .from('trades')
+            .update({ usdc_amount: amountUsdc })
+            .eq('id', existingTrade.id);
+          console.log(`[QuickNode Webhook] Updated existing trade ${existingTrade.id} with correct on-chain usdc_amount: ${amountUsdc}`);
+        }
         return;
       }
 
@@ -1026,10 +1033,11 @@ app.post('/api/trade/sell', authenticateUser, strictLimiter, async (req, res) =>
 
     const txId = txRes.data.id;
 
+    const estimatedPayout = sharesAmount * parseFloat(req.body.entryPrice ?? 0.5);
     await saveTrade(userId, {
       tx_id: txId,
       side,
-      usdc_amount: -sharesAmount,
+      usdc_amount: -estimatedPayout,
       entry_price: parseFloat(req.body.entryPrice ?? 0.5),
       question: question || 'Prediction Market',
       market_id: contractAddress,
@@ -1427,7 +1435,7 @@ async function handleQuickNodeLog(log) {
       const side = args.side ? 'YES' : 'NO';
       const shares = Number(args.shares) / 1_000_000;
       const usdcOut = Number(args.usdcOut) / 1_000_000;
-      const amountUsdc = -shares; // Sells are stored as negative shares in the database
+      const amountUsdc = -usdcOut; // Sells are stored as negative USDC payout
       const exitPrice = shares !== 0 ? Math.min(0.99, Math.max(0.01, usdcOut / shares)) : 0.5;
 
       await syncCompletedTrade(userId, {
