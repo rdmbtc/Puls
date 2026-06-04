@@ -217,21 +217,16 @@ class WalletService extends ChangeNotifier {
 
   /// Reads USDC balance directly from Arc Testnet via eth_call — no backend needed.
   Future<void> _fetchBalanceFromChain(String address) async {
-    const qnRpc = 'https://rpc.quicknode.testnet.arc.network/QN_d4190f3d83544ea0ac4dd926a12e30c7';
     const publicRpc = 'https://rpc.testnet.arc.network';
     const usdc = '0x3600000000000000000000000000000000000000';
     final padded = address.toLowerCase().replaceFirst('0x', '').padLeft(64, '0');
     final data = '0x70a08231$padded';
     try {
-      if (kIsWeb) {
-        // Direct RPC calls on Web fail due to CORS. Immediately throw to trigger backend fallback.
-        throw Exception('CORS bypass on web');
-      }
-
-      // Try QuickNode first
+      // Try backend RPC Proxy first (which hides credentials and supports CORS on web)
       try {
+        final proxyUrl = '$_backendUrl/api/rpc-proxy';
         final res = await _client.post(
-          Uri.parse(qnRpc),
+          Uri.parse(proxyUrl),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'jsonrpc': '2.0',
@@ -248,7 +243,7 @@ class WalletService extends ChangeNotifier {
           return;
         }
       } catch (e) {
-        debugPrint('[Puls] QuickNode balance fetch failed, falling back to public RPC: $e');
+        debugPrint('[Puls] RPC proxy balance fetch failed: $e');
       }
 
       // Fallback to public RPC with retry
