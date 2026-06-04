@@ -1273,10 +1273,62 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
           let resolved = false;
           let outcome = null;
           
-          const cached = slug ? deployedMarketsCache.get(slug) : null;
-          if (cached) {
-            resolved = cached.resolved;
-            outcome = cached.outcome;
+          try {
+            const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain] = await publicClient.readContract({
+              address: marketAddress,
+              abi: [{
+                name: 'getMarketInfo',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [],
+                outputs: [
+                  { name: '_slug', type: 'string' },
+                  { name: '_deadline', type: 'uint256' },
+                  { name: '_resolved', type: 'bool' },
+                  { name: '_outcome', type: 'bool' },
+                  { name: '_yesOutstanding', type: 'uint256' },
+                  { name: '_noOutstanding', type: 'uint256' }
+                ]
+              }],
+              functionName: 'getMarketInfo'
+            });
+            resolved = resolvedOnChain;
+            outcome = outcomeOnChain;
+            
+            // Self-heal DB and cache if it resolved on-chain but not in DB
+            const slugVal = slug || slugOnChain || '';
+            if (slugVal) {
+              const cached = deployedMarketsCache.get(slugVal);
+              if (resolved && (!cached || !cached.resolved)) {
+                if (cached) {
+                  cached.resolved = true;
+                  cached.outcome = outcome;
+                } else {
+                  deployedMarketsCache.set(slugVal, {
+                    contractAddress: marketAddress,
+                    deadline: Number(deadlineOnChain),
+                    resolved: true,
+                    outcome
+                  });
+                }
+                supabase
+                  .from('deployed_markets')
+                  .update({ resolved: true, outcome })
+                  .eq('contract_address', marketAddress)
+                  .then(({ error }) => {
+                    if (error) console.error(`[Self-Heal Error] Failed to update db resolved state for ${slugVal}:`, error.message);
+                    else console.log(`[Self-Heal Success] Updated resolved state in DB for ${slugVal}`);
+                  });
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to read market info from contract for ${marketAddress}:`, err.message);
+            // Fallback to cache if contract call fails
+            const cached = slug ? deployedMarketsCache.get(slug) : null;
+            if (cached) {
+              resolved = cached.resolved;
+              outcome = cached.outcome;
+            }
           }
 
           const tradeForMarket = rows.find(r => r.market_id === marketAddress);
