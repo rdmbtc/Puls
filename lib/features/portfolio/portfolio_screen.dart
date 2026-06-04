@@ -859,6 +859,11 @@ class _PositionCardState extends State<_PositionCard> {
     final txHash = position['txHash'] as String?;
     final timestamp = position['timestamp'] as String?;
 
+    final resolved = position['resolved'] as bool? ?? false;
+    final outcome = position['outcome'] as bool? ?? false;
+    final claimed = position['claimed'] as bool? ?? false;
+    final userWon = resolved && (outcome == isYes);
+
     double? pnl;
     double? currentPrice;
     final hasRealEntryPrice = entryPrice > 0 && entryPrice != 0.5;
@@ -949,6 +954,27 @@ class _PositionCardState extends State<_PositionCard> {
                 decoration: BoxDecoration(color: stateColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                 child: Text(stateLabel, style: TextStyle(color: stateColor, fontWeight: FontWeight.w600, fontSize: 11)),
               ),
+              if (resolved) ...[
+                const SizedBox(width: 8),
+                if (claimed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: t.brand.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                    child: Text('Claimed', style: TextStyle(color: t.brand, fontWeight: FontWeight.bold, fontSize: 11)),
+                  )
+                else if (userWon)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: t.yes.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                    child: Text('Won', style: TextStyle(color: t.yes, fontWeight: FontWeight.bold, fontSize: 11)),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: t.no.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                    child: Text('Lost', style: TextStyle(color: t.no, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+              ],
               const Spacer(),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1026,7 +1052,7 @@ class _PositionCardState extends State<_PositionCard> {
                   child: SizedBox(
                     height: 36,
                     child: OutlinedButton.icon(
-                      onPressed: hasValidContract
+                      onPressed: hasValidContract && !resolved
                           ? () {
                               showTradePreviewSheet(
                                 context: context,
@@ -1041,10 +1067,10 @@ class _PositionCardState extends State<_PositionCard> {
                             }
                           : null,
                       icon: const Icon(Icons.sell_rounded, size: 14),
-                      label: const Text('Sell Position', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(resolved ? 'Market Resolved' : 'Sell Position', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: t.brand,
-                        side: BorderSide(color: hasValidContract ? t.brand : t.border, width: 1.5),
+                        side: BorderSide(color: (hasValidContract && !resolved) ? t.brand : t.border, width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
@@ -1057,12 +1083,21 @@ class _PositionCardState extends State<_PositionCard> {
                     child: _claiming
                         ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                         : OutlinedButton.icon(
-                            onPressed: hasValidContract ? _claim : null,
+                            onPressed: (hasValidContract && resolved && userWon && !claimed) ? _claim : null,
                             icon: const Icon(Icons.redeem_rounded, size: 14),
-                            label: const Text('Claim Winnings', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            label: Text(
+                              !resolved
+                                  ? 'Market Active'
+                                  : claimed
+                                      ? 'Winnings Claimed'
+                                      : userWon
+                                          ? 'Claim Winnings'
+                                          : 'Position Lost',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: t.yes,
-                              side: BorderSide(color: hasValidContract ? t.yes : t.border, width: 1.5),
+                              side: BorderSide(color: (hasValidContract && resolved && userWon && !claimed) ? t.yes : t.border, width: 1.5),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),

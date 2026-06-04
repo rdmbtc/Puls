@@ -392,10 +392,11 @@ class WalletService extends ChangeNotifier {
         if (web3Res.error != null) throw Exception(web3Res.error!);
         
         final txHash = web3Res.txHash!;
+        final estimatedPayout = shares * entryPrice;
         await _post('/api/trade/save-external', {
           'userId': _state.userId!,
           'side': isYes ? 'YES' : 'NO',
-          'usdcAmount': (-shares).toStringAsFixed(6),
+          'usdcAmount': (-estimatedPayout).toStringAsFixed(6), // Estimated USDC payout (reconciled by webhook)
           'entryPrice': entryPrice.toStringAsFixed(4),
           'question': question,
           'txHash': txHash,

@@ -210,6 +210,56 @@ contract MarketSecurityTest is Test {
         assertTrue(shares > 0);
     }
 
+    function testLmsrGatedActions() public {
+        string memory slug = "lmsr-gated-test";
+        uint256 deadline = block.timestamp + 3600;
+        uint256 b = 10 * 10**6; // 10 USDC
+
+        // Seeding cost
+        uint256 initialCost = 6931471;
+        usdc.approve(address(factory), initialCost);
+
+        // Deploy market
+        address marketAddr = factory.createMarket(slug, deadline, b);
+        LMSRMarket market = LMSRMarket(marketAddr);
+
+        // User1 buys YES
+        vm.startPrank(user1);
+        usdc.approve(marketAddr, type(uint256).max);
+        uint256 buyAmount = 10 * 10**6;
+        market.buyYes(buyAmount);
+        vm.stopPrank();
+
+        // 1. Claim should revert when not resolved
+        vm.prank(user1);
+        vm.expectRevert("Not resolved");
+        market.claim();
+
+        // Move to deadline and resolve YES
+        vm.warp(deadline);
+        market.resolve(true);
+
+        // 2. Sell should revert when resolved
+        vm.startPrank(user1);
+        vm.expectRevert("Market resolved");
+        market.sellYes(1 * 10**6);
+        vm.stopPrank();
+
+        // 3. User2 (no winning shares) claim should revert
+        vm.prank(user2);
+        vm.expectRevert("No winning shares");
+        market.claim();
+
+        // 4. User1 (winner) claims successfully
+        vm.prank(user1);
+        market.claim();
+
+        // 5. Double claim should revert
+        vm.prank(user1);
+        vm.expectRevert("Already claimed");
+        market.claim();
+    }
+
     // ── CPMM (PulsMarket) Security Tests ──────────────────────────────────────
 
     function testPulsSafeWithdrawAndClaim() public {
