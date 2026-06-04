@@ -823,16 +823,21 @@ class _PositionCardState extends State<_PositionCard> {
     setState(() => _claiming = true);
     final slug = widget.position['slug'] as String? ?? '';
     final String? contractAddress = (widget.position['contractAddress'] as String?) ?? (widget.position['marketId'] as String?);
-    if (contractAddress == null || contractAddress.isEmpty) {
-      throw Exception('Market contract address not available');
-    }
 
     try {
+      if (contractAddress == null || contractAddress.isEmpty) {
+        throw Exception('Market contract address not available');
+      }
       await widget.walletService.claimWinnings(contractAddress: contractAddress, slug: slug);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Claim submitted! Check balance in a few seconds.')),
         );
+        widget.onRefresh?.call();
+        // Delay to allow transaction to mine on-chain before refreshing again
+        Future.delayed(const Duration(seconds: 8), () {
+          if (mounted) widget.onRefresh?.call();
+        });
       }
     } catch (e) {
       if (mounted) {
