@@ -33,7 +33,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     try {
       final wallet = WalletServiceScope.of(context);
-      final list = await wallet.getLeaderboard(sort: _sortBy, limit: 50);
+      final list = await wallet.getLeaderboard(sort: _sortBy, limit: 200);
       if (mounted) {
         setState(() {
           _traders = list;
