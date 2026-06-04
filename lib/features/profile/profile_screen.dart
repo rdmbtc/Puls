@@ -91,8 +91,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              child: GlassCard(
+              child: Container(
                 padding: const EdgeInsets.all(24),
+                decoration: cardDecoration(t, radius: 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
