@@ -1955,7 +1955,7 @@ setInterval(updateLeaderboard, 10 * 60 * 1000);
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const { sort = 'pnl', limit = 50 } = req.query;
-    const maxLimit = Math.min(100, parseInt(limit) || 50);
+    const maxLimit = Math.min(500, parseInt(limit) || 50);
     
     // Try new schema first, fallback to computing from trades if columns don't exist
     let leaderboardData = null;
@@ -1979,7 +1979,7 @@ app.get('/api/leaderboard', async (req, res) => {
     } catch (_) { /* schema mismatch */ }
     
     // If leaderboard table has wrong schema or is empty, compute live from trades
-    if (!leaderboardData) {
+    if (!leaderboardData || leaderboardData.length === 0) {
       try {
         const { data: allTrades, error: tradesError } = await supabase
           .from('trades')
@@ -2013,12 +2013,32 @@ app.get('/api/leaderboard', async (req, res) => {
     
     if (!leaderboardData) leaderboardData = [];
     
-    // Format response with default display names
+    // Enrich with actual profile display names and avatars
+    let profilesMap = {};
+    if (leaderboardData.length > 0) {
+      try {
+        const userIds = leaderboardData.map(r => r.user_id).filter(Boolean);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, avatar_url, bio')
+          .in('user_id', userIds);
+        if (profiles) {
+          for (const p of profiles) {
+            profilesMap[p.user_id] = p;
+          }
+        }
+      } catch (_) { /* profiles table may not exist */ }
+    }
+    
+    // Format response with real profile data, falling back to defaults
     const formatted = leaderboardData.map(row => {
+      const profile = profilesMap[row.user_id];
       let defaultName = 'Puls Trader';
+      let defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`;
       if (row.user_id?.startsWith('eth_')) {
         const addr = row.user_id.replace('eth_', '');
         defaultName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+        defaultAvatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
       }
       return {
         userId: row.user_id,
@@ -2026,9 +2046,9 @@ app.get('/api/leaderboard', async (req, res) => {
         pnl: parseFloat(row.pnl || 0),
         tradesCount: row.trades_count || 0,
         winRate: parseFloat(row.win_rate || 0),
-        displayName: defaultName,
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`,
-        bio: ''
+        displayName: profile?.display_name || defaultName,
+        avatarUrl: profile?.avatar_url || defaultAvatar,
+        bio: profile?.bio || ''
       };
     });
     
