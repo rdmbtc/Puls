@@ -41,8 +41,6 @@ class _PulsShellState extends State<_MobileShell> {
 
   static const _pages = [
     FeedScreen(),
-    DiscoverScreen(),
-    HomeScreen(),
     PortfolioScreen(),
     LeaderboardScreen(),
     AgentScreen(),
@@ -94,8 +92,6 @@ class _DynamicIslandNav extends StatelessWidget {
 
   static final _items = [
     _Item(Picons.lightning, 'Feed'),
-    _Item(Picons.compass, 'Discover'),
-    _Item(Picons.playCircle, 'Home'),
     _Item(Picons.chartBar, 'Portfolio'),
     _Item(Picons.trophy, 'Leaderboard'),
     _Item(Picons.robot, 'Agent'),
