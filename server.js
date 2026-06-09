@@ -98,6 +98,17 @@ const walletClient = adminAccount ? createWalletClient({
   transport: http(rpcUrl)
 }) : null;
 
+function normalizeTxHash(txHash) {
+  if (!txHash || typeof txHash !== 'string') return txHash;
+  let clean = txHash.trim();
+  if (!clean.startsWith('0x')) return clean;
+  const hexPart = clean.slice(2);
+  if (hexPart.length < 64) {
+    return '0x' + hexPart.padStart(64, '0');
+  }
+  return clean;
+}
+
 const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS || '').trim();
 
 const FACTORY_ABI = [
@@ -429,6 +440,7 @@ async function saveTrade(userId, trade) {
 
 async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, txHash, question, entryPrice }) {
   try {
+    txHash = normalizeTxHash(txHash);
     const { data: existing, error } = await supabase
       .from('trades')
       .select('*')
@@ -1187,10 +1199,11 @@ app.post('/api/trade/claim', authenticateUser, strictLimiter, async (req, res) =
 
 app.get('/api/trade/status', async (req, res) => {
   try {
-    const { txId } = req.query;
+    let { txId } = req.query;
     if (!txId) return res.status(400).json({ error: 'txId required' });
 
     if (txId.startsWith('0x')) {
+      txId = normalizeTxHash(txId);
       // External browser wallet transaction hash
       try {
         const receipt = await publicClient.getTransactionReceipt({ hash: txId });
@@ -1215,10 +1228,12 @@ app.get('/api/trade/status', async (req, res) => {
 
 app.post('/api/trade/save-external', strictLimiter, async (req, res) => {
   try {
-    const { userId, side, usdcAmount, entryPrice, question, txHash, marketId } = req.body;
+    let { userId, side, usdcAmount, entryPrice, question, txHash, marketId } = req.body;
     if (!userId || !side || !usdcAmount || !entryPrice || !question || !txHash) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
+
+    txHash = normalizeTxHash(txHash);
 
     // Verify transaction on-chain
     try {
