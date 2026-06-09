@@ -48,13 +48,18 @@ const authenticateUser = async (req, res, next) => {
     }
     req.user = user;
     
-    // Ensure authenticated user matches requested userId
-    if (requestedUserId) {
-      const expectedUserId = `supabase_${user.id}`;
-      if (requestedUserId !== expectedUserId) {
-        console.warn(`[Auth Warning] UserId mismatch. Authenticated: ${expectedUserId}, Requested: ${requestedUserId}`);
-        return res.status(403).json({ error: 'Forbidden: User identity mismatch' });
-      }
+    const expectedUserId = `supabase_${user.id}`;
+    if (requestedUserId && requestedUserId !== expectedUserId) {
+      console.warn(`[Auth Warning] UserId mismatch. Authenticated: ${expectedUserId}, Requested: ${requestedUserId}`);
+      return res.status(403).json({ error: 'Forbidden: User identity mismatch' });
+    }
+    
+    // Force override query and body parameters to the verified userId to eliminate IDOR
+    if (req.body) {
+      req.body.userId = expectedUserId;
+    }
+    if (req.query) {
+      req.query.userId = expectedUserId;
     }
     
     next();
@@ -416,7 +421,10 @@ async function isApproved(walletId, contractAddress) {
 }
 
 async function saveTrade(userId, trade) {
-  await supabase.from('trades').insert({ user_id: userId, ...trade });
+  const { data } = await supabase.from('trades').insert({ user_id: userId, ...trade }).select().single();
+  if (data && data.state === 'COMPLETE') {
+    broadcastTrade(data);
+  }
 }
 
 async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, txHash, question, entryPrice }) {
@@ -439,14 +447,21 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
 
     if (existing && existing.length > 0) {
       const trade = existing[0];
-      await supabase
+      const { data: updatedTrade } = await supabase
         .from('trades')
         .update({
           state: 'COMPLETE',
           tx_hash: txHash,
           usdc_amount: amountUsdc,
         })
-        .eq('id', trade.id);
+        .eq('id', trade.id)
+        .select()
+        .single();
+      
+      if (updatedTrade) {
+        broadcastTrade(updatedTrade);
+      }
+      
       console.log(`[QuickNode Webhook] Synced initiated trade ID ${trade.id} to COMPLETE`);
       createNotification(
         userId,
@@ -464,16 +479,22 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
       if (dup && dup.length > 0) {
         const existingTrade = dup[0];
         if (existingTrade.usdc_amount !== amountUsdc) {
-          await supabase
+          const { data: updatedTrade } = await supabase
             .from('trades')
             .update({ usdc_amount: amountUsdc })
-            .eq('id', existingTrade.id);
+            .eq('id', existingTrade.id)
+            .select()
+            .single();
+          
+          if (updatedTrade) {
+            broadcastTrade(updatedTrade);
+          }
           console.log(`[QuickNode Webhook] Updated existing trade ${existingTrade.id} with correct on-chain usdc_amount: ${amountUsdc}`);
         }
         return;
       }
 
-      await supabase
+      const { data: newTrade } = await supabase
         .from('trades')
         .insert({
           user_id: userId,
@@ -485,7 +506,14 @@ async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, 
           market_id: marketId,
           state: 'COMPLETE',
           tx_hash: txHash,
-        });
+        })
+        .select()
+        .single();
+        
+      if (newTrade) {
+        broadcastTrade(newTrade);
+      }
+      
       console.log(`[QuickNode Webhook] Inserted new completed trade for tx ${txHash}`);
       createNotification(
         userId,
@@ -562,6 +590,81 @@ async function getWalletInfo(walletId) {
     return { walletId, address: '', usdcBalance: '0.00' };
   }
 }
+
+// In-memory RPC cache
+const rpcCache = new Map(); // requestHash -> { data, ts }
+const RPC_CACHE_TTL = 3000; // 3 seconds TTL
+
+// Allowed RPC methods to prevent open relay abuse
+const ALLOWED_RPC_METHODS = [
+  'eth_call',
+  'eth_blockNumber',
+  'eth_getBalance',
+  'eth_getLogs',
+  'eth_estimateGas',
+  'eth_gasPrice',
+  'eth_getTransactionByHash',
+  'eth_getTransactionReceipt',
+  'eth_chainId',
+  'net_version'
+];
+
+// RPC Proxy rate limiter (max 120 requests per minute per IP)
+const rpcProxyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { error: 'Too many RPC requests from this IP. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// POST /api/rpc-proxy
+app.post('/api/rpc-proxy', rpcProxyLimiter, async (req, res) => {
+  try {
+    const { method, params, id, jsonrpc } = req.body;
+    if (!method) {
+      return res.status(400).json({ error: 'method required' });
+    }
+
+    // Method safety check
+    if (!ALLOWED_RPC_METHODS.includes(method)) {
+      console.warn(`[RPC Proxy Blocked] Unauthorized method: ${method}`);
+      return res.status(403).json({ error: `Forbidden RPC method: ${method}` });
+    }
+
+    const isCacheable = method === 'eth_call';
+    const cacheKey = isCacheable ? JSON.stringify({ method, params }) : null;
+
+    if (isCacheable) {
+      const cached = rpcCache.get(cacheKey);
+      if (cached && (Date.now() - cached.ts) < RPC_CACHE_TTL) {
+        return res.json(cached.data);
+      }
+    }
+
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method,
+        params,
+        id: id || 1,
+        jsonrpc: jsonrpc || '2.0',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (isCacheable && data && !data.error) {
+      rpcCache.set(cacheKey, { data, ts: Date.now() });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('RPC Proxy error:', err.message);
+    res.status(500).json({ error: 'RPC proxy failed', details: err.message });
+  }
+});
 
 // POST /api/wallet/get-or-create
 app.post('/api/wallet/get-or-create', authenticateUser, strictLimiter, async (req, res) => {
@@ -1243,26 +1346,54 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
       await Promise.all(uniqueMarkets.map(async (marketAddress) => {
         try {
           let yesShares = 0, noShares = 0, claimed = false;
-          for (const addr of scanAddresses) {
-            const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
-              address: marketAddress,
-              abi: [{
-                name: 'getUserPosition',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [{ name: 'user', type: 'address' }],
-                outputs: [
-                  { name: '_yesShares', type: 'uint256' },
-                  { name: '_noShares', type: 'uint256' },
-                  { name: '_claimed', type: 'bool' }
-                ]
-              }],
-              functionName: 'getUserPosition',
-              args: [addr]
+          let rpcPositionSuccess = false;
+          
+          try {
+            for (const addr of scanAddresses) {
+              const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
+                address: marketAddress,
+                abi: [{
+                  name: 'getUserPosition',
+                  type: 'function',
+                  stateMutability: 'view',
+                  inputs: [{ name: 'user', type: 'address' }],
+                  outputs: [
+                    { name: '_yesShares', type: 'uint256' },
+                    { name: '_noShares', type: 'uint256' },
+                    { name: '_claimed', type: 'bool' }
+                  ]
+                }],
+                functionName: 'getUserPosition',
+                args: [addr]
+              });
+              yesShares += Number(yesSharesRaw) / 1_000_000;
+              noShares += Number(noSharesRaw) / 1_000_000;
+              if (claimedRaw) claimed = true;
+            }
+            rpcPositionSuccess = true;
+          } catch (rpcErr) {
+            console.error(`[RPC Fallback] Failed to read position from contract for user ${userAddress} on market ${marketAddress}:`, rpcErr.message);
+            // Fallback: estimate positions from trades in database
+            const completedTrades = rows.filter(r => r.state === 'COMPLETE' && r.market_id === marketAddress);
+            const yesTrades = completedTrades.filter(r => r.side === 'YES');
+            const noTrades = completedTrades.filter(r => r.side === 'NO');
+
+            yesTrades.forEach(r => {
+              const amt = parseFloat(r.usdc_amount ?? 0);
+              const price = parseFloat(r.entry_price ?? 0.5) || 0.5;
+              yesShares += amt / price;
             });
-            yesShares += Number(yesSharesRaw) / 1_000_000;
-            noShares += Number(noSharesRaw) / 1_000_000;
-            if (claimedRaw) claimed = true;
+            
+            noTrades.forEach(r => {
+              const amt = parseFloat(r.usdc_amount ?? 0);
+              const price = parseFloat(r.entry_price ?? 0.5) || 0.5;
+              noShares += amt / price;
+            });
+
+            if (yesShares < 0) yesShares = 0;
+            if (noShares < 0) noShares = 0;
+            
+            claimed = completedTrades.some(r => r.side === 'CLAIM');
           }
 
           if (yesShares < 0.0001 && noShares < 0.0001) return;
@@ -1273,61 +1404,66 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
           let resolved = false;
           let outcome = null;
           
-          try {
-            const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain] = await publicClient.readContract({
-              address: marketAddress,
-              abi: [{
-                name: 'getMarketInfo',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [
-                  { name: '_slug', type: 'string' },
-                  { name: '_deadline', type: 'uint256' },
-                  { name: '_resolved', type: 'bool' },
-                  { name: '_outcome', type: 'bool' },
-                  { name: '_yesOutstanding', type: 'uint256' },
-                  { name: '_noOutstanding', type: 'uint256' }
-                ]
-              }],
-              functionName: 'getMarketInfo'
-            });
-            resolved = resolvedOnChain;
-            outcome = outcomeOnChain;
-            
-            // Self-heal DB and cache if it resolved on-chain but not in DB
-            const slugVal = slug || slugOnChain || '';
-            if (slugVal) {
-              const cached = deployedMarketsCache.get(slugVal);
-              if (resolved && (!cached || !cached.resolved)) {
-                if (cached) {
-                  cached.resolved = true;
-                  cached.outcome = outcome;
-                } else {
-                  deployedMarketsCache.set(slugVal, {
-                    contractAddress: marketAddress,
-                    deadline: Number(deadlineOnChain),
-                    resolved: true,
-                    outcome
-                  });
+          const cached = slug ? deployedMarketsCache.get(slug) : null;
+          if (cached && cached.resolved) {
+            resolved = true;
+            outcome = cached.outcome;
+          } else {
+            try {
+              const [slugOnChain, deadlineOnChain, resolvedOnChain, outcomeOnChain] = await publicClient.readContract({
+                address: marketAddress,
+                abi: [{
+                  name: 'getMarketInfo',
+                  type: 'function',
+                  stateMutability: 'view',
+                  inputs: [],
+                  outputs: [
+                    { name: '_slug', type: 'string' },
+                    { name: '_deadline', type: 'uint256' },
+                    { name: '_resolved', type: 'bool' },
+                    { name: '_outcome', type: 'bool' },
+                    { name: '_yesOutstanding', type: 'uint256' },
+                    { name: '_noOutstanding', type: 'uint256' }
+                  ]
+                }],
+                functionName: 'getMarketInfo'
+              });
+              resolved = resolvedOnChain;
+              outcome = outcomeOnChain;
+              
+              // Self-heal DB and cache if it resolved on-chain but not in DB
+              const slugVal = slug || slugOnChain || '';
+              if (slugVal) {
+                const cachedEntry = deployedMarketsCache.get(slugVal);
+                if (resolved && (!cachedEntry || !cachedEntry.resolved)) {
+                  if (cachedEntry) {
+                    cachedEntry.resolved = true;
+                    cachedEntry.outcome = outcome;
+                  } else {
+                    deployedMarketsCache.set(slugVal, {
+                      contractAddress: marketAddress,
+                      deadline: Number(deadlineOnChain),
+                      resolved: true,
+                      outcome
+                    });
+                  }
+                  supabase
+                    .from('deployed_markets')
+                    .update({ resolved: true, outcome })
+                    .eq('contract_address', marketAddress)
+                    .then(({ error }) => {
+                      if (error) console.error(`[Self-Heal Error] Failed to update db resolved state for ${slugVal}:`, error.message);
+                      else console.log(`[Self-Heal Success] Updated resolved state in DB for ${slugVal}`);
+                    });
                 }
-                supabase
-                  .from('deployed_markets')
-                  .update({ resolved: true, outcome })
-                  .eq('contract_address', marketAddress)
-                  .then(({ error }) => {
-                    if (error) console.error(`[Self-Heal Error] Failed to update db resolved state for ${slugVal}:`, error.message);
-                    else console.log(`[Self-Heal Success] Updated resolved state in DB for ${slugVal}`);
-                  });
               }
-            }
-          } catch (err) {
-            console.error(`Failed to read market info from contract for ${marketAddress}:`, err.message);
-            // Fallback to cache if contract call fails
-            const cached = slug ? deployedMarketsCache.get(slug) : null;
-            if (cached) {
-              resolved = cached.resolved;
-              outcome = cached.outcome;
+            } catch (err) {
+              console.error(`Failed to read market info from contract for ${marketAddress}:`, err.message);
+              // Fallback to cache if contract call fails
+              if (cached) {
+                resolved = cached.resolved;
+                outcome = cached.outcome;
+              }
             }
           }
 
@@ -1356,6 +1492,7 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
               claimed,
               resolved,
               outcome,
+              isEstimate: !rpcPositionSuccess,
               txHash: completedTrades.find(r => r.side === 'YES')?.tx_hash || null,
               timestamp: completedTrades.find(r => r.side === 'YES')?.created_at || new Date().toISOString()
             });
@@ -1377,6 +1514,7 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
               claimed,
               resolved,
               outcome,
+              isEstimate: !rpcPositionSuccess,
               txHash: completedTrades.find(r => r.side === 'NO')?.tx_hash || null,
               timestamp: completedTrades.find(r => r.side === 'NO')?.created_at || new Date().toISOString()
             });
@@ -3154,6 +3292,22 @@ async function checkAndExecuteLimitOrders() {
         
         const circleId = txRes.data.id;
         
+        // ── INITIATE TRADE RECORD FOR LIMIT ORDER IDEMPOTENCY ──
+        const estimatedPayout = isBuy ? parseFloat(amount) : (parseFloat(shares) * currentPrice);
+        let questionSlug = slug.split('-').join(' ');
+        if (questionSlug.length > 0) {
+          questionSlug = questionSlug.charAt(0).toUpperCase() + questionSlug.slice(1);
+        }
+        await saveTrade(userId, {
+          tx_id: circleId,
+          side,
+          usdc_amount: isBuy ? estimatedPayout : -estimatedPayout,
+          entry_price: currentPrice,
+          question: `🎯 Limit: ${questionSlug}`,
+          market_id: marketId,
+          state: 'INITIATED',
+        });
+        
         let txHash = null, finalState = null;
         for (let i = 0; i < 20; i++) {
           await new Promise(r => setTimeout(r, 1500));
@@ -3174,16 +3328,19 @@ async function checkAndExecuteLimitOrders() {
             })
             .eq('id', orderId);
             
-          await saveTrade(userId, {
-            tx_id: circleId,
-            side,
-            usdc_amount: isBuy ? parseFloat(amount) : -parseFloat(shares),
-            entry_price: currentPrice,
-            question: `🎯 Limit: ${slug.split('-').join(' ')}`,
-            market_id: marketId,
-            state: 'COMPLETE',
-            tx_hash: txHash
-          });
+          const { data: updatedTrade } = await supabase
+            .from('trades')
+            .update({
+              state: 'COMPLETE',
+              tx_hash: txHash
+            })
+            .eq('tx_id', circleId)
+            .select()
+            .single();
+          
+          if (updatedTrade) {
+            broadcastTrade(updatedTrade);
+          }
           
           createNotification(
             userId,
@@ -3196,6 +3353,13 @@ async function checkAndExecuteLimitOrders() {
             .from('limit_orders')
             .update({ status: 'FAILED' })
             .eq('id', orderId);
+            
+          await supabase
+            .from('trades')
+            .update({
+              state: 'FAILED'
+            })
+            .eq('tx_id', circleId);
             
           createNotification(
             userId,
@@ -3218,7 +3382,7 @@ async function checkAndExecuteLimitOrders() {
 setInterval(checkAndExecuteLimitOrders, 20 * 1000);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
   await loadDeployedMarkets();
   loadWalletAddressMapping().catch(console.error);
@@ -3226,3 +3390,317 @@ app.listen(PORT, async () => {
   warmupTopMarkets().catch(console.error);
   updateLeaderboard().catch(console.error);
 });
+
+// ── WebSocket Server for Live Betting Feed ──
+import { WebSocketServer } from 'ws';
+const wss = new WebSocketServer({ server });
+const wsClients = new Set();
+
+wss.on('connection', (ws) => {
+  wsClients.add(ws);
+  console.log(`[WebSocket] Client connected. Active clients: ${wsClients.size}`);
+  ws.on('close', () => {
+    wsClients.delete(ws);
+    console.log(`[WebSocket] Client disconnected. Active clients: ${wsClients.size}`);
+  });
+  ws.on('error', (err) => {
+    wsClients.delete(ws);
+    console.error('[WebSocket] Client error:', err.message);
+  });
+});
+
+function broadcastTrade(trade) {
+  const payload = JSON.stringify(trade);
+  console.log(`[WebSocket] Broadcasting trade event: ${trade.id}`);
+  for (const client of wsClients) {
+    if (client.readyState === 1) { // OPEN
+      try {
+        client.send(payload);
+      } catch (err) {
+        console.error('[WebSocket] Broadcast failed:', err.message);
+      }
+    }
+  }
+}
+
+// ── Agent Strategies Engine (Arbitrage & DCA) ──
+const agentStrategies = new Map(); // userId -> strategy string ('NONE', 'ARBITRAGE', 'DCA')
+
+async function getAgentStrategy(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('strategy')
+      .eq('user_id', `agent_${userId}`)
+      .single();
+    if (!error && data && data.strategy) {
+      return data.strategy;
+    }
+  } catch (_) {}
+  return agentStrategies.get(userId) ?? 'NONE';
+}
+
+async function setAgentStrategy(userId, strategy) {
+  agentStrategies.set(userId, strategy);
+  try {
+    await supabase
+      .from('wallets')
+      .update({ strategy })
+      .eq('user_id', `agent_${userId}`);
+  } catch (_) {}
+}
+
+app.get('/api/agent/strategy', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const strategy = await getAgentStrategy(userId);
+    res.json({ strategy });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/agent/strategy', authenticateUser, async (req, res) => {
+  try {
+    const { userId, strategy } = req.body;
+    if (!userId || !strategy) return res.status(400).json({ error: 'userId and strategy required' });
+    await setAgentStrategy(userId, strategy);
+    res.json({ strategy });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function runAgentStrategies() {
+  console.log('Running autonomous agent strategies loop...');
+  try {
+    const { data: walletRows, error } = await supabase
+      .from('wallets')
+      .select('user_id, wallet_id');
+      
+    if (error || !walletRows) return;
+    
+    const agentRows = walletRows.filter(r => r.user_id.startsWith('agent_'));
+    
+    for (const row of agentRows) {
+      const agentKey = row.user_id;
+      const userId = agentKey.substring(6);
+      const agentWalletId = row.wallet_id;
+      
+      const strategy = await getAgentStrategy(userId);
+      if (strategy === 'NONE') continue;
+      
+      const walletInfo = await getWalletInfo(agentWalletId);
+      const balance = parseFloat(walletInfo.usdcBalance) || 0;
+      
+      if (balance < 1.0) {
+        console.log(`Agent ${agentKey} balance is too low ($${balance.toFixed(2)}), skipping.`);
+        continue;
+      }
+      
+      // Enforce 2 minutes cooling period
+      const { data: lastTrades } = await supabase
+        .from('trades')
+        .select('created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (lastTrades && lastTrades.length > 0) {
+        const lastTradeTime = new Date(lastTrades[0].created_at).getTime();
+        const timeSinceLastTrade = Date.now() - lastTradeTime;
+        if (timeSinceLastTrade < 120 * 1000) {
+          console.log(`Agent ${agentKey} traded recently, cooling down.`);
+          continue;
+        }
+      }
+      
+      if (strategy === 'ARBITRAGE') {
+        await executeArbitrageStrategy(userId, agentWalletId, balance);
+      } else if (strategy === 'DCA') {
+        await executeDCAStrategy(userId, agentWalletId, balance);
+      }
+    }
+  } catch (err) {
+    console.error('runAgentStrategies error:', err.message);
+  }
+}
+
+async function executeArbitrageStrategy(userId, agentWalletId, balance) {
+  const activeMarkets = Array.from(deployedMarketsCache.entries())
+    .map(([slug, entry]) => ({ slug, ...entry }))
+    .filter(m => !m.resolved && m.deadline > Math.floor(Date.now() / 1000));
+    
+  if (activeMarkets.length === 0) return;
+  
+  let pmMarkets = [];
+  try {
+    const pmRes = await fetch('https://gamma-api.polymarket.com/markets?limit=30&active=true&closed=false', { headers: { Accept: 'application/json' } });
+    if (pmRes.ok) pmMarkets = await pmRes.json();
+  } catch (e) {
+    console.error('Arbitrage strategy Polymarket fetch error:', e.message);
+    return;
+  }
+  
+  const pmMarketsBySlug = Object.fromEntries(pmMarkets.map(m => [m.slug, m]));
+  
+  for (const market of activeMarkets) {
+    const pmMarket = pmMarketsBySlug[market.slug];
+    if (!pmMarket) continue;
+    
+    const pmYesPrice = parseFloat(pmMarket.outcomePrices?.[0] || pmMarket.yesPrice);
+    if (isNaN(pmYesPrice)) continue;
+    
+    let onChainYesPrice = 0.5;
+    try {
+      const info = await publicClient.readContract({
+        address: market.contractAddress,
+        abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
+          { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
+          { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
+          { name: '_yesOutstanding', type: 'uint256' }, { name: '_noOutstanding', type: 'uint256' } ] }],
+        functionName: 'getMarketInfo',
+      });
+      const poolYes = Number(info[4]) / 1_000_000;
+      const poolNo = Number(info[5]) / 1_000_000;
+      const bVal = 10;
+      const maxQ = Math.max(poolYes, poolNo);
+      const expYes = Math.exp((poolYes - maxQ) / bVal);
+      const expNo = Math.exp((poolNo - maxQ) / bVal);
+      onChainYesPrice = expYes / (expYes + expNo);
+    } catch (_) {
+      continue;
+    }
+    
+    const yesDiff = pmYesPrice - onChainYesPrice;
+    const noDiff = (1 - pmYesPrice) - (1 - onChainYesPrice);
+    
+    let sideToBuy = null;
+    let priceDiff = 0;
+    
+    if (yesDiff > 0.06) {
+      sideToBuy = 'YES';
+      priceDiff = yesDiff;
+    } else if (noDiff > 0.06) {
+      sideToBuy = 'NO';
+      priceDiff = noDiff;
+    }
+    
+    if (sideToBuy) {
+      const buyAmount = 1.0;
+      console.log(`Arbitrage Opportunity: ${market.slug} ${sideToBuy} is undervalued on-chain by ${priceDiff.toFixed(2)} (On-chain: ${onChainYesPrice.toFixed(2)}, PM: ${pmYesPrice.toFixed(2)}). Buying $1.`);
+      
+      const success = await executeAgentTrade(userId, agentWalletId, market.contractAddress, sideToBuy, buyAmount, market.slug);
+      if (success) {
+        createNotification(
+          userId,
+          'Arbitrage Executed 🤖📈',
+          `Your agent bought $1.00 of ${sideToBuy} on "${pmMarket.question || market.slug}" because on-chain price was ${sideToBuy === 'YES' ? onChainYesPrice.toFixed(2) : (1-onChainYesPrice).toFixed(2)} vs Polymarket ${sideToBuy === 'YES' ? pmYesPrice.toFixed(2) : (1-pmYesPrice).toFixed(2)}.`,
+          'trade'
+        ).catch(console.error);
+        return;
+      }
+    }
+  }
+}
+
+async function executeDCAStrategy(userId, agentWalletId, balance) {
+  const activeMarkets = Array.from(deployedMarketsCache.entries())
+    .map(([slug, entry]) => ({ slug, ...entry }))
+    .filter(m => !m.resolved && m.deadline > Math.floor(Date.now() / 1000));
+    
+  if (activeMarkets.length === 0) return;
+  
+  const market = activeMarkets[Math.floor(Math.random() * activeMarkets.length)];
+  const side = Math.random() > 0.5 ? 'YES' : 'NO';
+  const buyAmount = 1.0;
+  
+  console.log(`DCA Trade: Agent ${userId} investing $1.00 on ${market.slug} ${side}.`);
+  const success = await executeAgentTrade(userId, agentWalletId, market.contractAddress, side, buyAmount, market.slug);
+  if (success) {
+    let question = market.slug.split('-').join(' ');
+    if (question.length > 0) {
+      question = question.charAt(0).toUpperCase() + question.slice(1);
+    }
+    createNotification(
+      userId,
+      'DCA Invested 🤖⏳',
+      `Your agent invested a scheduled $1.00 in ${side} shares for "${question}".`,
+      'trade'
+    ).catch(console.error);
+  }
+}
+
+async function executeAgentTrade(userId, agentWalletId, contractAddress, side, amount, slug) {
+  try {
+    const amountMicro = Math.round(amount * 1_000_000).toString();
+    if (!(await isApproved(agentWalletId, contractAddress))) {
+      const MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+      await circle.createContractExecutionTransaction({
+        walletId: agentWalletId, contractAddress: USDC,
+        abiFunctionSignature: 'approve(address,uint256)', abiParameters: [contractAddress, MAX],
+        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+      });
+      await new Promise(r => setTimeout(r, 4500));
+    }
+    
+    const txRes = await circle.createContractExecutionTransaction({
+      walletId: agentWalletId, contractAddress,
+      abiFunctionSignature: side === 'YES' ? 'buyYes(uint256)' : 'buyNo(uint256)',
+      abiParameters: [amountMicro],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+    
+    const circleId = txRes.data.id;
+    let txHash = null, finalState = null;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const st = await circle.getTransaction({ id: circleId });
+        const tx = st.data?.transaction;
+        if (tx?.txHash) txHash = tx.txHash;
+        finalState = tx?.state;
+        if (['COMPLETE', 'FAILED', 'DENIED', 'CANCELLED'].includes(finalState)) break;
+      } catch (_) {}
+    }
+    
+    if (finalState === 'COMPLETE') {
+      let question = slug.split('-').join(' ');
+      if (question.length > 0) {
+        question = question.charAt(0).toUpperCase() + question.slice(1);
+      }
+      
+      const { data: newTrade } = await supabase
+        .from('trades')
+        .insert({
+          user_id: userId,
+          tx_id: circleId,
+          side,
+          usdc_amount: amount,
+          entry_price: 0.5,
+          question: `🤖 Agent: ${question}`,
+          market_id: contractAddress,
+          state: 'COMPLETE',
+          tx_hash: txHash,
+        })
+        .select()
+        .single();
+        
+      if (newTrade) {
+        broadcastTrade(newTrade);
+      }
+      
+      const info = await getWalletInfo(agentWalletId);
+      recordAgentReputation(`agent_${userId}`, info.address, 90, 'successful_trade').catch(() => {});
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error(`executeAgentTrade error for ${agentWalletId}:`, err.message);
+    return false;
+  }
+}
+
+// Run strategies check every 60 seconds
+setInterval(runAgentStrategies, 60 * 1000);
