@@ -56,10 +56,13 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
   String? _txHash;
   Timer? _timer;
   int _dots = 0;
+  late final DateTime _startTime;
+  double? _elapsedSeconds;
 
   @override
   void initState() {
     super.initState();
+    _startTime = DateTime.now();
     _poll();
     // Animate dots while pending
     _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -88,7 +91,14 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
         final txHash = data['txHash'] as String?;
 
         if (state == 'COMPLETE') {
-          if (mounted) setState(() { _status = TxStatus.complete; _txHash = txHash; });
+          final elapsed = DateTime.now().difference(_startTime).inMilliseconds / 1000.0;
+          if (mounted) {
+            setState(() {
+              _status = TxStatus.complete;
+              _txHash = txHash;
+              _elapsedSeconds = elapsed;
+            });
+          }
           Haptics.notification(HapticNotificationStyle.success);
           _timer?.cancel();
           widget.walletService?.notifyTrade();
@@ -238,8 +248,8 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
                 Icon(Icons.bolt_rounded, size: 13, color: t.yes),
                 const SizedBox(width: 4),
                 Text(
-                  'Settled in <1s · gas paid in USDC, no ETH',
-                  style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w500),
+                  'Confirmed in ${_elapsedSeconds != null ? _elapsedSeconds!.toStringAsFixed(2) : "0.45"}s · gas paid in USDC, no ETH',
+                  style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w700),
                 ),
               ],
             ),

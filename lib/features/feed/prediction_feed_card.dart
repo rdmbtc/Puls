@@ -6,6 +6,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/tactile.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -33,6 +34,7 @@ class PredictionFeedCard extends StatefulWidget {
 class _PredictionFeedCardState extends State<PredictionFeedCard> {
   double _dragX = 0;
   List<double> _sparkline = [];
+  bool _hasTriggeredHaptic = false;
 
   @override
   void initState() {
@@ -43,7 +45,12 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
   }
 
   void _reset() {
-    if (mounted) setState(() => _dragX = 0);
+    if (mounted) {
+      setState(() {
+        _dragX = 0;
+        _hasTriggeredHaptic = false;
+      });
+    }
   }
 
   void _commit(MarketSide side) {
@@ -66,8 +73,22 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onHorizontalDragUpdate: (d) =>
-          setState(() => _dragX = (_dragX + d.delta.dx).clamp(-180.0, 180.0)),
+      onHorizontalDragUpdate: (d) {
+        setState(() {
+          _dragX = (_dragX + d.delta.dx).clamp(-180.0, 180.0);
+          final absDrag = _dragX.abs();
+          if (absDrag > 82) {
+            if (!_hasTriggeredHaptic) {
+              Haptics.impact(HapticImpactStyle.light);
+              _hasTriggeredHaptic = true;
+            }
+          } else {
+            if (_hasTriggeredHaptic) {
+              _hasTriggeredHaptic = false;
+            }
+          }
+        });
+      },
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
         if (_dragX > 82 || v > 700) {
@@ -106,12 +127,59 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
                 if (progress > 0)
                   Positioned.fill(
                     child: AnimatedOpacity(
-                      opacity: progress * 0.08,
+                      opacity: progress * 0.22,
                       duration: const Duration(milliseconds: 60),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: swipeColor,
                           borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                // Floating YES/NO indicator stamp
+                if (progress > 0.1)
+                  Positioned.fill(
+                    child: Center(
+                      child: Transform.scale(
+                        scale: 0.6 + progress * 0.4,
+                        child: Opacity(
+                          opacity: ((progress - 0.1) / 0.9).clamp(0.0, 1.0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: swipeColor.withValues(alpha: 0.95),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                )
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  side == MarketSide.yes ? Icons.check_circle_outline_rounded : Icons.cancel_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  side == MarketSide.yes ? 'YES' : 'NO',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -158,14 +226,19 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
                                     ),
                                   ),
                                 const SizedBox(width: 8),
-                                GestureDetector(
+                                Tactile(
                                   onTap: widget.onWatchlist,
-                                  child: Icon(
-                                    Icons.bookmark_rounded,
-                                    size: 20,
-                                    color: widget.isWatchlisted
-                                        ? PulsColors.amber
-                                        : t.textSubtle,
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    alignment: Alignment.centerRight,
+                                    child: Icon(
+                                      Icons.bookmark_rounded,
+                                      size: 20,
+                                      color: widget.isWatchlisted
+                                          ? PulsColors.amber
+                                          : t.textSubtle,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -281,19 +354,22 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
                                   ),
                                 ],
                                 const SizedBox(width: 8),
-                                GestureDetector(
+                                Tactile(
                                   onTap: widget.onDetails,
-                                  child: Row(
-                                    children: [
-                                      Text('Details',
-                                          style: TextStyle(
-                                              color: t.brand,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600)),
-                                      const SizedBox(width: 2),
-                                      Icon(Icons.arrow_forward_rounded,
-                                          size: 14, color: t.brand),
-                                    ],
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                    child: Row(
+                                      children: [
+                                        Text('Details',
+                                            style: TextStyle(
+                                                color: t.brand,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600)),
+                                        const SizedBox(width: 2),
+                                        Icon(Icons.arrow_forward_rounded,
+                                            size: 14, color: t.brand),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -476,27 +552,27 @@ class _SideBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 54,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: fg,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          padding: EdgeInsets.zero,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 14, color: fg)),
-            Text(price,
-                style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                    color: fg.withValues(alpha: 0.8))),
-          ],
+      child: Tactile(
+        onTap: onPressed,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 14, color: fg)),
+              Text(price,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: fg.withValues(alpha: 0.8))),
+            ],
+          ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:haptic_kit/haptic_kit.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
@@ -39,6 +40,7 @@ class _AgentScreenState extends State<AgentScreen> {
   String? _agentId;
   double _budgetVal = 0, _spent = 0;
   final List<_Msg> _msgs = [];
+  String _strategy = 'NONE';
 
   String? get _userId => WalletServiceScope.of(context).state.userId;
 
@@ -72,6 +74,17 @@ class _AgentScreenState extends State<AgentScreen> {
       final r = jsonDecode(res.body) as Map<String, dynamic>;
       if (r['exists'] == true && mounted) {
         final bal = double.tryParse('${r['balance']}') ?? 0;
+        String strategy = 'NONE';
+        try {
+          final stratRes = await _client.get(
+            Uri.parse('$backendUrl/api/agent/strategy?userId=$uid'),
+            headers: headers,
+          ).timeout(const Duration(seconds: 5));
+          if (stratRes.statusCode == 200) {
+            final sr = jsonDecode(stratRes.body) as Map<String, dynamic>;
+            strategy = sr['strategy'] as String? ?? 'NONE';
+          }
+        } catch (_) {}
         setState(() {
           _started = true;
           _agentAddress = r['agentAddress'] as String?;
@@ -80,6 +93,7 @@ class _AgentScreenState extends State<AgentScreen> {
           _agentId = r['agentId'] as String?;
           _budgetVal = bal;
           _spent = 0;
+          _strategy = strategy;
           _msgs.add(_Msg(true,
               'Welcome back. Your agent is live with \$${bal.toStringAsFixed(2)} USDC available. Ask me to trade, or withdraw the funds back to your wallet anytime.'));
         });
@@ -396,10 +410,118 @@ class _AgentScreenState extends State<AgentScreen> {
         ),
       );
 
+  Future<void> _updateStrategy(String value) async {
+    final uid = _userId;
+    if (uid == null) return;
+    try {
+      Haptics.impact(HapticImpactStyle.light);
+      final r = await _post('/api/agent/strategy', {'userId': uid, 'strategy': value});
+      setState(() {
+        _strategy = r['strategy'] as String? ?? 'NONE';
+        final strategyName = _strategy == 'NONE'
+            ? 'Manual Chat'
+            : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA');
+        _msgs.add(_Msg(true, '⚙️ Presets changed: Autonomous strategy set to **$strategyName** mode.'));
+      });
+    } catch (e) {
+      _toast(e.toString());
+    }
+  }
+
+  Widget _strategySelector(PulsThemeColors t) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.psychology_rounded, size: 16, color: t.brand),
+              const SizedBox(width: 6),
+              Text(
+                'AGENT AUTONOMOUS STRATEGY',
+                style: TextStyle(
+                  color: t.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _strategy == 'NONE' ? t.border : t.yesBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _strategy == 'NONE' ? 'Manual Chat' : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA Active'),
+                  style: TextStyle(
+                    color: _strategy == 'NONE' ? t.textMuted : t.yes,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _strategyOption(t, 'NONE', 'Manual Chat', Icons.chat_bubble_outline_rounded)),
+              const SizedBox(width: 8),
+              Expanded(child: _strategyOption(t, 'ARBITRAGE', 'Arbitrage', Icons.trending_up_rounded)),
+              const SizedBox(width: 8),
+              Expanded(child: _strategyOption(t, 'DCA', 'DCA Mode', Icons.schedule_rounded)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _strategyOption(PulsThemeColors t, String value, String label, IconData icon) {
+    final isSelected = _strategy == value;
+    return GestureDetector(
+      onTap: () => _updateStrategy(value),
+      child: Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: isSelected ? t.brand : t.surfaceRaised,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? t.brand : t.border),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 13, color: isSelected ? Colors.white : t.textMuted),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : t.text,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _chat(PulsThemeColors t) {
     return Column(
       children: [
         _header(t),
+        _strategySelector(t),
         Expanded(
           child: ListView.builder(
             controller: _scroll,

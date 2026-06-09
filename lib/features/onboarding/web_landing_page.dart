@@ -98,7 +98,7 @@ class _Navbar extends StatelessWidget {
     final t = context.puls;
     final isDark = context.isDark;
     final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
+    final isMobile = w < 800;
 
     return Container(
       color: t.bg.withValues(alpha: 0.8),
@@ -284,10 +284,10 @@ class _HeroContent extends StatelessWidget {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
+    final isMobile = w < 850;
 
-    final double titleFontSize = isMobile ? 36 : 62;
-    final double titleLetterSpacing = isMobile ? -1.0 : -2.0;
+    final double titleFontSize = w < 600 ? 32 : (w < 950 ? 46 : 62);
+    final double titleLetterSpacing = w < 600 ? -1.0 : -2.0;
 
     return Center(
       child: SingleChildScrollView(

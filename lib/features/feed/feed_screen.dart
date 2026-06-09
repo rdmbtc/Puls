@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
@@ -415,23 +416,110 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   bool _isLoadingActivities = true;
   bool _useFallbackMock = false;
   Timer? _pollingTimer;
+  WebSocketChannel? _channel;
+  bool _isWebSocketConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _startPolling();
+    _fetchRecentTrades();
+    _connectWebSocket();
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     super.dispose();
   }
 
-  void _startPolling() {
-    _fetchRecentTrades();
+  void _connectWebSocket() {
+    try {
+      final wsUri = Uri.parse(backendUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'));
+      _channel = WebSocketChannel.connect(wsUri);
+      _channel!.stream.listen(
+        (event) {
+          _isWebSocketConnected = true;
+          try {
+            final Map<String, dynamic> trade = json.decode(event);
+            _processSingleWebSocketTrade(trade);
+          } catch (err) {
+            debugPrint('[Feed WebSocket] parse error: $err');
+          }
+        },
+        onError: (err) {
+          debugPrint('[Feed WebSocket] error: $err. Falling back to HTTP polling.');
+          _isWebSocketConnected = false;
+          _startFallbackPolling();
+        },
+        onDone: () {
+          debugPrint('[Feed WebSocket] closed. Falling back to HTTP polling.');
+          _isWebSocketConnected = false;
+          _startFallbackPolling();
+        },
+      );
+    } catch (e) {
+      debugPrint('[Feed WebSocket] connect failed: $e. Falling back to HTTP polling.');
+      _isWebSocketConnected = false;
+      _startFallbackPolling();
+    }
+  }
+
+  void _startFallbackPolling() {
+    if (_pollingTimer != null) return;
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _fetchRecentTrades();
+      if (!_isWebSocketConnected) {
+        _fetchRecentTrades();
+      }
+    });
+  }
+
+  void _processSingleWebSocketTrade(Map<String, dynamic> jsonItem) {
+    if (!mounted) return;
+    
+    final id = jsonItem['id'] as String;
+    if (_activities.any((a) => a.id == id)) return;
+    
+    final userId = jsonItem['user_id'] as String;
+    final side = jsonItem['side'] as String;
+    final usdcAmount = double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
+    final question = jsonItem['question'] as String? ?? 'Prediction Market';
+    final createdAtStr = jsonItem['created_at'] as String;
+    final createdAt = DateTime.tryParse(createdAtStr) ?? DateTime.now();
+
+    final isBuy = usdcAmount >= 0;
+    final absAmount = usdcAmount.abs();
+
+    final newAct = _BetActivity(
+      id: id,
+      username: _formatUserId(userId),
+      action: isBuy ? 'bought' : 'sold',
+      question: question,
+      amount: absAmount,
+      time: 'Just now',
+      isYes: side.toUpperCase() == 'YES',
+      createdAt: createdAt,
+    );
+
+    setState(() {
+      _useFallbackMock = false;
+      _isLoadingActivities = false;
+      _activities.insert(0, newAct);
+      _listKey.currentState?.insertItem(
+        0,
+        duration: const Duration(milliseconds: 500),
+      );
+
+      if (_activities.length > 20) {
+        _activities.removeLast();
+        _listKey.currentState?.removeItem(
+          _activities.length,
+          (context, animation) => const SizedBox.shrink(),
+          duration: Duration.zero,
+        );
+      }
     });
   }
 

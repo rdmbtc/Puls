@@ -48,6 +48,8 @@ Users sign in with Google → get a Circle MPC wallet instantly → trade real P
 - **Real trades** — USDC sent to smart contract on Arc Testnet
 - **Portfolio** — real trade history with Arc explorer links
 - **Dark/light theme** — Dynamic Island floating nav bar
+- **Autonomous AI Trading Agent** — budget-capped strategy presets (Arbitrage, DCA) executing trades on-chain
+- **Automated Oracle Resolution** — 5-minute cron check polling Polymarket consensus outcomes and settling contracts on-chain automatically
 
 ---
 

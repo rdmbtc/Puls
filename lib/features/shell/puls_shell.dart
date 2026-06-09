@@ -5,13 +5,12 @@ import 'package:picons/picons.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
-import '../discover/discover_screen.dart';
+import '../../core/widgets/tactile.dart';
 import '../feed/feed_screen.dart';
 import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
-import '../../features/home/home_screen.dart';
 import 'web_shell.dart';
 
 class PulsShell extends StatelessWidget {
@@ -133,7 +132,7 @@ class _DynamicIslandNav extends StatelessWidget {
               final item = _items[i];
               final selected = i == index;
               return Expanded(
-                child: GestureDetector(
+                child: Tactile(
                   onTap: () => onTap(i),
                   behavior: HitTestBehavior.opaque,
                   child: AnimatedContainer(
