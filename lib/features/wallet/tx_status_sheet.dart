@@ -79,8 +79,11 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
   }
 
   Future<void> _poll() async {
-    for (int i = 0; i < 30; i++) {
-      await Future.delayed(const Duration(seconds: 2));
+    // Poll fast (200ms) for the first 15 attempts (~3s) to capture Arc's sub-second finality
+    // and avoid artificially inflating measured latency due to client-side poll cadence.
+    for (int i = 0; i < 60; i++) {
+      final delay = i < 15 ? const Duration(milliseconds: 200) : const Duration(seconds: 2);
+      await Future.delayed(delay);
       if (!mounted) return;
       try {
         final res = await http.get(

@@ -32,25 +32,28 @@ class PredictionFeedCard extends StatefulWidget {
 }
 
 class _PredictionFeedCardState extends State<PredictionFeedCard> {
-  double _dragX = 0;
+  late final ValueNotifier<double> _dragX;
   List<double> _sparkline = [];
   bool _hasTriggeredHaptic = false;
 
   @override
   void initState() {
     super.initState();
+    _dragX = ValueNotifier<double>(0.0);
     PriceHistoryService.fetch(widget.market.clobTokenId).then((prices) {
       if (mounted) setState(() => _sparkline = prices);
     });
   }
 
+  @override
+  void dispose() {
+    _dragX.dispose();
+    super.dispose();
+  }
+
   void _reset() {
-    if (mounted) {
-      setState(() {
-        _dragX = 0;
-        _hasTriggeredHaptic = false;
-      });
-    }
+    _dragX.value = 0.0;
+    _hasTriggeredHaptic = false;
   }
 
   void _commit(MarketSide side) {
@@ -67,125 +70,135 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
   Widget build(BuildContext context) {
     final t = context.puls;
     final market = widget.market;
-    final progress = (_dragX.abs() / 140).clamp(0.0, 1.0);
-    final side = _dragX >= 0 ? MarketSide.yes : MarketSide.no;
-    final swipeColor = side == MarketSide.yes ? t.yes : t.no;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragUpdate: (d) {
-        setState(() {
-          _dragX = (_dragX + d.delta.dx).clamp(-180.0, 180.0);
-          final absDrag = _dragX.abs();
-          if (absDrag > 82) {
-            if (!_hasTriggeredHaptic) {
-              Haptics.impact(HapticImpactStyle.light);
-              _hasTriggeredHaptic = true;
-            }
-          } else {
-            if (_hasTriggeredHaptic) {
-              _hasTriggeredHaptic = false;
-            }
+        _dragX.value = (_dragX.value + d.delta.dx).clamp(-180.0, 180.0);
+        final absDrag = _dragX.value.abs();
+        if (absDrag > 82) {
+          if (!_hasTriggeredHaptic) {
+            Haptics.impact(HapticImpactStyle.light);
+            _hasTriggeredHaptic = true;
           }
-        });
+        } else {
+          if (_hasTriggeredHaptic) {
+            _hasTriggeredHaptic = false;
+          }
+        }
       },
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
-        if (_dragX > 82 || v > 700) {
+        final currentDrag = _dragX.value;
+        if (currentDrag > 82 || v > 700) {
           _commit(MarketSide.yes);
-        } else if (_dragX < -82 || v < -700) {
+        } else if (currentDrag < -82 || v < -700) {
           _commit(MarketSide.no);
         } else {
           _reset();
         }
       },
       onHorizontalDragCancel: _reset,
-      child: Transform.translate(
-        offset: Offset(_dragX, 0),
-        child: Transform.rotate(
-          angle: _dragX / 2400,
-          child: Container(
-            decoration: BoxDecoration(
-              color: t.surfaceRaised,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: progress > 0.1
-                    ? swipeColor.withValues(alpha: progress * 0.5)
-                    : t.border,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Swipe tint overlay
-                if (progress > 0)
-                  Positioned.fill(
-                    child: AnimatedOpacity(
-                      opacity: progress * 0.22,
-                      duration: const Duration(milliseconds: 60),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: swipeColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
+      child: ValueListenableBuilder<double>(
+        valueListenable: _dragX,
+        builder: (context, dragX, child) {
+          final progress = (dragX.abs() / 140).clamp(0.0, 1.0);
+          final side = dragX >= 0 ? MarketSide.yes : MarketSide.no;
+          final swipeColor = side == MarketSide.yes ? t.yes : t.no;
+
+          return Transform.translate(
+            offset: Offset(dragX, 0),
+            child: Transform.rotate(
+              angle: dragX / 2400,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: t.surfaceRaised,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: progress > 0.1
+                        ? swipeColor.withValues(alpha: progress * 0.5)
+                        : t.border,
                   ),
-                // Floating YES/NO indicator stamp
-                if (progress > 0.1)
-                  Positioned.fill(
-                    child: Center(
-                      child: Transform.scale(
-                        scale: 0.6 + progress * 0.4,
-                        child: Opacity(
-                          opacity: ((progress - 0.1) / 0.9).clamp(0.0, 1.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Swipe tint overlay
+                    if (progress > 0)
+                      Positioned.fill(
+                        child: AnimatedOpacity(
+                          opacity: progress * 0.22,
+                          duration: const Duration(milliseconds: 60),
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: swipeColor.withValues(alpha: 0.95),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.25),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
-                                )
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  side == MarketSide.yes ? Icons.check_circle_outline_rounded : Icons.cancel_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  side == MarketSide.yes ? 'YES' : 'NO',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                              ],
+                              color: swipeColor,
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                // Card content
-                Padding(
+                    // Floating YES/NO indicator stamp
+                    if (progress > 0.1)
+                      Positioned.fill(
+                        child: Center(
+                          child: Transform.scale(
+                            scale: 0.6 + progress * 0.4,
+                            child: Opacity(
+                              opacity: ((progress - 0.1) / 0.9).clamp(0.0, 1.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: swipeColor.withValues(alpha: 0.95),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.25),
+                                      blurRadius: 15,
+                                      offset: const Offset(0, 5),
+                                    )
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      side == MarketSide.yes ? Icons.check_circle_outline_rounded : Icons.cancel_outlined,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      side == MarketSide.yes ? 'YES' : 'NO',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Card content (Expensive static part)
+                    child!,
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+        child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,33 +211,36 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
                                 const SizedBox(width: 8),
                                 _Tag(label: market.volume, t: t),
                                 const Spacer(),
-                                if (progress > 0.2)
-                                  AnimatedOpacity(
-                                    opacity: ((progress - 0.2) / 0.8)
-                                        .clamp(0, 1),
-                                    duration:
-                                        const Duration(milliseconds: 80),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: swipeColor,
-                                        borderRadius:
-                                            BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        side == MarketSide.yes
-                                            ? 'YES'
-                                            : 'NO',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12,
-                                          letterSpacing: 0.5,
+                                ValueListenableBuilder<double>(
+                                  valueListenable: _dragX,
+                                  builder: (context, dragX, _) {
+                                    final progress = (dragX.abs() / 140).clamp(0.0, 1.0);
+                                    if (progress <= 0.2) return const SizedBox.shrink();
+                                    final side = dragX >= 0 ? MarketSide.yes : MarketSide.no;
+                                    final swipeColor = side == MarketSide.yes ? t.yes : t.no;
+                                    return AnimatedOpacity(
+                                      opacity: ((progress - 0.2) / 0.8).clamp(0.0, 1.0),
+                                      duration: const Duration(milliseconds: 80),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: swipeColor,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          side == MarketSide.yes ? 'YES' : 'NO',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                            letterSpacing: 0.5,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  },
+                                ),
                                 const SizedBox(width: 8),
                                 Tactile(
                                   onTap: widget.onWatchlist,
@@ -415,10 +431,6 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
       ),
     )
         .animate()

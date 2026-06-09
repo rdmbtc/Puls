@@ -418,6 +418,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   Timer? _pollingTimer;
   WebSocketChannel? _channel;
   bool _isWebSocketConnected = false;
+  int _reconnectDelaySeconds = 2;
+  Timer? _reconnectTimer;
 
   @override
   void initState() {
@@ -429,6 +431,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _reconnectTimer?.cancel();
     try {
       _channel?.sink.close();
     } catch (_) {}
@@ -436,35 +439,74 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   }
 
   void _connectWebSocket() {
+    _reconnectTimer?.cancel();
     try {
       final wsUri = Uri.parse(backendUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'));
       _channel = WebSocketChannel.connect(wsUri);
+      
+      _channel!.ready.then((_) {
+        if (!mounted) return;
+        debugPrint('[Feed WebSocket] Connected successfully.');
+        setState(() {
+          _isWebSocketConnected = true;
+          _reconnectDelaySeconds = 2; // Reset backoff delay on successful connection
+        });
+        _pollingTimer?.cancel();
+        _pollingTimer = null;
+      }).catchError((err) {
+        debugPrint('[Feed WebSocket] connection ready error: $err');
+        _handleWebSocketFailure();
+      });
+
       _channel!.stream.listen(
         (event) {
-          _isWebSocketConnected = true;
+          if (!mounted) return;
+          if (!_isWebSocketConnected) {
+            setState(() {
+              _isWebSocketConnected = true;
+            });
+            _pollingTimer?.cancel();
+            _pollingTimer = null;
+          }
           try {
-            final Map<String, dynamic> trade = json.decode(event);
+            final Map<String, dynamic> trade = json.decode(event.toString());
             _processSingleWebSocketTrade(trade);
           } catch (err) {
             debugPrint('[Feed WebSocket] parse error: $err');
           }
         },
         onError: (err) {
-          debugPrint('[Feed WebSocket] error: $err. Falling back to HTTP polling.');
-          _isWebSocketConnected = false;
-          _startFallbackPolling();
+          debugPrint('[Feed WebSocket] stream error: $err. Reconnecting...');
+          _handleWebSocketFailure();
         },
         onDone: () {
-          debugPrint('[Feed WebSocket] closed. Falling back to HTTP polling.');
-          _isWebSocketConnected = false;
-          _startFallbackPolling();
+          debugPrint('[Feed WebSocket] stream closed. Reconnecting...');
+          _handleWebSocketFailure();
         },
       );
     } catch (e) {
-      debugPrint('[Feed WebSocket] connect failed: $e. Falling back to HTTP polling.');
-      _isWebSocketConnected = false;
-      _startFallbackPolling();
+      debugPrint('[Feed WebSocket] connect failed: $e. Reconnecting...');
+      _handleWebSocketFailure();
     }
+  }
+
+  void _handleWebSocketFailure() {
+    if (!mounted) return;
+    if (_isWebSocketConnected) {
+      setState(() {
+        _isWebSocketConnected = false;
+      });
+    }
+    _startFallbackPolling();
+    
+    // Schedule bounded reconnect (2s -> 4s -> 8s cap)
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: _reconnectDelaySeconds), () {
+      if (mounted && !_isWebSocketConnected) {
+        _connectWebSocket();
+      }
+    });
+    _reconnectDelaySeconds = min(8, _reconnectDelaySeconds * 2);
   }
 
   void _startFallbackPolling() {
