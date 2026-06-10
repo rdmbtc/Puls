@@ -1,5 +1,5 @@
 name: puls
-description: Premium prediction-market Flutter UI prototype with mock data.
+description: Mobile-first prediction market built on Arc — trade with USDC as gas, sub-second finality.
 publish_to: 'none'
 version: 0.1.0+1
 

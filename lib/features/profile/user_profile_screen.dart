@@ -208,6 +208,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ],
     );
 
+    final pnlVal = _parseFloat(_stats?['pnl']);
+    final winRateVal = _parseFloat(_stats?['winRate'] ?? _stats?['win_rate']);
+    final volumeVal = _parseFloat(_stats?['volume']);
+    final tradesCountVal = _parseInt(_stats?['tradesCount'] ?? _stats?['trades_count']);
+
     Widget statsGrid = Column(
       children: [
         Row(
@@ -215,8 +220,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: _StatCard(
                 label: 'TOTAL PROFIT',
-                value: '${_stats?['pnl'] >= 0 ? '+' : ''}\$${_stats?['pnl']?.toStringAsFixed(2)}',
-                valueColor: _stats?['pnl'] >= 0 ? t.yes : t.no,
+                value: '${pnlVal >= 0 ? '+' : ''}\$${pnlVal.toStringAsFixed(2)}',
+                valueColor: pnlVal >= 0 ? t.yes : t.no,
                 icon: Icons.show_chart_rounded,
                 t: t,
               ),
@@ -225,7 +230,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: _StatCard(
                 label: 'WIN RATE',
-                value: '${_stats?['winRate']}%',
+                value: '${winRateVal.toStringAsFixed(1)}%',
                 valueColor: t.text,
                 icon: Icons.emoji_events_rounded,
                 t: t,
@@ -239,7 +244,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: _StatCard(
                 label: 'TRADING VOLUME',
-                value: '\$${_stats?['volume']?.toStringAsFixed(2)}',
+                value: '\$${volumeVal.toStringAsFixed(2)}',
                 valueColor: t.text,
                 icon: Icons.swap_horiz_rounded,
                 t: t,
@@ -249,7 +254,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: _StatCard(
                 label: 'TRADES COUNT',
-                value: '${_stats?['tradesCount']}',
+                value: '$tradesCountVal',
                 valueColor: t.text,
                 icon: Icons.history_toggle_off_rounded,
                 t: t,
@@ -462,7 +467,7 @@ class _TradeHistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = trade['side'] as String? ?? 'YES';
-    final amt = parseFloat(trade['usdc_amount']);
+    final amt = _parseFloat(trade['usdc_amount']);
     final isBuy = amt > 0;
     final isClaim = side == 'CLAIM';
     
@@ -570,10 +575,16 @@ class _TradeHistoryRow extends StatelessWidget {
       ),
     );
   }
+}
 
-  double parseFloat(dynamic v) {
-    if (v == null) return 0.0;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString()) ?? 0.0;
-  }
+double _parseFloat(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString()) ?? 0.0;
+}
+
+int _parseInt(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? 0;
 }

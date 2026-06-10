@@ -243,98 +243,102 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final isFirst = rank == 1;
           final scale = isFirst ? 1.15 : 1.0;
 
-          return Transform.scale(
-            scale: scale,
-            child: SizedBox(
-              width: 90,
-              child: GestureDetector(
-                onTap: () => _navigateToProfile(trader['userId']),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Rank badge / Avatar
-                    Stack(
-                      alignment: Alignment.topCenter,
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Avatar Container with premium border
-                        Container(
-                          width: isFirst ? 64 : 54,
-                          height: isFirst ? 64 : 54,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: isFirst
-                                  ? [const Color(0xFFFBBF24), const Color(0xFFF59E0B)]
-                                  : rank == 2
-                                      ? [const Color(0xFF94A3B8), const Color(0xFF64748B)]
-                                      : [const Color(0xFFD97706), const Color(0xFFB45309)],
-                            ),
-                          ),
-                          child: CircleAvatar(
-                            backgroundColor: t.surface,
-                            backgroundImage: NetworkImage(trader['avatarUrl'] ?? ''),
-                          ),
-                        ),
-                        // Crown/Rank badge above avatar
-                        Positioned(
-                          top: -16,
-                          child: isFirst
-                              ? const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFBBF24), size: 24)
-                              : Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFD97706),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 1),
-                                  ),
-                                  child: Text(
-                                    '$rank',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                    final pnl = double.tryParse(trader['pnl']?.toString() ?? '') ?? 0.0;
+                    final volume = double.tryParse(trader['volume']?.toString() ?? '') ?? 0.0;
+                    final winRate = double.tryParse(trader['winRate']?.toString() ?? trader['win_rate']?.toString() ?? '') ?? 0.0;
+
+                    return Transform.scale(
+                      scale: scale,
+                      child: SizedBox(
+                        width: 90,
+                        child: GestureDetector(
+                          onTap: () => _navigateToProfile(trader['userId']),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Rank badge / Avatar
+                              Stack(
+                                alignment: Alignment.topCenter,
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // Avatar Container with premium border
+                                  Container(
+                                    width: isFirst ? 64 : 54,
+                                    height: isFirst ? 64 : 54,
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        colors: isFirst
+                                            ? [const Color(0xFFFBBF24), const Color(0xFFF59E0B)]
+                                            : rank == 2
+                                                ? [const Color(0xFF94A3B8), const Color(0xFF64748B)]
+                                                : [const Color(0xFFD97706), const Color(0xFFB45309)],
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      backgroundColor: t.surface,
+                                      backgroundImage: NetworkImage(trader['avatarUrl'] ?? ''),
                                     ),
                                   ),
+                                  // Crown/Rank badge above avatar
+                                  Positioned(
+                                    top: -16,
+                                    child: isFirst
+                                        ? const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFBBF24), size: 24)
+                                        : Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFD97706),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: Colors.white, width: 1),
+                                            ),
+                                            child: Text(
+                                              '$rank',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                trader['displayName'] ?? 'Puls Trader',
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: t.text,
+                                  fontSize: isFirst ? 13 : 11,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      trader['displayName'] ?? 'Puls Trader',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: t.text,
-                        fontSize: isFirst ? 13 : 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _sortBy == 'pnl'
-                          ? '${trader['pnl'] >= 0 ? '+' : ''}\$${trader['pnl']}'
-                          : '\$${trader['volume']}',
-                      style: TextStyle(
-                        color: _sortBy == 'pnl'
-                            ? (trader['pnl'] >= 0 ? t.yes : t.no)
-                            : t.text,
-                        fontSize: isFirst ? 12 : 10,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Win Rate ${trader['winRate']}%',
-                      style: TextStyle(
-                        color: t.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _sortBy == 'pnl'
+                                    ? '${pnl >= 0 ? '+' : ''}\$${pnl.toStringAsFixed(2)}'
+                                    : '\$${volume.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: _sortBy == 'pnl'
+                                      ? (pnl >= 0 ? t.yes : t.no)
+                                      : t.text,
+                                  fontSize: isFirst ? 12 : 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Win Rate ${winRate.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: t.textMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                   ],
                 ),
               ),
@@ -464,7 +468,12 @@ class _TraderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = sortBy == 'pnl' ? trader['pnl'] : trader['volume'];
+    final pnl = double.tryParse(trader['pnl']?.toString() ?? '') ?? 0.0;
+    final volume = double.tryParse(trader['volume']?.toString() ?? '') ?? 0.0;
+    final winRate = double.tryParse(trader['winRate']?.toString() ?? trader['win_rate']?.toString() ?? '') ?? 0.0;
+    final tradesCount = int.tryParse(trader['tradesCount']?.toString() ?? trader['trades_count']?.toString() ?? '') ?? 0;
+
+    final value = sortBy == 'pnl' ? pnl : volume;
     final isPnL = sortBy == 'pnl';
     final formattedValue = isPnL
         ? '${value >= 0 ? '+' : ''}\$${value.toStringAsFixed(2)}'
@@ -510,7 +519,7 @@ class _TraderRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${trader['tradesCount']} Trades · Win Rate ${trader['winRate']}%',
+                  '$tradesCount Trades · Win Rate ${winRate.toStringAsFixed(1)}%',
                   style: TextStyle(
                     color: t.textMuted,
                     fontSize: 11,
@@ -538,7 +547,7 @@ class _TraderRow extends StatelessWidget {
               ),
               if (isPnL)
                 Text(
-                  'Vol \$${trader['volume']}',
+                  'Vol \$${volume.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: t.textMuted,
                     fontSize: 10,
