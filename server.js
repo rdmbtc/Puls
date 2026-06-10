@@ -13,12 +13,41 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[UNHANDLED REJECTION]', reason?.message || reason);
 });
 
-const generalLimiter = (req, res, next) => next();
-const strictLimiter = (req, res, next) => next();
-const activateMarketLimiter = (req, res, next) => next();
+// Real rate limiters (previously no-ops). Tune via env if needed.
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_GENERAL || '300', 10),
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_STRICT || '30', 10),
+  message: { error: 'Too many requests for this action. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const activateMarketLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_ACTIVATE || '10', 10),
+  message: { error: 'Too many market activations. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const app = express();
-app.use(cors());
+// Behind a reverse proxy (nginx/caddy on the VPS) — trust the first hop so
+// express-rate-limit keys on the real client IP instead of the proxy IP.
+app.set('trust proxy', 1);
+
+// CORS: lock down to known origins when ALLOWED_ORIGINS is set (comma-separated).
+// Falls back to permissive mode when unset so local dev keeps working.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(allowedOrigins.length ? cors({ origin: allowedOrigins }) : cors());
 app.use(express.json());
 app.use(generalLimiter); // Apply general rate limit globally
 
@@ -32,8 +61,13 @@ const authenticateUser = async (req, res, next) => {
       requestedUserId = requestedUserId.replace('agent_', '');
     }
 
-    // Bypass JWT authentication for Web3/MetaMask users (public read/on-chain actions)
+    // Web3/MetaMask users sign their own transactions on-chain and only need
+    // read access here. They are NOT verified (no JWT, no signature), so mark
+    // the request as a web3 guest — endpoints that operate Circle wallets must
+    // additionally use `requireVerifiedUser` to reject these requests.
+    // TODO: replace this with SIWE (signed-message) verification for full write access.
     if (requestedUserId && (requestedUserId.startsWith('0x') || requestedUserId.startsWith('eth_0x'))) {
+      req.isWeb3Guest = true;
       return next();
     }
 
@@ -69,6 +103,40 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
+
+// Rejects unverified web3 guests (see authenticateUser). Apply to every endpoint
+// that operates a Circle developer-controlled wallet or spends server resources
+// on behalf of a user identity. External wallets transact directly on-chain and
+// record results via /api/trade/save-external (which verifies the tx sender).
+const requireVerifiedUser = (req, res, next) => {
+  if (req.isWeb3Guest) {
+    return res.status(403).json({
+      error: 'This action requires a signed-in account. External wallets transact directly on-chain.',
+    });
+  }
+  next();
+};
+
+// Admin allowlist for privileged endpoints (comma-separated userIds, e.g. "supabase_<uuid>").
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const requireAdmin = (req, res, next) => {
+  const uid = req.body?.userId || req.query?.userId;
+  if (!uid || !ADMIN_USER_IDS.includes(uid)) {
+    return res.status(403).json({ error: 'Forbidden: admin only' });
+  }
+  next();
+};
+
+// Sanitize client-supplied prices used for P&L bookkeeping. On-chain events
+// (QuickNode webhook) remain the source of truth and reconcile these values.
+const clampPrice = (p, fallback = 0.5) => {
+  const v = parseFloat(p);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.min(0.99, Math.max(0.01, v));
+};
 
 const circle = initiateDeveloperControlledWalletsClient({
   apiKey: process.env.CIRCLE_API_KEY ? process.env.CIRCLE_API_KEY.trim() : undefined,
@@ -679,7 +747,7 @@ app.post('/api/rpc-proxy', rpcProxyLimiter, async (req, res) => {
 });
 
 // POST /api/wallet/get-or-create
-app.post('/api/wallet/get-or-create', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/wallet/get-or-create', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -759,7 +827,7 @@ app.get('/api/wallet/balance', authenticateUser, async (req, res) => {
 });
 
 // GET /api/wallet/export
-app.get('/api/wallet/export', authenticateUser, strictLimiter, async (req, res) => {
+app.get('/api/wallet/export', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     const walletId = await getWalletId(userId);
@@ -1054,7 +1122,7 @@ app.get('/api/market/info', async (req, res) => {
 
 // ── Trade ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/trade/buy', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, side, usdcAmount, question, slug, deadline } = req.body;
     if (!userId || !side || !usdcAmount || !slug || !deadline) return res.status(400).json({ error: 'Missing fields' });
@@ -1085,7 +1153,17 @@ app.post('/api/trade/buy', authenticateUser, strictLimiter, async (req, res) => 
           abiParameters: [contractAddress, MAX],
           fee: { type: 'level', config: { feeLevel: 'HIGH' } },
         });
-        await new Promise(r => setTimeout(r, 4500));
+        // Poll the approval tx instead of a fixed sleep — slow approvals used
+        // to make the follow-up buy revert with "transfer amount exceeds allowance".
+        const approveTxId = approveRes.data?.id;
+        for (let i = 0; approveTxId && i < 20; i++) {
+          const s = (await circle.getTransaction({ id: approveTxId })).data?.transaction?.state;
+          if (s === 'COMPLETE' || s === 'CONFIRMED') break;
+          if (s === 'FAILED' || s === 'DENIED' || s === 'CANCELLED') {
+            throw new Error('USDC approval transaction failed');
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
       } catch (e) {
         console.error('approve error:', e.message);
       }
@@ -1105,7 +1183,7 @@ app.post('/api/trade/buy', authenticateUser, strictLimiter, async (req, res) => 
       tx_id: txId,
       side,
       usdc_amount: amount,
-      entry_price: parseFloat(req.body.entryPrice ?? 0.5),
+      entry_price: clampPrice(req.body.entryPrice),
       question: question || 'Prediction Market',
       market_id: contractAddress,
       state: 'INITIATED',
@@ -1118,7 +1196,7 @@ app.post('/api/trade/buy', authenticateUser, strictLimiter, async (req, res) => 
   }
 });
 
-app.post('/api/trade/sell', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/sell', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, side, shares, question, slug, contractAddress: reqContract } = req.body;
     if (!userId || !side || !shares) return res.status(400).json({ error: 'Missing fields' });
@@ -1148,12 +1226,12 @@ app.post('/api/trade/sell', authenticateUser, strictLimiter, async (req, res) =>
 
     const txId = txRes.data.id;
 
-    const estimatedPayout = sharesAmount * parseFloat(req.body.entryPrice ?? 0.5);
+    const estimatedPayout = sharesAmount * clampPrice(req.body.entryPrice);
     await saveTrade(userId, {
       tx_id: txId,
       side,
       usdc_amount: -estimatedPayout,
-      entry_price: parseFloat(req.body.entryPrice ?? 0.5),
+      entry_price: clampPrice(req.body.entryPrice),
       question: question || 'Prediction Market',
       market_id: contractAddress,
       state: 'INITIATED',
@@ -1166,7 +1244,7 @@ app.post('/api/trade/sell', authenticateUser, strictLimiter, async (req, res) =>
   }
 });
 
-app.post('/api/trade/claim', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/claim', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, slug, contractAddress: reqContract } = req.body;
     if (!userId) return res.status(400).json({ error: 'Missing fields' });
@@ -1266,7 +1344,7 @@ app.post('/api/trade/save-external', strictLimiter, async (req, res) => {
       tx_id: `ext_${Date.now()}`,
       side,
       usdc_amount: parseFloat(usdcAmount),
-      entry_price: parseFloat(entryPrice),
+      entry_price: clampPrice(entryPrice),
       question,
       market_id: marketId,
       state: 'COMPLETE',
@@ -1767,7 +1845,7 @@ app.post('/api/webhook/quicknode', async (req, res) => {
 });
 
 // ── Market resolution (owner fallback / manual) ──────────────────────────────
-app.post('/api/market/resolve', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/market/resolve', authenticateUser, requireVerifiedUser, requireAdmin, strictLimiter, async (req, res) => {
   try {
     const { userId, slug, outcome } = req.body; // outcome: true=YES wins, false=NO wins
     if (!userId || !slug || outcome === undefined) return res.status(400).json({ error: 'userId, slug and outcome required' });
@@ -2514,7 +2592,7 @@ async function llmComplete(messages) {
 }
 
 // Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
-app.post('/api/agent/start', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/start', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, budget } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -2609,7 +2687,7 @@ app.post('/api/agent/start', authenticateUser, strictLimiter, async (req, res) =
   }
 });
 
-app.get('/api/agent/status', authenticateUser, async (req, res) => {
+app.get('/api/agent/status', authenticateUser, requireVerifiedUser, async (req, res) => {
   try {
     const agent = await getAgent(req.query.userId);
     if (!agent) return res.json({ exists: false });
@@ -2627,7 +2705,7 @@ app.get('/api/agent/status', authenticateUser, async (req, res) => {
 });
 
 // Add more USDC from the user's wallet into the agent wallet (top-up after withdraw, etc.).
-app.post('/api/agent/deposit', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/deposit', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -2664,7 +2742,7 @@ app.post('/api/agent/deposit', authenticateUser, strictLimiter, async (req, res)
 });
 
 // Return the agent's remaining USDC back to the user's wallet.
-app.post('/api/agent/withdraw', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/withdraw', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -2693,7 +2771,7 @@ app.post('/api/agent/withdraw', authenticateUser, strictLimiter, async (req, res
 
 // Chat with the agent. The LLM returns a structured intent; the backend validates
 // budget + market and executes the buy autonomously from the agent wallet.
-app.post('/api/agent/chat', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/chat', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, message } = req.body;
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' });
@@ -2979,7 +3057,7 @@ app.post('/api/notifications/mark-read', authenticateUser, async (req, res) => {
 
 // ── User-Created Markets ─────────────────────────────────────────────────────
 
-app.post('/api/markets/create', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/markets/create', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, question, description, category, deadline } = req.body;
     if (!userId || !question || !deadline) {
@@ -3071,7 +3149,7 @@ app.post('/api/markets/create', authenticateUser, strictLimiter, async (req, res
 // ── Limit Orders Engine ──────────────────────────────────────────────────────
 
 // POST /api/trade/limit-order
-app.post('/api/trade/limit-order', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/limit-order', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, marketId, slug, side, type, usdcAmount, shares, targetPrice } = req.body;
     if (!userId || !marketId || !slug || !side || !type || targetPrice === undefined) {
@@ -3124,7 +3202,7 @@ app.post('/api/trade/limit-order', authenticateUser, strictLimiter, async (req, 
 });
 
 // GET /api/trade/limit-orders
-app.get('/api/trade/limit-orders', authenticateUser, async (req, res) => {
+app.get('/api/trade/limit-orders', authenticateUser, requireVerifiedUser, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -3143,7 +3221,7 @@ app.get('/api/trade/limit-orders', authenticateUser, async (req, res) => {
 });
 
 // POST /api/trade/limit-order/cancel
-app.post('/api/trade/limit-order/cancel', authenticateUser, async (req, res) => {
+app.post('/api/trade/limit-order/cancel', authenticateUser, requireVerifiedUser, async (req, res) => {
   try {
     const { userId, orderId } = req.body;
     if (!userId || !orderId) return res.status(400).json({ error: 'userId and orderId required' });
@@ -3465,7 +3543,7 @@ async function setAgentStrategy(userId, strategy) {
   } catch (_) {}
 }
 
-app.get('/api/agent/strategy', authenticateUser, async (req, res) => {
+app.get('/api/agent/strategy', authenticateUser, requireVerifiedUser, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -3476,7 +3554,7 @@ app.get('/api/agent/strategy', authenticateUser, async (req, res) => {
   }
 });
 
-app.post('/api/agent/strategy', authenticateUser, async (req, res) => {
+app.post('/api/agent/strategy', authenticateUser, requireVerifiedUser, async (req, res) => {
   try {
     const { userId, strategy } = req.body;
     if (!userId || !strategy) return res.status(400).json({ error: 'userId and strategy required' });
