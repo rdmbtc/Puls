@@ -2612,14 +2612,23 @@ const leaderboardStats = new Map(); // user_id → { volume, pnl, trades_count, 
 async function updateLeaderboard() {
   console.log('Running leaderboard update...');
   try {
-    const { data: trades, error } = await supabase
-      .from('trades')
-      .select('*')
-      .eq('state', 'COMPLETE');
-      
-    if (error) {
-      console.error('Failed to fetch trades for leaderboard:', error.message);
-      return;
+    // Supabase caps reads at 1000 rows — paginate so every trader counts
+    const trades = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('state', 'COMPLETE')
+        .order('created_at', { ascending: true })
+        .range(from, from + PAGE - 1);
+
+      if (error) {
+        console.error('Failed to fetch trades for leaderboard:', error.message);
+        return;
+      }
+      trades.push(...(data || []));
+      if (!data || data.length < PAGE) break;
     }
     
     const userTrades = new Map();
@@ -4055,10 +4064,13 @@ const server = app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
   console.log(`[UMA] Optimistic Oracle resolution: ${UMA_RESOLUTION && UMA_ADAPTER_ADDRESS ? `ENABLED (adapter ${UMA_ADAPTER_ADDRESS}, oracle ${UMA_OOV2_ADDRESS})` : 'disabled (legacy direct resolve)'}`);
   await loadDeployedMarkets();
-  loadWalletAddressMapping().catch(console.error);
   checkAndResolveMarkets().catch(console.error);
   warmupTopMarkets().catch(console.error);
-  updateLeaderboard().catch(console.error);
+  // Leaderboard needs the wallet mapping for on-chain position reads
+  loadWalletAddressMapping()
+    .catch(console.error)
+    .then(() => updateLeaderboard())
+    .catch(console.error);
 });
 
 // ── WebSocket Server for Live Betting Feed ──
