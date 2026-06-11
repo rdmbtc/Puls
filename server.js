@@ -1125,7 +1125,7 @@ app.get('/api/markets', async (req, res) => {
           resolved: row.resolved,
           outcome: row.outcome,
           totalVolume,
-          image: row.image_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`,
+          image: row.image_url || `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${slug}`,
           endDateIso: new Date(Number(row.deadline) * 1000).toISOString(),
           outcomePrices: JSON.stringify([yesPrice.toString(), noPrice.toString()]),
           featured: false
@@ -2604,6 +2604,11 @@ async function warmupTopMarkets() {
 
 // ── Leaderboard & Profiles Service ───────────────────────────────────────────
 
+// In-memory leaderboard stats. The Supabase `leaderboard` table has a legacy
+// schema (wallet_address/pet_name/level/xp) we can't migrate via REST, so the
+// computed stats live here. Rebuilt at boot + every 10 minutes by the cron.
+const leaderboardStats = new Map(); // user_id → { volume, pnl, trades_count, win_rate, updated_at }
+
 async function updateLeaderboard() {
   console.log('Running leaderboard update...');
   try {
@@ -2785,7 +2790,7 @@ async function updateLeaderboard() {
                 displayName = existingProf.display_name;
                 avatarUrl = existingProf.avatar_url;
               } else {
-                avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
+                avatarUrl = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=${userId}`;
                 await supabase.from('profiles').insert({
                   user_id: userId,
                   display_name: displayName,
@@ -2797,7 +2802,7 @@ async function updateLeaderboard() {
           } else if (userId.startsWith('eth_')) {
             const addr = userId.replace('eth_', '');
             displayName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-            avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+            avatarUrl = `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${addr}`;
             
             try {
               await supabase.from('profiles').upsert({
@@ -2810,22 +2815,22 @@ async function updateLeaderboard() {
           }
         } catch (_) { /* profiles table may not exist yet */ }
         
-        try {
-          await supabase.from('leaderboard').upsert({
-            user_id: userId,
-            volume: parseFloat(totalVolume.toFixed(2)),
-            pnl: parseFloat(totalPnL.toFixed(2)),
-            trades_count: tradesCount,
-            win_rate: parseFloat(winRate.toFixed(1)),
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
-        } catch (_) { /* leaderboard table may have legacy schema */ }
+        leaderboardStats.set(userId, {
+          user_id: userId,
+          volume: parseFloat(totalVolume.toFixed(2)),
+          pnl: parseFloat(totalPnL.toFixed(2)),
+          trades_count: tradesCount,
+          win_rate: parseFloat(winRate.toFixed(1)),
+          updated_at: new Date().toISOString()
+        });
+
         
       } catch (err) {
         console.error(`Error calculating leaderboard stats for user ${userId}:`, err.message);
       }
     }
-    console.log('Leaderboard updated successfully.');
+    leaderboardCache.clear(); // serve fresh stats promptly
+    console.log(`Leaderboard updated successfully (${leaderboardStats.size} traders).`);
   } catch (e) {
     console.error('updateLeaderboard error:', e.message);
   }
@@ -2850,58 +2855,49 @@ app.get('/api/leaderboard', async (req, res) => {
       return res.json(cached.data);
     }
     
-    // Try new schema first, fallback to computing from trades if columns don't exist
+    // Primary source: in-memory stats computed by the leaderboard cron
+    // (the Supabase `leaderboard` table has a legacy schema — see updateLeaderboard)
     let leaderboardData = null;
-    try {
-      const sortBy = sort === 'volume' ? 'volume' : 'pnl';
-      const { data, error } = await supabase
-        .from('leaderboard')
-        .select('user_id, volume, pnl, trades_count, win_rate')
-        .order(sortBy, { ascending: false })
-        .limit(maxLimit);
-      
-      if (error) {
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('Leaderboard table not found in DB. Falling back to computing live from trades.');
-        } else {
-          throw error;
-        }
-      } else if (data) {
-        leaderboardData = data;
-      }
-    } catch (_) { /* schema mismatch */ }
+    if (leaderboardStats.size > 0) {
+      leaderboardData = Array.from(leaderboardStats.values())
+        .sort((a, b) => sort === 'volume' ? b.volume - a.volume : b.pnl - a.pnl)
+        .slice(0, maxLimit);
+    }
     
-    // If leaderboard table has wrong schema or is empty, compute live from trades
+    // Fallback (cron hasn't completed yet, e.g. right after boot): quick compute from trades
     if (!leaderboardData || leaderboardData.length === 0) {
       try {
         const { data: allTrades, error: tradesError } = await supabase
           .from('trades')
-          .select('user_id, side, amount, shares, state')
+          .select('user_id, side, usdc_amount, state')
           .eq('state', 'COMPLETE')
           .limit(5000);
         
         if (tradesError) {
-          if (tradesError.code === '42P01' || tradesError.message?.includes('does not exist')) {
-            console.warn('Trades table not found in DB. Returning empty leaderboard.');
-          } else {
-            throw tradesError;
-          }
+          console.warn('Leaderboard trades fallback failed:', tradesError.message);
         } else if (allTrades && allTrades.length > 0) {
           const userStats = {};
           for (const t of allTrades) {
+            if (!t.user_id) continue;
             if (!userStats[t.user_id]) {
               userStats[t.user_id] = { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 };
             }
             const s = userStats[t.user_id];
             s.trades_count++;
-            s.volume += parseFloat(t.amount || 0);
+            s.volume += Math.abs(parseFloat(t.usdc_amount || 0));
           }
           leaderboardData = Object.entries(userStats)
-            .map(([userId, stats]) => ({ user_id: userId, ...stats }))
+            .map(([userId, stats]) => ({
+              user_id: userId,
+              ...stats,
+              volume: parseFloat(stats.volume.toFixed(2))
+            }))
             .sort((a, b) => sort === 'volume' ? b.volume - a.volume : b.pnl - a.pnl)
             .slice(0, maxLimit);
         }
-      } catch (_) { /* trades table issue */ }
+      } catch (e) {
+        console.warn('Leaderboard trades fallback error:', e.message);
+      }
     }
     
     if (!leaderboardData) leaderboardData = [];
@@ -2927,11 +2923,11 @@ app.get('/api/leaderboard', async (req, res) => {
     const formatted = leaderboardData.map(row => {
       const profile = profilesMap[row.user_id];
       let defaultName = 'Puls Trader';
-      let defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${row.user_id}`;
+      let defaultAvatar = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=${row.user_id}`;
       if (row.user_id?.startsWith('eth_')) {
         const addr = row.user_id.replace('eth_', '');
         defaultName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-        defaultAvatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+        defaultAvatar = `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${addr}`;
       }
       return {
         userId: row.user_id,
@@ -2979,11 +2975,11 @@ app.get('/api/profile/:userId', async (req, res) => {
     if (!profile) {
       // Return a default profile if it doesn't exist yet but has trades
       let name = 'Puls Trader';
-      let avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`;
+      let avatar = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=${userId}`;
       if (userId.startsWith('eth_')) {
         const addr = userId.replace('eth_', '');
         name = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-        avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`;
+        avatar = `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${addr}`;
       }
       profile = {
         user_id: userId,
@@ -2993,21 +2989,9 @@ app.get('/api/profile/:userId', async (req, res) => {
       };
     }
     
-    let stats = null;
-    const { data: statsData, error: statsErr } = await supabase
-      .from('leaderboard')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-      
-    if (statsErr) {
-      if (statsErr.code === '42P01' || statsErr.message?.includes('does not exist')) {
-        console.warn(`Leaderboard table does not exist. Using default stats for ${userId}`);
-      }
-    } else {
-      stats = statsData;
-    }
-      
+    // Stats come from the in-memory leaderboard (legacy Supabase table is unusable)
+    const stats = leaderboardStats.get(userId) || null;
+    
     let trades = [];
     const { data: tradesData, error: tradesErr } = await supabase
       .from('trades')
@@ -3032,7 +3016,7 @@ app.get('/api/profile/:userId', async (req, res) => {
         pnl: parseFloat(stats.pnl),
         tradesCount: stats.trades_count,
         winRate: parseFloat(stats.win_rate)
-      } : { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 },
+      } : { volume: 0, pnl: 0, tradesCount: 0, winRate: 0 },
       trades
     });
   } catch (e) {
@@ -3709,7 +3693,7 @@ app.post('/api/markets/create', authenticateUser, requireVerifiedUser, strictLim
       title: question,
       description: description || '',
       category: category || 'General',
-      image_url: `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`
+      image_url: `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${slug}`
     }).eq('slug', slug);
 
     // Update local cache manually with new properties
@@ -3720,7 +3704,7 @@ app.post('/api/markets/create', authenticateUser, requireVerifiedUser, strictLim
       cached.title = question;
       cached.description = description || '';
       cached.category = category || 'General';
-      cached.image_url = `https://api.dicebear.com/7.x/identicon/svg?seed=${slug}`;
+      cached.image_url = `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${slug}`;
     }
 
     // Notify user
@@ -4421,7 +4405,7 @@ async function ensureHouseAgentWallet() {
     user_id: HOUSE_AGENT_USER,
     display_name: 'Pulse 🤖',
     bio: 'Autonomous house AI trader. Researches every market, reasons about mispricings, and settles trades in USDC on Arc — no human in the loop.',
-    avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=pulse',
+    avatar_url: 'https://api.dicebear.com/7.x/bottts/png?size=128&seed=pulse',
   }, { onConflict: 'user_id' });
 
   // Self-funding: top up once per process from the admin treasury (testnet).
