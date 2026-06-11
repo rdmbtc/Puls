@@ -4362,13 +4362,292 @@ async function executeAgentTrade(userId, agentWalletId, contractAddress, side, a
       
       const info = await getWalletInfo(agentWalletId);
       recordAgentReputation(`agent_${userId}`, info.address, 90, 'successful_trade').catch(() => {});
-      return true;
+      return { ok: true, txHash, tradeId: newTrade?.id ?? null };
     }
     return false;
   } catch (err) {
     console.error(`executeAgentTrade error for ${agentWalletId}:`, err.message);
     return false;
   }
+}
+
+// ── House AI Trader Agent ("Pulse") ───────────────────────────────────────────
+// A fully autonomous agent with its own Circle dev-controlled wallet and
+// ERC-8004 on-chain identity. Every cycle it researches live markets
+// (Polymarket consensus vs on-chain LMSR price), reasons about the best
+// opportunity, and executes a real USDC trade on Arc — publishing its
+// decision, reasoning and Arcscan receipt to a public feed.
+const HOUSE_AGENT = (process.env.HOUSE_AGENT || 'true') === 'true';
+const HOUSE_AGENT_USER = 'house_pulse';
+const HOUSE_AGENT_KEY = `agent_${HOUSE_AGENT_USER}`;
+const HOUSE_AGENT_INTERVAL_MIN = Math.max(2, parseInt(process.env.HOUSE_AGENT_INTERVAL_MIN || '10'));
+const HOUSE_AGENT_MAX_TRADE = 0.5; // USDC per decision
+let houseAgentFundedThisRun = false;
+let houseAgentBusy = false;
+
+async function ensureHouseAgentWallet() {
+  let walletId = await getWalletId(HOUSE_AGENT_KEY);
+  if (!walletId) {
+    const setId = await ensureWalletSet();
+    const createRes = await circle.createWallets({
+      accountType: 'EOA', blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
+    });
+    const w = createRes.data.wallets[0];
+    walletId = w.id;
+    await saveWallet(HOUSE_AGENT_KEY, w.id);
+    console.log(`[Pulse] Created house agent Circle wallet ${w.address}`);
+  }
+  const info = await getWalletInfo(walletId);
+
+  // ERC-8004 on-chain identity (once per process; idempotent on-chain pattern
+  // mirrors /api/agent/start).
+  if (!registeredAgents.has(HOUSE_AGENT_KEY)) {
+    const existing = await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
+    if (!existing) {
+      try {
+        await circle.createContractExecutionTransaction({
+          walletId,
+          contractAddress: IDENTITY_REGISTRY,
+          abiFunctionSignature: 'register(string)',
+          abiParameters: [AGENT_METADATA_URI],
+          fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+        });
+        await new Promise(r => setTimeout(r, 4000));
+        await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
+      } catch (e) {
+        console.error('[Pulse] ERC-8004 register error:', e.message);
+      }
+    }
+    registeredAgents.add(HOUSE_AGENT_KEY);
+  }
+
+  // Self-funding: top up once per process from the admin treasury (testnet).
+  let balance = parseFloat(info.usdcBalance) || 0;
+  if (balance < 0.6 && !houseAgentFundedThisRun && walletClient && adminAccount) {
+    try {
+      await walletClient.writeContract({
+        address: USDC,
+        abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
+          inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
+          outputs: [{ type: 'bool' }] }],
+        functionName: 'transfer',
+        args: [info.address, 5_000_000n], // 5 USDC
+      });
+      houseAgentFundedThisRun = true;
+      console.log(`[Pulse] Funded agent wallet ${info.address} with 5 USDC from treasury`);
+      await new Promise(r => setTimeout(r, 3000));
+      balance = parseFloat((await getWalletInfo(walletId)).usdcBalance) || 0;
+    } catch (e) {
+      console.error('[Pulse] funding error:', e.message);
+    }
+  }
+  return { walletId, address: info.address, balance };
+}
+
+// Research: compare Polymarket consensus to our on-chain LMSR prices and
+// return scored candidates (positive edge = that side is cheap on Arc).
+async function houseAgentResearch() {
+  const active = Array.from(deployedMarketsCache.entries())
+    .map(([slug, entry]) => ({ slug, ...entry }))
+    .filter(m => !m.resolved && m.deadline > Math.floor(Date.now() / 1000) + 3600);
+  if (active.length === 0) return [];
+
+  let pmMarkets = [];
+  try {
+    const r = await fetch('https://gamma-api.polymarket.com/markets?limit=100&active=true&closed=false&order=volume&ascending=false', { headers: { Accept: 'application/json' } });
+    if (r.ok) pmMarkets = await r.json();
+  } catch (e) {
+    console.error('[Pulse] research fetch error:', e.message);
+    return [];
+  }
+  const bySlug = Object.fromEntries(pmMarkets.map(m => [m.slug, m]));
+
+  const candidates = [];
+  for (const m of active) {
+    const pm = bySlug[m.slug];
+    if (!pm) continue;
+    let pmYes;
+    try { pmYes = parseFloat(JSON.parse(pm.outcomePrices || '[]')[0]); } catch { continue; }
+    if (Number.isNaN(pmYes)) continue;
+    let onChainYes;
+    try {
+      const info = await publicClient.readContract({
+        address: m.contractAddress,
+        abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
+          { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
+          { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
+          { name: '_yesOutstanding', type: 'uint256' }, { name: '_noOutstanding', type: 'uint256' } ] }],
+        functionName: 'getMarketInfo',
+      });
+      const poolYes = Number(info[4]) / 1_000_000;
+      const poolNo = Number(info[5]) / 1_000_000;
+      const bVal = 10;
+      const maxQ = Math.max(poolYes, poolNo);
+      const expYes = Math.exp((poolYes - maxQ) / bVal);
+      const expNo = Math.exp((poolNo - maxQ) / bVal);
+      onChainYes = expYes / (expYes + expNo);
+    } catch { continue; }
+
+    const yesEdge = pmYes - onChainYes;          // >0: YES cheap on Arc
+    const noEdge = onChainYes - pmYes;           // >0: NO cheap on Arc
+    const side = yesEdge >= noEdge ? 'YES' : 'NO';
+    const edge = Math.max(yesEdge, noEdge);
+    candidates.push({
+      slug: m.slug,
+      question: pm.question || m.slug.replace(/-/g, ' '),
+      contractAddress: m.contractAddress,
+      pmYes, onChainYes, side, edge,
+    });
+    if (candidates.length >= 25) break;
+  }
+  candidates.sort((a, b) => b.edge - a.edge);
+  return candidates;
+}
+
+// Decide: LLM picks among the top candidates and explains itself; if the LLM
+// is unavailable the agent falls back to deterministic value reasoning.
+async function houseAgentDecide(candidates, balance) {
+  const top = candidates.slice(0, 5);
+  if (top.length === 0 || top[0].edge < 0.02) return null;
+  const amount = Math.min(HOUSE_AGENT_MAX_TRADE, Math.max(0.1, Math.floor((balance - 0.1) * 10) / 10));
+  if (amount < 0.1) return null;
+
+  try {
+    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc. Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices and why the edge exists>"}`;
+    const user = top.map((c, i) =>
+      `${i + 1}. ${c.question}\n   slug: ${c.slug} | Polymarket YES: ${(c.pmYes * 100).toFixed(0)}¢ | Arc on-chain YES: ${(c.onChainYes * 100).toFixed(0)}¢ | cheap side on Arc: ${c.side} (edge ${(c.edge * 100).toFixed(1)}¢)`
+    ).join('\n');
+    const raw = await llmComplete([
+      { role: 'system', content: sys },
+      { role: 'user', content: user },
+    ]);
+    const parsed = parseLlmJson(raw);
+    const chosen = top.find(c => c.slug === parsed.slug) || top[0];
+    const side = ['YES', 'NO'].includes(parsed.side) ? parsed.side : chosen.side;
+    return { ...chosen, side, amount, reasoning: String(parsed.reasoning || '').slice(0, 500), brain: 'llm' };
+  } catch (e) {
+    const c = top[0];
+    const cheapPrice = c.side === 'YES' ? c.onChainYes : 1 - c.onChainYes;
+    const consensus = c.side === 'YES' ? c.pmYes : 1 - c.pmYes;
+    return {
+      ...c,
+      amount,
+      reasoning: `${c.side} trades at ${(cheapPrice * 100).toFixed(0)}¢ on Arc while Polymarket consensus implies ${(consensus * 100).toFixed(0)}¢ — a ${(c.edge * 100).toFixed(1)}¢ edge. Buying ${c.side} captures the convergence as on-chain pricing tracks consensus.`,
+      brain: 'quant',
+    };
+  }
+}
+
+async function houseAgentTick() {
+  if (!HOUSE_AGENT || houseAgentBusy) return;
+  houseAgentBusy = true;
+  try {
+    // Cooldown based on the last published decision.
+    const { data: lastDecision } = await supabase
+      .from('notifications')
+      .select('created_at')
+      .eq('user_id', HOUSE_AGENT_USER)
+      .eq('type', 'agent_decision')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (lastDecision && lastDecision.length > 0) {
+      const since = Date.now() - new Date(lastDecision[0].created_at).getTime();
+      if (since < HOUSE_AGENT_INTERVAL_MIN * 60 * 1000) return;
+    }
+
+    const agent = await ensureHouseAgentWallet();
+    if (agent.balance < 0.2) {
+      console.log(`[Pulse] balance too low (${agent.balance}), skipping cycle`);
+      return;
+    }
+
+    const candidates = await houseAgentResearch();
+    const decision = await houseAgentDecide(candidates, agent.balance);
+    if (!decision) {
+      console.log('[Pulse] no opportunity above threshold this cycle');
+      return;
+    }
+
+    console.log(`[Pulse] decided: ${decision.side} $${decision.amount} on ${decision.slug} (${decision.brain})`);
+    const result = await executeAgentTrade(
+      HOUSE_AGENT_USER, agent.walletId, decision.contractAddress,
+      decision.side, decision.amount, decision.slug,
+    );
+    if (!result) {
+      console.error('[Pulse] trade execution failed');
+      return;
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: HOUSE_AGENT_USER,
+      title: decision.slug,
+      type: 'agent_decision',
+      read: true,
+      message: JSON.stringify({
+        question: decision.question,
+        side: decision.side,
+        amount: decision.amount,
+        reasoning: decision.reasoning,
+        brain: decision.brain,
+        pmYes: decision.pmYes,
+        onChainYes: decision.onChainYes,
+        edge: decision.edge,
+        txHash: result.txHash,
+        contractAddress: decision.contractAddress,
+      }),
+    });
+    console.log(`[Pulse] published decision, tx ${result.txHash}`);
+  } catch (e) {
+    console.error('[Pulse] tick error:', e.message);
+  } finally {
+    houseAgentBusy = false;
+  }
+}
+
+// Public feed: the agent's identity + its published decisions.
+let houseAgentCache = { data: null, ts: 0 };
+app.get('/api/agents/house', async (req, res) => {
+  try {
+    if (houseAgentCache.data && Date.now() - houseAgentCache.ts < 30 * 1000) {
+      return res.json(houseAgentCache.data);
+    }
+    const walletId = await getWalletId(HOUSE_AGENT_KEY);
+    let agent = null;
+    if (walletId) {
+      const info = await getWalletInfo(walletId);
+      agent = {
+        name: 'Pulse',
+        address: info.address,
+        balance: parseFloat(info.usdcBalance) || 0,
+        erc8004Id: agentTokenIds.get(HOUSE_AGENT_KEY) ?? null,
+        reputation: agentRepCount.get(HOUSE_AGENT_KEY) ?? 0,
+        enabled: HOUSE_AGENT,
+        intervalMinutes: HOUSE_AGENT_INTERVAL_MIN,
+      };
+    }
+    const { data: rows } = await supabase
+      .from('notifications')
+      .select('message, created_at')
+      .eq('user_id', HOUSE_AGENT_USER)
+      .eq('type', 'agent_decision')
+      .order('created_at', { ascending: false })
+      .limit(25);
+    const decisions = (rows || []).map((r) => {
+      try { return { ...JSON.parse(r.message), at: r.created_at }; }
+      catch { return null; }
+    }).filter(Boolean);
+    const data = { agent, decisions };
+    houseAgentCache = { data, ts: Date.now() };
+    res.json(data);
+  } catch (e) {
+    console.error('agents/house error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+if (HOUSE_AGENT) {
+  setTimeout(houseAgentTick, 45 * 1000); // first cycle shortly after boot
+  setInterval(houseAgentTick, 5 * 60 * 1000); // cooldown enforces the real cadence
 }
 
 // Run strategies check every 60 seconds
