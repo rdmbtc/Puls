@@ -6,6 +6,16 @@ Users sign in with Google → get a Circle MPC wallet instantly → swipe to tra
 
 ---
 
+## ⏱ The 2-Minute Demo
+
+1. **Open [pulsmarket.tech](https://pulsmarket.tech)** — note the live market tape: those are real markets with real prices
+2. **Sign in with Google** — a Circle MPC wallet is created instantly: no seed phrase, no extension, no ETH
+3. **Swipe right** on a market — a real LMSR trade on Arc Testnet, gas paid in USDC, confirmed in under a second (watch the timer in the confirmation sheet)
+4. **Open the market detail** — live price chart, order book, and the "How this market resolves" panel showing the UMA oracle status and dispute window
+5. **Tap "View on Arcscan"** — every trade, market, and oracle interaction is verifiable on-chain
+
+---
+
 ## Why Arc?
 
 Arc is the only chain where USDC is the **native gas token**. This unlocks a UX that isn't possible anywhere else:
@@ -80,7 +90,7 @@ Arc is the only chain where USDC is the **native gas token**. This unlocks a UX 
 
 Factory contract that deploys individual prediction markets on-demand using the Logarithmic Market Scoring Rule (LMSR) for automated market making.
 
-- **Address**: [`0xa478b966742f3e35f3fb4659318c8e6e7647cbb0`](https://testnet.arcscan.app/address/0xa478b966742f3e35f3fb4659318c8e6e7647cbb0)
+- **Address**: [`0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b`](https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b)
 - **Source**: `contracts/src/LMSRMarketFactory.sol`
 
 ### PulsMarket (per-question)
@@ -93,17 +103,27 @@ Each prediction deploys its own `PulsMarket` contract via the factory. Supports:
 
 ---
 
-## Oracle & Auto-Resolution
+## Oracle & Auto-Resolution — UMA Optimistic Oracle V2 on Arc
 
-Puls implements a fully automated oracle pipeline — no manual intervention needed:
+UMA's oracle stack isn't deployed on Arc Testnet — so **we deployed it ourselves** and built a trust-minimized resolution pipeline on top:
 
-1. **Background cron** runs every 5 minutes on the backend
-2. Scans all deployed markets past their deadline
-3. Queries **Polymarket Gamma API** for consensus outcome (`consensusOutcome` field)
-4. If the source market is resolved, calls `resolve(bool)` on the Arc smart contract
-5. Updates the database and broadcasts resolution via WebSocket
+| Contract | Address |
+|---|---|
+| OptimisticOracleV2 | [`0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae`](https://testnet.arcscan.app/address/0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae) |
+| UMAResolverAdapter | [`0x013675668842505839fdc581f56746593fDAB85D`](https://testnet.arcscan.app/address/0x013675668842505839fdc581f56746593fDAB85D) |
+| Finder | [`0x413ffcC8B552Ca2247442D05dDDb7B23994AC9D2`](https://testnet.arcscan.app/address/0x413ffcC8B552Ca2247442D05dDDb7B23994AC9D2) |
+| Store | [`0x0d7957929B464d6ff5fc8D01769aD450B92c5F3E`](https://testnet.arcscan.app/address/0x0d7957929B464d6ff5fc8D01769aD450B92c5F3E) |
 
-This means markets settle automatically once Polymarket reports an outcome. The on-chain `resolve()` call is permissioned to the admin wallet that deployed the market. Users can then call `claimWinnings()` to collect their payout.
+**How a market resolves:**
+
+1. **Background cron** (every 5 min) scans deployed markets past their deadline
+2. Anyone (permissionlessly) calls `requestResolution()` on the `UMAResolverAdapter` — this opens a `YES_OR_NO_QUERY` price request on UMA's OptimisticOracleV2, bonded in USDC
+3. The backend **proposer bot** fetches the Polymarket consensus outcome and proposes it to the oracle, posting a 1 USDC bond
+4. A **dispute window (liveness)** opens — anyone who disagrees can dispute and escalate
+5. After liveness passes undisputed, anyone calls `settleAndResolve()` — the oracle's answer is pushed on-chain into `LMSRMarket.resolve(outcome)`
+6. Users call `claimWinnings()` to collect their payout
+
+Direct admin resolution remains available as a fallback behind the `UMA_RESOLUTION` env flag, but the oracle path means **no single party decides outcomes** — they're proposed, bonded, and disputable, exactly like Polymarket's own resolution on mainnet.
 
 ---
 
@@ -124,7 +144,7 @@ This means markets settle automatically once Polymarket reports an outcome. The 
        ▼                                    │ USDC (gas token)
 ┌───────────────────┐    buyYes/buyNo()     │
 │ LMSRMarketFactory │ ◁────────────────────-┘
-│ 0xa478…7cbb0      │    sellYes/sellNo()
+│ 0x92c2…8b80b      │    sellYes/sellNo()
 └───────┬───────────┘    claimWinnings()
         │ creates
         ▼
