@@ -63,7 +63,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   }
 
   ValueNotifier<int>? _signal;
-  void _onTradeSignal() => _load();
+  void _onTradeSignal() {
+    _pendingPollTries = 0; // fresh trade -> restart the pending poll budget
+    _load(silent: true);
+  }
 
   void _setupRealtime() {
     final ws = WalletServiceScope.of(context).state;
@@ -82,7 +85,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
           value: ws.userId,
         ),
         callback: (payload) {
-          _load();
+          _load(silent: true);
         },
       )
       .subscribe();
@@ -118,15 +121,39 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     );
   }
 
+  Timer? _pendingPoll;
+  int _pendingPollTries = 0;
+  static const _terminalStates = {'COMPLETE', 'FAILED', 'CANCELLED', 'DENIED'};
+
+  /// While any position is still pending on-chain, silently re-fetch every few
+  /// seconds so it flips to confirmed without the user reloading the page.
+  void _schedulePendingPoll() {
+    final hasPending = _positions.any((p) =>
+        !_terminalStates.contains((p['state'] as String? ?? '').toUpperCase()));
+    if (!hasPending || _pendingPollTries >= 20) {
+      _pendingPoll?.cancel();
+      _pendingPoll = null;
+      _pendingPollTries = 0;
+      return;
+    }
+    _pendingPoll?.cancel();
+    _pendingPoll = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      _pendingPollTries++;
+      _load(silent: true);
+    });
+  }
+
   @override
   void dispose() {
+    _pendingPoll?.cancel();
     _signal?.removeListener(_onTradeSignal);
     _tradeChannel?.unsubscribe();
     _client.close();
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
     final wallet = WalletServiceScope.of(context);
     final ws = wallet.state;
     if (ws.userId == null) {
@@ -138,7 +165,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       });
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    // Silent reloads (trade just placed / realtime event / pending poll) keep the
+    // current list on screen instead of flashing a spinner.
+    if (!silent || _positions.isEmpty) {
+      setState(() { _loading = true; _error = null; });
+    }
     try {
       final headers = <String, String>{};
       final session = _supabase.auth.currentSession;
@@ -161,6 +192,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         debugPrint('Failed to load limit orders: $e');
       }
 
+      if (!mounted) return;
       setState(() {
         _positions = positions;
         _limitOrders = limitOrders;
@@ -168,7 +200,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         _loading = false;
       });
       _applySort();
+      _schedulePendingPoll();
     } catch (e) {
+      if (!mounted) return;
       setState(() { _error = e.toString(); _loading = false; });
     }
   }

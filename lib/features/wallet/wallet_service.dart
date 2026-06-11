@@ -346,6 +346,10 @@ class WalletService extends ChangeNotifier {
 
       // Trigger a sync in the background immediately
       refreshBalance();
+      // Instant portfolio update: the trade row already exists server-side, so
+      // listeners (portfolio) can show the position right away and then poll it
+      // from pending -> confirmed without a page reload.
+      notifyTrade();
       return res;
     } catch (e) {
       // Revert optimistic update on failure by fetching real balance
