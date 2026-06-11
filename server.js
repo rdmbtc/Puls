@@ -1608,6 +1608,19 @@ app.get('/api/trade/status', async (req, res) => {
 
     const txRes = await circle.getTransaction({ id: txId });
     const tx = txRes.data.transaction;
+    // Persist the latest state to the trades row BEFORE responding, so that the
+    // portfolio reload the client fires on COMPLETE already sees the final state
+    // (previously the row stayed INITIATED until a later background sync, which
+    // made positions show "Pending" until a full page reload).
+    if (tx.state && tx.state !== 'INITIATED') {
+      try {
+        const upd = { state: tx.state };
+        if (tx.txHash) upd.tx_hash = tx.txHash;
+        await supabase.from('trades').update(upd).eq('tx_id', txId);
+      } catch (err) {
+        console.error('trade/status row sync failed:', err.message);
+      }
+    }
     res.json({ txId: txRes.data.id, state: tx.state, txHash: tx.txHash });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1727,19 +1740,23 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
     const terminalStates = ['COMPLETE', 'FAILED', 'CANCELLED', 'DENIED'];
     const pendingRows = rows.filter(r => !r.state || !terminalStates.includes(r.state.toUpperCase()));
     if (pendingRows.length > 0) {
-      (async () => {
-        for (const r of pendingRows) {
-          if (!r.tx_id || r.tx_id.startsWith('ext_')) continue;
-          try {
-            const tx = await circle.getTransaction({ id: r.tx_id });
-            const state = tx.data.transaction.state;
-            const txHash = tx.data.transaction.txHash ?? r.tx_hash;
+      // Sync pending rows synchronously (capped) so THIS response already reflects
+      // the final tx state instead of requiring a second reload.
+      await Promise.allSettled(pendingRows.slice(0, 6).map(async (r) => {
+        if (!r.tx_id || r.tx_id.startsWith('ext_')) return;
+        try {
+          const tx = await circle.getTransaction({ id: r.tx_id });
+          const state = tx.data.transaction.state;
+          const txHash = tx.data.transaction.txHash ?? r.tx_hash;
+          if (state && state !== r.state) {
+            r.state = state;          // reflect in this request's position math
+            r.tx_hash = txHash;
             await supabase.from('trades').update({ state, tx_hash: txHash }).eq('tx_id', r.tx_id);
-          } catch (err) {
-            console.error(`Background portfolio sync failed for tx ${r.tx_id}:`, err.message);
           }
+        } catch (err) {
+          console.error(`Portfolio pending sync failed for tx ${r.tx_id}:`, err.message);
         }
-      })().catch(console.error);
+      }));
     }
 
     let positions = [];
