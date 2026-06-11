@@ -2017,20 +2017,69 @@ Rules: factors are short (max 14 words each), concrete and specific to this ques
     ctx.endDate ? `Resolution date: ${ctx.endDate}` : null,
   ].filter(Boolean).join('\n');
 
-  const raw = await llmComplete([
-    { role: 'system', content: sys },
-    { role: 'user', content: user },
-  ]);
-  const parsed = parseLlmJson(raw);
-  const lean = ['YES', 'NO', 'UNCERTAIN'].includes(parsed.lean) ? parsed.lean : 'UNCERTAIN';
-  const confidence = ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'medium';
+  try {
+    const raw = await llmComplete([
+      { role: 'system', content: sys },
+      { role: 'user', content: user },
+    ]);
+    const parsed = parseLlmJson(raw);
+    const lean = ['YES', 'NO', 'UNCERTAIN'].includes(parsed.lean) ? parsed.lean : 'UNCERTAIN';
+    const confidence = ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'medium';
+    return {
+      slug,
+      question: ctx.question,
+      thesis: String(parsed.thesis || '').slice(0, 600),
+      factors: (Array.isArray(parsed.factors) ? parsed.factors : []).slice(0, 4).map((f) => String(f).slice(0, 160)),
+      lean,
+      confidence,
+      source: 'llm',
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    console.error(`[Insight] LLM failed for ${slug}, using quantitative fallback:`, e.message);
+    return quantInsight(slug, ctx);
+  }
+}
+
+// Deterministic, data-driven brief when the LLM is unavailable.
+function quantInsight(slug, ctx) {
+  const yes = ctx.yesPrice != null && !Number.isNaN(ctx.yesPrice) ? ctx.yesPrice : 0.5;
+  const pct = Math.round(yes * 100);
+  const change = ctx.change24h != null ? ctx.change24h * 100 : null;
+  const daysLeft = ctx.endDate ? Math.max(0, Math.round((new Date(ctx.endDate) - Date.now()) / 86400000)) : null;
+
+  const lean = yes >= 0.6 ? 'YES' : yes <= 0.4 ? 'NO' : 'UNCERTAIN';
+  const edge = Math.abs(yes - 0.5);
+  const confidence = edge > 0.35 ? 'high' : edge > 0.15 ? 'medium' : 'low';
+
+  const factors = [];
+  if (change != null && Math.abs(change) >= 0.5) {
+    factors.push(`Price moved ${change > 0 ? '+' : ''}${change.toFixed(1)}¢ in the last 24h — momentum ${change > 0 ? 'toward' : 'away from'} YES`);
+  } else {
+    factors.push('Price has been stable over the last 24h — no fresh information shifting the odds');
+  }
+  if (daysLeft != null) {
+    factors.push(daysLeft <= 3 ? `Resolves in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — little time left for the picture to change` : `${daysLeft} days until resolution — outcome can still swing on new developments`);
+  }
+  if (ctx.volume != null && parseFloat(ctx.volume) > 0) {
+    factors.push(`$${Math.round(parseFloat(ctx.volume)).toLocaleString('en-US')} in source-market volume backs the current consensus`);
+  }
+  if (factors.length < 3) {
+    factors.push(lean === 'UNCERTAIN' ? 'Market is near a coin flip — traders are genuinely split' : `Crowd consensus currently favors ${lean}`);
+  }
+
+  const thesis = lean === 'UNCERTAIN'
+    ? `Traders price YES at ${pct}¢, treating this as close to a coin flip. Neither side has conviction yet, so new information is likely to move this market sharply.`
+    : `Traders price YES at ${pct}¢, implying roughly a ${lean === 'YES' ? pct : 100 - pct}% chance the market resolves ${lean}. The crowd has taken a clear side; the open question is whether anything before resolution can flip it.`;
+
   return {
     slug,
     question: ctx.question,
-    thesis: String(parsed.thesis || '').slice(0, 600),
-    factors: (Array.isArray(parsed.factors) ? parsed.factors : []).slice(0, 4).map((f) => String(f).slice(0, 160)),
+    thesis,
+    factors: factors.slice(0, 3),
     lean,
     confidence,
+    source: 'quant',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -2050,7 +2099,9 @@ app.get('/api/market/insight', insightLimiter, async (req, res) => {
     if (!p) {
       p = generateMarketInsight(slug)
         .then((data) => {
-          insightCache.set(slug, { data, ts: Date.now() });
+          // quant fallbacks expire faster so the LLM takes over once available
+          const ttlShift = data.source === 'quant' ? INSIGHT_TTL_MS - 10 * 60 * 1000 : 0;
+          insightCache.set(slug, { data, ts: Date.now() - ttlShift });
           return data;
         })
         .finally(() => insightInflight.delete(slug));
