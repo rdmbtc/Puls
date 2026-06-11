@@ -2693,8 +2693,12 @@ async function updateLeaderboard() {
           let claimed = false;
           
           try {
-            const userAddress = userIdToAddressCache.get(userId);
-            if (userAddress) {
+            let userAddress = userIdToAddressCache.get(userId);
+            // Resolve addresses not in the wallet cache: eth_-prefixed and raw-address user ids
+            if (!userAddress && userId.startsWith('eth_')) userAddress = userId.slice(4);
+            if (!userAddress && userId.startsWith('0x') && userId.length === 42) userAddress = userId;
+            if (!userAddress) throw new Error('no wallet address for user');
+            {
               const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
                 address: marketAddress,
                 abi: [{
