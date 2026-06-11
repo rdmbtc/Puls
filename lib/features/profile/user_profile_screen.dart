@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -126,21 +127,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? Image.network(avatarUrl, width: 80, height: 80, fit: BoxFit.cover)
-                    : Container(
-                        width: 80,
-                        height: 80,
-                        color: t.brandSubtle,
-                        child: Center(
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'P',
-                            style: TextStyle(color: t.brand, fontSize: 32, fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      ),
+              child: PulsAvatar(
+                url: avatarUrl,
+                name: name,
+                size: 80,
+                radius: 18,
               ),
             ),
             const SizedBox(width: 18),

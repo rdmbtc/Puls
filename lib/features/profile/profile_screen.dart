@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_avatar.dart';
 import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
 import '../../core/config.dart';
@@ -163,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onPressed: () {
                             final rand = 'trader_' + DateTime.now().millisecondsSinceEpoch.toString();
                             final seedType = ws.isExternalWallet ? 'identicon' : 'bottts';
-                            avatarController.text = 'https://api.dicebear.com/7.x/$seedType/svg?seed=$rand';
+                            avatarController.text = 'https://api.dicebear.com/7.x/$seedType/png?seed=$rand&size=128';
                           },
                           style: IconButton.styleFrom(
                             backgroundColor: t.brand,
@@ -683,12 +684,11 @@ class _ProfileCard extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: avatar != null && avatar.isNotEmpty
-                  ? Image.network(avatar, width: 60, height: 60, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _fallback(name))
-                  : _fallback(name),
+            child: PulsAvatar(
+              url: avatar,
+              name: name,
+              size: 60,
+              radius: 14,
             ),
           ),
           const SizedBox(width: 18),
@@ -754,18 +754,6 @@ class _ProfileCard extends StatelessWidget {
     );
   }
 
-  Widget _fallback(String name) => Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-            color: t.brandSubtle, borderRadius: BorderRadius.circular(14)),
-        child: Center(
-          child: Text(
-            name.isNotEmpty ? name[0].toUpperCase() : 'P',
-            style: TextStyle(color: t.brand, fontSize: 24, fontWeight: FontWeight.w900),
-          ),
-        ),
-      );
 }
 
 // ── Settings Sections ────────────────────────────────────────────────────────

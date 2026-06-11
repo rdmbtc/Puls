@@ -2,6 +2,8 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_avatar.dart';
+import '../../core/widgets/skeleton.dart';
 import 'user_profile_screen.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -58,13 +60,29 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: Text(
-          'Leaderboard',
-          style: TextStyle(
-            color: t.text,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Leaderboard',
+              style: TextStyle(
+                color: t.text,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            Text(
+              _isLoading
+                  ? 'Ranking traders…'
+                  : '${_traders.length} traders · live on Arc Testnet',
+              style: TextStyle(
+                color: t.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -88,11 +106,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
             Expanded(
               child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: t.brand,
-                      ),
-                    )
+                  ? _buildLoadingSkeleton()
                   : _error != null
                       ? _buildErrorView(t)
                       : _traders.isEmpty
@@ -147,7 +161,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
+  Widget _buildLoadingSkeleton() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        const Skeleton(height: 190, radius: 24),
+        const SizedBox(height: 24),
+        const Skeleton(width: 90, height: 12, radius: 6),
+        const SizedBox(height: 12),
+        for (var i = 0; i < 7; i++) ...[
+          const Skeleton(height: 64, radius: 16),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
   Widget _buildContent(PulsThemeColors t, bool isDark) {
+    final myUserId = WalletServiceScope.of(context).state.userId;
     // Top 3 for Podium
     final top3 = _traders.take(3).toList();
     final remaining = _traders.skip(3).toList();
@@ -197,6 +229,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       rank: rank,
                       sortBy: _sortBy,
                       t: t,
+                      isMe: myUserId != null && trader['userId'] == myUserId,
                       onTap: () => _navigateToProfile(trader['userId']),
                     ),
                   ),
@@ -265,7 +298,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   Container(
                                     width: isFirst ? 64 : 54,
                                     height: isFirst ? 64 : 54,
-                                    padding: const EdgeInsets.all(2),
+                                    padding: const EdgeInsets.all(2.5),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       gradient: LinearGradient(
@@ -275,10 +308,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                                 ? [const Color(0xFF94A3B8), const Color(0xFF64748B)]
                                                 : [const Color(0xFFD97706), const Color(0xFFB45309)],
                                       ),
+                                      boxShadow: isFirst
+                                          ? [
+                                              BoxShadow(
+                                                color: const Color(0xFFFBBF24).withValues(alpha: 0.35),
+                                                blurRadius: 18,
+                                                spreadRadius: 1,
+                                              ),
+                                            ]
+                                          : null,
                                     ),
-                                    child: CircleAvatar(
-                                      backgroundColor: t.surface,
-                                      backgroundImage: NetworkImage(trader['avatarUrl'] ?? ''),
+                                    child: PulsAvatar(
+                                      url: trader['avatarUrl'] as String?,
+                                      name: trader['displayName'] as String? ?? 'Puls Trader',
+                                      size: isFirst ? 59 : 49,
                                     ),
                                   ),
                                   // Crown/Rank badge above avatar
@@ -458,6 +501,7 @@ class _TraderRow extends StatelessWidget {
     required this.sortBy,
     required this.t,
     required this.onTap,
+    this.isMe = false,
   });
 
   final dynamic trader;
@@ -465,6 +509,7 @@ class _TraderRow extends StatelessWidget {
   final String sortBy;
   final PulsThemeColors t;
   final VoidCallback onTap;
+  final bool isMe;
 
   @override
   Widget build(BuildContext context) {
@@ -479,7 +524,7 @@ class _TraderRow extends StatelessWidget {
         ? '${value >= 0 ? '+' : ''}\$${value.toStringAsFixed(2)}'
         : '\$${value.toStringAsFixed(2)}';
 
-    return GlassCard(
+    final card = GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       onTap: onTap,
       child: Row(
@@ -497,9 +542,10 @@ class _TraderRow extends StatelessWidget {
             ),
           ),
           // Avatar
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: NetworkImage(trader['avatarUrl'] ?? ''),
+          PulsAvatar(
+            url: trader['avatarUrl'] as String?,
+            name: trader['displayName'] as String? ?? 'Puls Trader',
+            size: 40,
           ),
           const SizedBox(width: 14),
           // User Details
@@ -507,15 +553,40 @@ class _TraderRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  trader['displayName'] ?? 'Puls Trader',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: t.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        trader['displayName'] ?? 'Puls Trader',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: t.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: t.brand,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'YOU',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -557,6 +628,21 @@ class _TraderRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (!isMe) return card;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: t.brand.withValues(alpha: 0.55), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: t.brand.withValues(alpha: 0.12),
+            blurRadius: 14,
+          ),
+        ],
+      ),
+      child: card,
     );
   }
 }
