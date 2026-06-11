@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/confetti_burst.dart';
 import 'wallet_service.dart';
 
 import '../../core/config.dart' show backendUrl;
@@ -122,9 +123,6 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final isYes = widget.side == 'YES';
-    final sideColor = isYes ? t.yes : t.no;
-    final sideBg = isYes ? t.yesBg : t.noBg;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
@@ -133,7 +131,26 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: t.border)),
       ),
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            top: -120,
+            child: ConfettiBurst(play: _status == TxStatus.complete),
+          ),
+          _sheetBody(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetBody(BuildContext context) {
+    final t = context.puls;
+    final isYes = widget.side == 'YES';
+    final sideColor = isYes ? t.yes : t.no;
+    final sideBg = isYes ? t.yesBg : t.noBg;
+
+    return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle
@@ -281,7 +298,6 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
             ),
           ),
         ],
-      ),
     );
   }
 }

@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
+
+/// A shimmering placeholder block for loading states.
+class Skeleton extends StatefulWidget {
+  const Skeleton({
+    super.key,
+    this.width = double.infinity,
+    this.height = 16,
+    this.radius = 8,
+  });
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  State<Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<Skeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final x = _ctrl.value * 2 - 1; // -1 .. 1
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment(x - 1, 0),
+              end: Alignment(x + 1, 0),
+              colors: [
+                t.border.withValues(alpha: 0.45),
+                t.border.withValues(alpha: 0.9),
+                t.border.withValues(alpha: 0.45),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Skeleton mimicking the swipe-card market layout while markets load.
+class MarketCardSkeleton extends StatelessWidget {
+  const MarketCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final size = MediaQuery.sizeOf(context);
+    final cardW = size.width > 520 ? 440.0 : size.width - 40;
+
+    return Center(
+      child: Container(
+        width: cardW,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: t.border),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Skeleton(width: 44, height: 44, radius: 12),
+                SizedBox(width: 12),
+                Expanded(child: Skeleton(height: 14)),
+              ],
+            ),
+            SizedBox(height: 24),
+            Skeleton(height: 22, width: 280),
+            SizedBox(height: 10),
+            Skeleton(height: 22, width: 200),
+            SizedBox(height: 28),
+            Skeleton(height: 120, radius: 16),
+            SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: Skeleton(height: 52, radius: 16)),
+                SizedBox(width: 12),
+                Expanded(child: Skeleton(height: 52, radius: 16)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

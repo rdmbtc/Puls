@@ -1,5 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+
+import 'live_ticker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -75,9 +77,10 @@ class _WebLandingPageState extends State<WebLandingPage> {
             child: Column(
               children: [
                 _HeroSection(scrollOffset: _scrollOffset),
-                const _FeaturesSection(),
-                const _HowItWorksSection(),
-                const _StatsSection(),
+                _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
+                _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
+                _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
+                _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                 const _FooterSection(),
               ],
             ),
@@ -1486,4 +1489,73 @@ class _DotGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotGridPainter old) => old.color != color;
+}
+
+// ── Scroll reveal ─────────────────────────────────────────────────────────────
+/// Fades + slides its child in the first time it scrolls into view.
+class _Reveal extends StatefulWidget {
+  const _Reveal({required this.scrollOffset, required this.child});
+  final double scrollOffset;
+  final Widget child;
+
+  @override
+  State<_Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<_Reveal> {
+  bool _shown = false;
+  double? _top;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _shown) return;
+      _measure();
+      final h = MediaQuery.sizeOf(context).height;
+      final top = _top;
+      if (top != null && widget.scrollOffset + h * 0.88 > top) {
+        setState(() => _shown = true);
+      } else {
+        setState(() {}); // re-render with measured position
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _Reveal old) {
+    super.didUpdateWidget(old);
+    if (_shown) return;
+    _measure();
+    final h = MediaQuery.sizeOf(context).height;
+    final top = _top;
+    if (top != null && widget.scrollOffset + h * 0.88 > top) {
+      setState(() => _shown = true);
+    }
+  }
+
+  void _measure() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    // Global position + current scroll offset = position in scroll content.
+    _top = box.localToGlobal(Offset.zero).dy + widget.scrollOffset;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Anything starting within the first viewport shows immediately.
+    final h = MediaQuery.sizeOf(context).height;
+    final visibleNow = _shown || (_top != null && _top! < h * 0.92);
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeOut,
+      opacity: _shown ? 1 : (visibleNow ? 1 : 0),
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeOutCubic,
+        offset: _shown || visibleNow ? Offset.zero : const Offset(0, 0.045),
+        child: widget.child,
+      ),
+    );
+  }
 }

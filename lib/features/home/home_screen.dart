@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
@@ -34,9 +35,9 @@ class _WebHomeScreen extends StatelessWidget {
     if (appState.feedStatus == FeedStatus.loading && appState.markets.isEmpty) {
       return Scaffold(
         backgroundColor: t.bg,
-        body: WebLayout(
+        body: const WebLayout(
           child: Center(
-            child: CircularProgressIndicator(color: t.brand),
+            child: MarketCardSkeleton(),
           ),
         ),
       );
