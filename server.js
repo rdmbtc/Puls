@@ -2073,15 +2073,26 @@ app.get('/api/stats', async (req, res) => {
     if (statsCache.data && Date.now() - statsCache.ts < STATS_TTL_MS) {
       return res.json(statsCache.data);
     }
-    const [tradesRes, marketsRes, resolvedRes] = await Promise.all([
-      supabase.from('trades').select('usdc_amount').eq('state', 'COMPLETE').limit(20000),
+    const [countRes, marketsRes, resolvedRes] = await Promise.all([
+      supabase.from('trades').select('*', { count: 'exact', head: true }).eq('state', 'COMPLETE'),
       supabase.from('deployed_markets').select('*', { count: 'exact', head: true }),
       supabase.from('deployed_markets').select('*', { count: 'exact', head: true }).eq('resolved', true),
     ]);
-    const rows = tradesRes.data || [];
-    const volumeUsdc = rows.reduce((acc, r) => acc + (parseFloat(r.usdc_amount) || 0), 0);
+    const tradeCount = countRes.count ?? 0;
+    // Supabase caps responses at 1000 rows — paginate the volume sum
+    let volumeUsdc = 0;
+    for (let from = 0; from < tradeCount; from += 1000) {
+      const { data: page } = await supabase
+        .from('trades')
+        .select('usdc_amount')
+        .eq('state', 'COMPLETE')
+        .range(from, from + 999);
+      if (!page || page.length === 0) break;
+      volumeUsdc += page.reduce((acc, r) => acc + (parseFloat(r.usdc_amount) || 0), 0);
+      if (page.length < 1000) break;
+    }
     const data = {
-      trades: rows.length,
+      trades: tradeCount,
       volumeUsdc: Math.round(volumeUsdc * 100) / 100,
       marketsDeployed: marketsRes.count ?? 0,
       marketsResolved: resolvedRes.count ?? 0,
