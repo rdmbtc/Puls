@@ -28,6 +28,16 @@ const strictLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Trading endpoints get a much more generous limit so rapid/fast-buy flows
+// are never blocked at current traffic levels (600/min per IP by default).
+// This is only a DoS backstop, not a throttle. Tune via RATE_LIMIT_TRADE.
+const tradeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_TRADE || '600', 10),
+  message: { error: 'Too many trade requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const activateMarketLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_ACTIVATE || '10', 10),
@@ -1122,7 +1132,7 @@ app.get('/api/market/info', async (req, res) => {
 
 // ── Trade ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, async (req, res) => {
   try {
     const { userId, side, usdcAmount, question, slug, deadline } = req.body;
     if (!userId || !side || !usdcAmount || !slug || !deadline) return res.status(400).json({ error: 'Missing fields' });
@@ -1196,7 +1206,7 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, strictLimiter,
   }
 });
 
-app.post('/api/trade/sell', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/sell', authenticateUser, requireVerifiedUser, tradeLimiter, async (req, res) => {
   try {
     const { userId, side, shares, question, slug, contractAddress: reqContract } = req.body;
     if (!userId || !side || !shares) return res.status(400).json({ error: 'Missing fields' });
@@ -1304,7 +1314,7 @@ app.get('/api/trade/status', async (req, res) => {
   }
 });
 
-app.post('/api/trade/save-external', strictLimiter, async (req, res) => {
+app.post('/api/trade/save-external', tradeLimiter, async (req, res) => {
   try {
     let { userId, side, usdcAmount, entryPrice, question, txHash, marketId } = req.body;
     if (!userId || !side || !usdcAmount || !entryPrice || !question || !txHash) {
@@ -3149,7 +3159,7 @@ app.post('/api/markets/create', authenticateUser, requireVerifiedUser, strictLim
 // ── Limit Orders Engine ──────────────────────────────────────────────────────
 
 // POST /api/trade/limit-order
-app.post('/api/trade/limit-order', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/trade/limit-order', authenticateUser, requireVerifiedUser, tradeLimiter, async (req, res) => {
   try {
     const { userId, marketId, slug, side, type, usdcAmount, shares, targetPrice } = req.body;
     if (!userId || !marketId || !slug || !side || !type || targetPrice === undefined) {
