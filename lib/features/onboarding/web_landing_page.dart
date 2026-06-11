@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -80,6 +81,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
                 _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
                 _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
                 _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
+                _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
                 _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                 const _FooterSection(),
               ],

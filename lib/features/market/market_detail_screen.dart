@@ -12,6 +12,7 @@ import '../shell/web_layout.dart';
 import 'trade_preview_sheet.dart';
 import 'ai_copilot_sheet.dart';
 import 'advanced_charts.dart';
+import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
 
 class MarketDetailScreen extends StatefulWidget {
@@ -89,6 +90,10 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           trend: market.trend,
           t: t,
         ),
+        const SizedBox(height: 14),
+
+        // ── AI Analyst brief ─────────────────────────────────────────────
+        AiInsightCard(market: market),
         const SizedBox(height: 14),
 
         // ── Stats grid ───────────────────────────────────────────────────
