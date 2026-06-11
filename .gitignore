@@ -43,3 +43,7 @@ fix_crlf.py
 fix_deploy.py
 redeploy.py
 test_vps.py
+# Foundry dependencies (run: git clone forge-std & prb-math into contracts/lib, see contracts/README)
+contracts/lib/
+contracts/out/
+contracts/cache/
