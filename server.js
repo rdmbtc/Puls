@@ -4399,29 +4399,16 @@ async function ensureHouseAgentWallet() {
   }
   const info = await getWalletInfo(walletId);
 
-  // ERC-8004 on-chain identity (once per process; idempotent on-chain pattern
-  // mirrors /api/agent/start).
-  if (!registeredAgents.has(HOUSE_AGENT_KEY)) {
-    const existing = await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
-    if (!existing) {
-      try {
-        await circle.createContractExecutionTransaction({
-          walletId,
-          contractAddress: IDENTITY_REGISTRY,
-          abiFunctionSignature: 'register(string)',
-          abiParameters: [AGENT_METADATA_URI],
-          fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
-        });
-        await new Promise(r => setTimeout(r, 4000));
-        await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
-      } catch (e) {
-        console.error('[Pulse] ERC-8004 register error:', e.message);
-      }
-    }
-    registeredAgents.add(HOUSE_AGENT_KEY);
-  }
+  // Public profile row (notifications/trades FK to profiles.user_id).
+  await supabase.from('profiles').upsert({
+    user_id: HOUSE_AGENT_USER,
+    display_name: 'Pulse 🤖',
+    bio: 'Autonomous house AI trader. Researches every market, reasons about mispricings, and settles trades in USDC on Arc — no human in the loop.',
+    avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=pulse',
+  }, { onConflict: 'user_id' });
 
   // Self-funding: top up once per process from the admin treasury (testnet).
+  // Must happen BEFORE ERC-8004 registration — the wallet needs gas (USDC).
   let balance = parseFloat(info.usdcBalance) || 0;
   if (balance < 0.6 && !houseAgentFundedThisRun && walletClient && adminAccount) {
     try {
@@ -4439,6 +4426,30 @@ async function ensureHouseAgentWallet() {
       balance = parseFloat((await getWalletInfo(walletId)).usdcBalance) || 0;
     } catch (e) {
       console.error('[Pulse] funding error:', e.message);
+    }
+  }
+
+  // ERC-8004 on-chain identity (idempotent: checks for an existing token first).
+  if (!registeredAgents.has(HOUSE_AGENT_KEY)) {
+    const existing = await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
+    if (existing) {
+      registeredAgents.add(HOUSE_AGENT_KEY);
+    } else if (balance >= 0.2) {
+      try {
+        await circle.createContractExecutionTransaction({
+          walletId,
+          contractAddress: IDENTITY_REGISTRY,
+          abiFunctionSignature: 'register(string)',
+          abiParameters: [AGENT_METADATA_URI],
+          fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+        });
+        await new Promise(r => setTimeout(r, 4000));
+        const id = await resolveAgentTokenId(HOUSE_AGENT_KEY, info.address);
+        if (id) registeredAgents.add(HOUSE_AGENT_KEY);
+        console.log(`[Pulse] ERC-8004 identity registered (token ${id})`);
+      } catch (e) {
+        console.error('[Pulse] ERC-8004 register error:', e.message);
+      }
     }
   }
   return { walletId, address: info.address, balance };
@@ -4578,7 +4589,7 @@ async function houseAgentTick() {
       return;
     }
 
-    await supabase.from('notifications').insert({
+    const { error: insErr } = await supabase.from('notifications').insert({
       user_id: HOUSE_AGENT_USER,
       title: decision.slug,
       type: 'agent_decision',
@@ -4596,7 +4607,8 @@ async function houseAgentTick() {
         contractAddress: decision.contractAddress,
       }),
     });
-    console.log(`[Pulse] published decision, tx ${result.txHash}`);
+    if (insErr) console.error('[Pulse] decision publish error:', insErr.message);
+    else console.log(`[Pulse] published decision, tx ${result.txHash}`);
   } catch (e) {
     console.error('[Pulse] tick error:', e.message);
   } finally {
