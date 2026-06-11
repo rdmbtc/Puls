@@ -1,6 +1,8 @@
-import 'dart:ui' as ui;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import 'hero_market_stack.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +13,6 @@ import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart';
-import 'particle_shapes.dart';
 
 class WebLandingPage extends StatefulWidget {
   const WebLandingPage({super.key});
@@ -20,13 +21,17 @@ class WebLandingPage extends StatefulWidget {
   State<WebLandingPage> createState() => _WebLandingPageState();
 }
 
-class _WebLandingPageState extends State<WebLandingPage> {
+class _WebLandingPageState extends State<WebLandingPage>
+    with SingleTickerProviderStateMixin {
   final _scrollCtrl = ScrollController();
   double _scrollOffset = 0;
+  late final AnimationController _aurora;
 
   @override
   void initState() {
     super.initState();
+    _aurora = AnimationController(vsync: this, duration: const Duration(seconds: 18))
+      ..repeat();
     _scrollCtrl.addListener(() {
       if (mounted) setState(() => _scrollOffset = _scrollCtrl.offset);
     });
@@ -34,6 +39,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
 
   @override
   void dispose() {
+    _aurora.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -43,10 +49,6 @@ class _WebLandingPageState extends State<WebLandingPage> {
     final t = context.puls;
     final isDark = context.isDark;
 
-    // Background patterns
-    final gradientGlow = isDark
-        ? const Color(0x30312E81) // Dark indigo glow
-        : const Color(0x124F46E5); // Light indigo glow
     final dotColor = isDark
         ? Colors.white.withValues(alpha: 0.03)
         : const Color(0xFF4F46E5).withValues(alpha: 0.03);
@@ -55,15 +57,15 @@ class _WebLandingPageState extends State<WebLandingPage> {
       backgroundColor: t.bg,
       body: Stack(
         children: [
-          // ── Radial Glow Background ───────────────────────────────────────
+          // ── Animated Aurora Background ──────────────────────────────────
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -0.6),
-                  radius: 1.4,
-                  colors: [gradientGlow, t.bg],
-                  stops: const [0.0, 0.7],
+            child: AnimatedBuilder(
+              animation: _aurora,
+              builder: (context, _) => CustomPaint(
+                painter: _AuroraPainter(
+                  progress: _aurora.value,
+                  isDark: isDark,
+                  bg: t.bg,
                 ),
               ),
             ),
@@ -83,6 +85,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
                 _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
                 _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
                 _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
+                _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
                 const _FooterSection(),
               ],
             ),
@@ -136,6 +139,8 @@ class _Navbar extends StatelessWidget {
           const Spacer(),
           if (!isMobile) ...[
             _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+            const SizedBox(width: 8),
+            _NavLink('Android', kAndroidApkUrl),
             const SizedBox(width: 8),
             _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
             const SizedBox(width: 16),
@@ -200,6 +205,8 @@ class _NavLinkState extends State<_NavLink> {
 }
 
 // ── Hero Section ──────────────────────────────────────────────────────────────
+const String kAndroidApkUrl = 'https://github.com/rdmbtc/Puls/releases/latest';
+
 class _HeroSection extends StatefulWidget {
   const _HeroSection({required this.scrollOffset});
   final double scrollOffset;
@@ -209,67 +216,52 @@ class _HeroSection extends StatefulWidget {
 }
 
 class _HeroSectionState extends State<_HeroSection> {
-  int _shapeIndex = 0;
-  static const _words = ['Predict', 'Swipe', 'Win'];
+  int _phraseIndex = 0;
+  static const _phrases = [
+    'what happens next.',
+    'the next Fed cut.',
+    'tomorrow\'s headlines.',
+    'every big question.',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _cycleWords();
+    _cyclePhrases();
   }
 
-  void _cycleWords() {
-    Future.delayed(const Duration(seconds: 4), () {
+  void _cyclePhrases() {
+    Future.delayed(const Duration(milliseconds: 3200), () {
       if (!mounted) return;
-      setState(() => _shapeIndex = (_shapeIndex + 1) % _words.length);
-      _cycleWords();
+      setState(() => _phraseIndex = (_phraseIndex + 1) % _phrases.length);
+      _cyclePhrases();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = context.puls;
-    final isDark = context.isDark;
     final h = MediaQuery.sizeOf(context).height;
-    final parallaxY = -(widget.scrollOffset * 0.2).clamp(0.0, h * 0.25);
-    final heroOpacity = (1 - widget.scrollOffset / (h * 0.5)).clamp(0.0, 1.0);
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 1000;
+    final parallaxY = -(widget.scrollOffset * 0.18).clamp(0.0, h * 0.25);
+    final heroOpacity = (1 - widget.scrollOffset / (h * 0.55)).clamp(0.0, 1.0);
 
-    return SizedBox(
-      height: h,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: h),
       child: Stack(
         children: [
-          // Particle animation background
-          Positioned.fill(
-            child: ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
-              child: Opacity(
-                opacity: 0.8,
-                child: ParticleShapes(isDark: isDark, shapeIndex: _shapeIndex),
-              ),
-            ),
-          ),
           // Navbar
           const Positioned(top: 0, left: 0, right: 0, child: _Navbar()),
           // Hero content with parallax
-          Positioned.fill(
+          Padding(
+            padding: EdgeInsets.only(top: isMobile ? 110 : 90),
             child: Transform.translate(
               offset: Offset(0, parallaxY),
               child: Opacity(
                 opacity: heroOpacity,
-                child: _HeroContent(word: _words[_shapeIndex], wordIndex: _shapeIndex),
-              ),
-            ),
-          ),
-          // Bottom fade gradient
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [t.bg, t.bg.withValues(alpha: 0.0)],
+                child: _HeroContent(
+                  phrase: _phrases[_phraseIndex],
+                  phraseIndex: _phraseIndex,
                 ),
               ),
             ),
@@ -281,28 +273,91 @@ class _HeroSectionState extends State<_HeroSection> {
 }
 
 class _HeroContent extends StatelessWidget {
-  const _HeroContent({required this.word, required this.wordIndex});
-  final String word;
-  final int wordIndex;
+  const _HeroContent({required this.phrase, required this.phraseIndex});
+  final String phrase;
+  final int phraseIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 1000;
+    final h = MediaQuery.sizeOf(context).height;
+
+    if (isMobile) {
+      return SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _HeroCopy(phrase: phrase, phraseIndex: phraseIndex, centered: true),
+            ),
+            const SizedBox(height: 40),
+            const Center(child: HeroMarketStack(compact: true)),
+            const SizedBox(height: 36),
+            const _TrustStrip(),
+            const SizedBox(height: 32),
+          ],
+        ),
+      );
+    }
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1240, minHeight: h - 90),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 48),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 11,
+                    child: _HeroCopy(phrase: phrase, phraseIndex: phraseIndex, centered: false),
+                  ),
+                  const SizedBox(width: 48),
+                  const Expanded(
+                    flex: 9,
+                    child: Center(child: HeroMarketStack()),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 56),
+              const _TrustStrip(),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroCopy extends StatelessWidget {
+  const _HeroCopy({required this.phrase, required this.phraseIndex, required this.centered});
+  final String phrase;
+  final int phraseIndex;
+  final bool centered;
 
   @override
   Widget build(BuildContext context) {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 850;
+    final isMobile = w < 1000;
+    final double titleSize = w < 480 ? 44 : (w < 1000 ? 56 : (w < 1250 ? 64 : 74));
 
-    final double titleFontSize = w < 600 ? 32 : (w < 950 ? 46 : 62);
-    final double titleLetterSpacing = w < 600 ? -1.0 : -2.0;
+    final cross = centered ? CrossAxisAlignment.center : CrossAxisAlignment.start;
+    final align = centered ? TextAlign.center : TextAlign.left;
 
-    return Center(
-      child: SingleChildScrollView(
-        child: Column(
+    return Column(
+      crossAxisAlignment: cross,
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(height: isMobile ? 40 : 80),
-        // Live on Arc badge
+        // Live badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
@@ -313,327 +368,262 @@ class _HeroContent extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 6, height: 6,
-                decoration: BoxDecoration(color: t.brand, shape: BoxShape.circle),
-              ),
+              _PulsingDot(color: t.brand),
               const SizedBox(width: 8),
               Text(
-                'Live on Arc Testnet · Chain ID 5042002',
-                style: TextStyle(color: t.brand, fontSize: isMobile ? 10 : 12, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                'LIVE ON ARC TESTNET',
+                style: TextStyle(
+                    color: t.brand,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2),
               ),
             ],
           ),
         ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.15),
-        SizedBox(height: isMobile ? 18 : 28),
-        // Title with cycling word
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: isMobile
-              ? Column(
-                  children: [
-                    Text(
-                      'Trade on the',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: PulsColors.fontDisplay,
-                        color: t.text,
-                        fontSize: titleFontSize,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                        letterSpacing: titleLetterSpacing,
-                      ),
-                    ),
-                    Text(
-                      'Future of',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: PulsColors.fontDisplay,
-                        color: t.text,
-                        fontSize: titleFontSize,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                        letterSpacing: titleLetterSpacing,
-                      ),
-                    ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      transitionBuilder: (child, anim) => FadeTransition(
-                        opacity: anim,
-                        child: SlideTransition(
-                          position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
-                          child: child,
-                        ),
-                      ),
-                      child: Text(
-                        '$word.',
-                        key: ValueKey(wordIndex),
-                        style: TextStyle(
-                          fontFamily: PulsColors.fontDisplay,
-                          color: t.brand,
-                          fontSize: titleFontSize,
-                          fontWeight: FontWeight.w700,
-                          height: 1.15,
-                          letterSpacing: titleLetterSpacing,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  children: [
-                    Text(
-                      'Trade on the',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: PulsColors.fontDisplay,
-                        color: t.text,
-                        fontSize: titleFontSize,
-                        fontWeight: FontWeight.w700,
-                        height: 1.12,
-                        letterSpacing: titleLetterSpacing,
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Future of ',
-                          style: TextStyle(
-                            fontFamily: PulsColors.fontDisplay,
-                            color: t.text,
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w700,
-                            height: 1.12,
-                            letterSpacing: titleLetterSpacing,
-                          ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          transitionBuilder: (child, anim) => FadeTransition(
-                            opacity: anim,
-                            child: SlideTransition(
-                              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
-                              child: child,
-                            ),
-                          ),
-                          child: Text(
-                            '$word.',
-                            key: ValueKey(wordIndex),
-                            style: TextStyle(
-                              fontFamily: PulsColors.fontDisplay,
-                              color: t.brand,
-                              fontSize: titleFontSize,
-                              fontWeight: FontWeight.w700,
-                              height: 1.12,
-                              letterSpacing: titleLetterSpacing,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-        ).animate().fadeIn(duration: 600.ms, delay: 100.ms).slideY(begin: 0.15, delay: 100.ms),
-        SizedBox(height: isMobile ? 16 : 24),
-        // Subtitle
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+        SizedBox(height: isMobile ? 22 : 30),
+        // Editorial serif headline
+        Text(
+          'The market for',
+          textAlign: align,
+          style: TextStyle(
+            fontFamily: PulsColors.fontDisplay,
+            color: t.text,
+            fontSize: titleSize,
+            fontWeight: FontWeight.w600,
+            height: 1.04,
+            letterSpacing: -1.5,
+          ),
+        ).animate().fadeIn(duration: 600.ms, delay: 100.ms).slideY(begin: 0.12, delay: 100.ms),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0, 0.35), end: Offset.zero).animate(anim),
+              child: child,
+            ),
+          ),
           child: Text(
-            isMobile
-                ? 'An on-chain prediction market powered by USDC.\nNo gas tokens needed. Sub-second finality.'
-                : 'An on-chain prediction market powered by USDC.\nNo gas tokens needed. Sub-second finality.',
-            textAlign: TextAlign.center,
+            phrase,
+            key: ValueKey(phraseIndex),
+            textAlign: align,
+            style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
+              color: t.brand,
+              fontSize: titleSize,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+              height: 1.08,
+              letterSpacing: -1.5,
+            ),
+          ),
+        ).animate().fadeIn(duration: 600.ms, delay: 150.ms),
+        SizedBox(height: isMobile ? 18 : 26),
+        // Subtitle
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Text(
+            'Swipe-to-trade prediction markets on Arc — funded in USDC, '
+            'settled by UMA\'s optimistic oracle, traded by humans and AI agents alike.',
+            textAlign: align,
             style: TextStyle(
               color: t.textMuted,
-              fontSize: isMobile ? 14 : 17,
+              fontSize: isMobile ? 15 : 17,
               height: 1.65,
               fontWeight: FontWeight.w400,
             ),
           ),
-        ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.15, delay: 200.ms),
-        SizedBox(height: isMobile ? 28 : 38),
-        // Buttons
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: isMobile
-              ? Column(
-                  children: [
-                    Builder(
-                      builder: (context) {
-                        final wallet = WalletServiceScope.of(context);
-                        return _PrimaryButton(
-                          label: wallet.state.isLoading ? 'Connecting…' : 'Sign in with Google',
-                          onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
-                        );
-                      },
-                    ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
-                    const SizedBox(height: 12),
-                    Builder(
-                      builder: (context) {
-                        final wallet = WalletServiceScope.of(context);
-                        return _SecondaryButton(
-                          label: 'Connect Wallet',
-                          onTap: () async {
-                            await wallet.signInWithExternalWallet();
-                            if (wallet.state.isExternalWallet && context.mounted) {
-                              appState.completeOnboarding();
-                            }
-                          },
-                        );
-                      },
-                    ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.15, delay: 350.ms),
-                  ],
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Builder(
-                      builder: (context) {
-                        final wallet = WalletServiceScope.of(context);
-                        return _PrimaryButton(
-                          label: wallet.state.isLoading ? 'Connecting…' : 'Sign in with Google',
-                          onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
-                        );
-                      },
-                    ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.15, delay: 300.ms),
-                    const SizedBox(width: 12),
-                    Builder(
-                      builder: (context) {
-                        final wallet = WalletServiceScope.of(context);
-                        return _SecondaryButton(
-                          label: 'Connect Wallet',
-                          onTap: () async {
-                            await wallet.signInWithExternalWallet();
-                            if (wallet.state.isExternalWallet && context.mounted) {
-                              appState.completeOnboarding();
-                            }
-                          },
-                        );
-                      },
-                    ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.15, delay: 350.ms),
-                  ],
-                ),
-        ),
-        SizedBox(height: isMobile ? 32 : 52),
-        // Live stats strip
-        _LiveStatsStrip()
-            .animate().fadeIn(duration: 600.ms, delay: 450.ms),
+        ).animate().fadeIn(duration: 600.ms, delay: 250.ms).slideY(begin: 0.12, delay: 250.ms),
+        SizedBox(height: isMobile ? 26 : 34),
+        // CTAs
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: centered ? WrapAlignment.center : WrapAlignment.start,
+          children: [
+            Builder(builder: (context) {
+              final wallet = WalletServiceScope.of(context);
+              return _PrimaryButton(
+                label: wallet.state.isLoading ? 'Connecting…' : 'Start predicting — free',
+                onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
+              );
+            }),
+            Builder(builder: (context) {
+              final wallet = WalletServiceScope.of(context);
+              return _SecondaryButton(
+                label: 'Connect wallet',
+                onTap: () async {
+                  await wallet.signInWithExternalWallet();
+                  if (wallet.state.isExternalWallet && context.mounted) {
+                    appState.completeOnboarding();
+                  }
+                },
+              );
+            }),
+          ],
+        ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.12, delay: 350.ms),
+        SizedBox(height: isMobile ? 14 : 18),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.android_rounded, size: 15, color: t.textSubtle),
+            const SizedBox(width: 6),
+            _InlineLink(label: 'Get the Android app', url: kAndroidApkUrl),
+            Text('  ·  Testnet USDC. Nothing to lose.',
+                style: TextStyle(color: t.textSubtle, fontSize: 12.5)),
+          ],
+        ).animate().fadeIn(duration: 600.ms, delay: 450.ms),
       ],
+    );
+  }
+}
+
+class _InlineLink extends StatefulWidget {
+  const _InlineLink({required this.label, required this.url});
+  final String label;
+  final String url;
+
+  @override
+  State<_InlineLink> createState() => _InlineLinkState();
+}
+
+class _InlineLinkState extends State<_InlineLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => launchUrl(Uri.parse(widget.url), mode: LaunchMode.externalApplication),
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            color: _hovered ? t.brand : t.textMuted,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: _hovered ? t.brand : t.textSubtle,
+          ),
         ),
       ),
     );
   }
 }
 
-class _LiveStatsStrip extends StatelessWidget {
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.color});
+  final Color color;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) => Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.5 * _c.value),
+              blurRadius: 6 + 6 * _c.value,
+              spreadRadius: 1.5 * _c.value,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Trust strip ───────────────────────────────────────────────────────────────
+class _TrustStrip extends StatelessWidget {
+  const _TrustStrip();
+
+  static const _rails = [
+    ('CIRCLE', 'MPC wallets'),
+    ('ARC', 'USDC-gas L1'),
+    ('UMA', 'oracle settlement'),
+    ('POLYMARKET', 'live market data'),
+    ('ERC-8004', 'AI agent identity'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
+    final isMobile = w < 700;
 
-    if (isMobile) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: t.surface.withValues(alpha: 0.8),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: t.border),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(child: _StatChip(icon: Icons.bolt_rounded, label: '100 Live Markets', color: t.brand)),
-                Expanded(child: _StatChip(icon: Icons.account_balance_wallet_rounded, label: 'Circle MPC', color: t.yes)),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(height: 1, thickness: 0.5),
-            ),
-            Row(
-              children: [
-                Expanded(child: _StatChip(icon: Icons.speed_rounded, label: 'Sub-second finality', color: PulsColors.amber)),
-                Expanded(child: _StatChip(icon: Icons.water_drop_rounded, label: 'USDC Gas Token', color: const Color(0xFF0EA5E9))),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-      decoration: BoxDecoration(
-        color: t.surface.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: t.border),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _StatChip(icon: Icons.bolt_rounded, label: '100 Live Markets', color: t.brand),
-          _Divider(),
-          _StatChip(icon: Icons.account_balance_wallet_rounded, label: 'Circle MPC Wallets', color: t.yes),
-          _Divider(),
-          _StatChip(icon: Icons.speed_rounded, label: 'Sub-second Finality', color: PulsColors.amber),
-          _Divider(),
-          _StatChip(icon: Icons.water_drop_rounded, label: 'USDC Gas Token', color: const Color(0xFF0EA5E9)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.icon, required this.label, required this.color});
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Column(
       children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
         Text(
-          label,
-          style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w600),
+          'BUILT ON REAL RAILS',
+          style: TextStyle(
+            color: t.textSubtle,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2.2,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: isMobile ? 18 : 36,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: _rails
+              .map((r) => Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        r.$1,
+                        style: TextStyle(
+                          fontFamily: PulsColors.fontDisplay,
+                          color: t.text.withValues(alpha: 0.75),
+                          fontSize: isMobile ? 14 : 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        r.$2,
+                        style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: isMobile ? 10 : 11.5,
+                        ),
+                      ),
+                    ],
+                  ))
+              .toList(),
         ),
       ],
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return Container(
-      width: 1, height: 16,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      color: t.border,
     );
   }
 }
@@ -1173,6 +1163,122 @@ class _CopyButtonState extends State<_CopyButton> {
   }
 }
 
+// ── Final CTA ─────────────────────────────────────────────────────────────────
+class _FinalCtaSection extends StatelessWidget {
+  const _FinalCtaSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = PulsStateScope.of(context);
+    final t = context.puls;
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 700;
+    final double titleSize = w < 480 ? 38 : (w < 900 ? 52 : 66);
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 48, vertical: isMobile ? 72 : 130),
+      child: Column(
+        children: [
+          Text(
+            'Don\'t just read the news.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
+              color: t.text,
+              fontSize: titleSize,
+              fontWeight: FontWeight.w600,
+              height: 1.08,
+              letterSpacing: -1.5,
+            ),
+          ),
+          Text(
+            'Trade it.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
+              color: t.brand,
+              fontSize: titleSize,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+              height: 1.12,
+              letterSpacing: -1.5,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Free testnet USDC. A wallet in one tap. Your first prediction in under a minute.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
+          ),
+          SizedBox(height: isMobile ? 28 : 36),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              Builder(builder: (context) {
+                final wallet = WalletServiceScope.of(context);
+                return _PrimaryButton(
+                  label: wallet.state.isLoading ? 'Connecting…' : 'Launch Puls',
+                  onTap: wallet.state.isLoading
+                      ? null
+                      : () {
+                          if (wallet.state.userId != null) {
+                            appState.completeOnboarding();
+                          } else {
+                            wallet.signInWithGoogle();
+                          }
+                        },
+                );
+              }),
+              _SecondaryButton(
+                label: '⤓  Android APK',
+                onTap: () => launchUrl(Uri.parse(kAndroidApkUrl), mode: LaunchMode.externalApplication),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Aurora background painter ─────────────────────────────────────────────────
+class _AuroraPainter extends CustomPainter {
+  const _AuroraPainter({required this.progress, required this.isDark, required this.bg});
+  final double progress;
+  final bool isDark;
+  final Color bg;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = progress * 2 * math.pi;
+    final blobs = isDark
+        ? const [Color(0xFF312E81), Color(0xFF1E1B4B), Color(0xFF173B33)]
+        : const [Color(0xFFDDD9FB), Color(0xFFEEF2FF), Color(0xFFDFF1E8)];
+    final alpha = isDark ? 0.55 : 0.75;
+
+    canvas.drawRect(Offset.zero & size, Paint()..color = bg);
+
+    void blob(Color c, double cx, double cy, double r) {
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [c.withValues(alpha: alpha), c.withValues(alpha: 0.0)],
+        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
+      canvas.drawCircle(Offset(cx, cy), r, paint);
+    }
+
+    final w = size.width, h = size.height;
+    blob(blobs[0], w * (0.28 + 0.06 * math.sin(t)), h * (0.18 + 0.05 * math.cos(t * 0.8)), w * 0.42);
+    blob(blobs[1], w * (0.78 + 0.05 * math.cos(t * 0.9)), h * (0.30 + 0.06 * math.sin(t * 0.7)), w * 0.38);
+    blob(blobs[2], w * (0.55 + 0.07 * math.sin(t * 0.6 + 2)), h * (0.74 + 0.04 * math.cos(t + 1)), w * 0.34);
+  }
+
+  @override
+  bool shouldRepaint(_AuroraPainter old) =>
+      old.progress != progress || old.isDark != isDark || old.bg != bg;
+}
+
 // ── Footer ────────────────────────────────────────────────────────────────────
 class _FooterSection extends StatelessWidget {
   const _FooterSection();
@@ -1269,6 +1375,8 @@ class _FooterSection extends StatelessWidget {
                             _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
                             const SizedBox(width: 20),
                             _FooterLink('Faucet', 'https://faucet.circle.com'),
+                        _FooterLink('Android app', kAndroidApkUrl),
+                            _FooterLink('Android app', kAndroidApkUrl),
                           ],
                         ),
                       ],

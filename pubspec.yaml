@@ -1,7 +1,7 @@
 name: puls
 description: Mobile-first prediction market built on Arc — trade with USDC as gas, sub-second finality.
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
