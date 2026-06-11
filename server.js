@@ -210,6 +210,196 @@ const FACTORY_ABI = [
   }
 ];
 
+// ── UMA Optimistic Oracle V2 resolution (PR 3) ───────────────────────────────
+// When UMA_RESOLUTION=true, newly deployed markets are owned by the
+// UMAResolverAdapter and resolved through UMA's Optimistic Oracle V2:
+//   1. cron opens a price request after the deadline (anyone could too),
+//   2. cron proposes the Polymarket consensus outcome (posting a USDC bond),
+//   3. after the liveness window passes undisputed, cron settles → market resolves.
+// Markets NOT registered with the adapter (e.g. created before the flag was
+// flipped) automatically fall back to the legacy direct-resolve path.
+const UMA_RESOLUTION = (process.env.UMA_RESOLUTION || 'false').toLowerCase() === 'true';
+const UMA_ADAPTER_ADDRESS = (process.env.UMA_ADAPTER_ADDRESS || '').trim();
+const UMA_OOV2_ADDRESS = (process.env.UMA_OOV2_ADDRESS || '').trim();
+// bytes32("YES_OR_NO_QUERY")
+const UMA_IDENTIFIER = '0x5945535f4f525f4e4f5f51554552590000000000000000000000000000000000';
+const UMA_YES_PRICE = 1000000000000000000n; // 1e18
+const UMA_NO_PRICE = 0n;
+// OOV2 request states
+const UMA_STATE = ['Invalid', 'Requested', 'Proposed', 'Expired', 'Disputed', 'Resolved', 'Settled'];
+
+const UMA_ADAPTER_ABI = [
+  { name: 'registerMarket', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'market', type: 'address' }, { name: 'question', type: 'string' }], outputs: [] },
+  { name: 'requestResolution', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'market', type: 'address' }], outputs: [] },
+  { name: 'settle', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'market', type: 'address' }], outputs: [] },
+  { name: 'getResolution', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'market', type: 'address' }],
+    outputs: [
+      { name: 'registered', type: 'bool' },
+      { name: 'requested', type: 'bool' },
+      { name: 'settled', type: 'bool' },
+      { name: 'requestTimestamp', type: 'uint256' },
+      { name: 'ancillaryData', type: 'bytes' },
+      { name: 'oracleState', type: 'uint8' }
+    ] },
+  { name: 'bond', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'liveness', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] }
+];
+
+const UMA_OOV2_ABI = [
+  { name: 'proposePrice', type: 'function', stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'requester', type: 'address' },
+      { name: 'identifier', type: 'bytes32' },
+      { name: 'timestamp', type: 'uint256' },
+      { name: 'ancillaryData', type: 'bytes' },
+      { name: 'proposedPrice', type: 'int256' }
+    ],
+    outputs: [{ name: 'totalBond', type: 'uint256' }] }
+];
+
+const MARKET_OWNERSHIP_ABI = [
+  { name: 'transferOwnership', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'newOwner', type: 'address' }], outputs: [] },
+  { name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] }
+];
+
+function umaQuestionForSlug(slug) {
+  return `Resolve to YES (p2, 1) if the Polymarket market with slug "${slug}" (https://polymarket.com/market/${slug}) resolved YES, otherwise NO (p1, 0). If the market does not exist on Polymarket, resolve per the market title embedded in the slug.`;
+}
+
+// Hand a freshly deployed market to the UMA adapter (2-step ownership) and
+// register its resolution question. Failure is non-fatal: an unregistered
+// market simply stays on the legacy direct-resolve path.
+async function registerMarketWithUma(marketAddress, slug) {
+  const txTransfer = await walletClient.writeContract({
+    address: marketAddress,
+    abi: MARKET_OWNERSHIP_ABI,
+    functionName: 'transferOwnership',
+    args: [UMA_ADAPTER_ADDRESS]
+  });
+  await publicClient.waitForTransactionReceipt({ hash: txTransfer });
+
+  const txRegister = await walletClient.writeContract({
+    address: UMA_ADAPTER_ADDRESS,
+    abi: UMA_ADAPTER_ABI,
+    functionName: 'registerMarket',
+    args: [marketAddress, umaQuestionForSlug(slug)]
+  });
+  await publicClient.waitForTransactionReceipt({ hash: txRegister });
+  console.log(`[UMA] Market ${marketAddress} (${slug}) registered with UMAResolverAdapter`);
+}
+
+async function getUmaResolution(marketAddress) {
+  const [registered, requested, settled, requestTimestamp, ancillaryData, oracleState] =
+    await publicClient.readContract({
+      address: UMA_ADAPTER_ADDRESS,
+      abi: UMA_ADAPTER_ABI,
+      functionName: 'getResolution',
+      args: [marketAddress]
+    });
+  return { registered, requested, settled, requestTimestamp, ancillaryData, oracleState };
+}
+
+async function ensureOoAllowance(minAmount) {
+  const allowance = await publicClient.readContract({
+    address: USDC,
+    abi: [{ name: 'allowance', type: 'function', stateMutability: 'view',
+      inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
+      outputs: [{ name: '', type: 'uint256' }] }],
+    functionName: 'allowance',
+    args: [adminAccount.address, UMA_OOV2_ADDRESS]
+  });
+  if (BigInt(allowance) >= minAmount) return;
+  const MAX = 115792089237316195423570985008687907853269984665640564039457584007913129639935n;
+  const hash = await walletClient.writeContract({
+    address: USDC,
+    abi: [{ name: 'approve', type: 'function', stateMutability: 'nonpayable',
+      inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+      outputs: [{ name: '', type: 'bool' }] }],
+    functionName: 'approve',
+    args: [UMA_OOV2_ADDRESS, MAX]
+  });
+  await publicClient.waitForTransactionReceipt({ hash });
+  console.log('[UMA] Approved OOV2 to pull proposal bonds');
+}
+
+// Drive one market through the UMA state machine. Returns:
+//   'fallback' – not registered with the adapter → use legacy direct resolve
+//   'pending'  – waiting on a future cron tick (proposal/liveness/dispute)
+//   'resolved' – market.resolve() executed on-chain via the adapter
+async function processUmaMarket(market, outcome) {
+  const res = await getUmaResolution(market.contractAddress);
+  if (!res.registered) return 'fallback';
+
+  if (!res.requested) {
+    console.log(`[UMA] Requesting resolution for ${market.slug} (${market.contractAddress})`);
+    const hash = await walletClient.writeContract({
+      address: UMA_ADAPTER_ADDRESS,
+      abi: UMA_ADAPTER_ABI,
+      functionName: 'requestResolution',
+      args: [market.contractAddress]
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+    return 'pending';
+  }
+
+  const state = UMA_STATE[res.oracleState] || 'Invalid';
+
+  if (state === 'Requested') {
+    if (outcome === null) {
+      console.log(`[UMA] ${market.slug}: request open, waiting for a determinable outcome to propose`);
+      return 'pending';
+    }
+    const bond = await publicClient.readContract({
+      address: UMA_ADAPTER_ADDRESS, abi: UMA_ADAPTER_ABI, functionName: 'bond'
+    });
+    await ensureOoAllowance(BigInt(bond) * 2n);
+    console.log(`[UMA] Proposing ${outcome ? 'YES' : 'NO'} for ${market.slug} (bond ${bond})`);
+    const hash = await walletClient.writeContract({
+      address: UMA_OOV2_ADDRESS,
+      abi: UMA_OOV2_ABI,
+      functionName: 'proposePrice',
+      args: [UMA_ADAPTER_ADDRESS, UMA_IDENTIFIER, res.requestTimestamp, res.ancillaryData,
+        outcome ? UMA_YES_PRICE : UMA_NO_PRICE]
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+    return 'pending';
+  }
+
+  if (state === 'Proposed') {
+    console.log(`[UMA] ${market.slug}: proposal in liveness window, waiting`);
+    return 'pending';
+  }
+
+  if (state === 'Disputed') {
+    console.warn(`[UMA] ${market.slug}: proposal DISPUTED — waiting for DVM/oracle decision`);
+    return 'pending';
+  }
+
+  if (state === 'Expired' || state === 'Resolved') {
+    console.log(`[UMA] Settling ${market.slug} (oracle state: ${state})`);
+    const hash = await walletClient.writeContract({
+      address: UMA_ADAPTER_ADDRESS,
+      abi: UMA_ADAPTER_ABI,
+      functionName: 'settle',
+      args: [market.contractAddress]
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+    return 'resolved';
+  }
+
+  if (state === 'Settled') {
+    // Oracle settled but market may have resolved already (or settle() raced).
+    return res.settled ? 'resolved' : 'pending';
+  }
+
+  return 'pending';
+}
+
 // ── Cache of Deployed Markets ────────────────────────────────────────────────
 const deployedMarketsCache = new Map(); // slug -> { contractAddress, deadline, resolved, outcome }
 const contractToSlugCache = new Map(); // contractAddress -> slug
@@ -414,6 +604,15 @@ async function _executeMarketDeployment(slug, deadlineSeconds) {
   if (!deployedAddress) throw new Error('Failed to retrieve deployed market address from factory');
 
   console.log(`✅ Successfully deployed LMSRMarket at ${deployedAddress} for slug ${slug}`);
+
+  if (UMA_RESOLUTION && UMA_ADAPTER_ADDRESS) {
+    try {
+      await registerMarketWithUma(deployedAddress, slug);
+    } catch (e) {
+      // Non-fatal: an unregistered market stays on the legacy direct-resolve path.
+      console.error(`[UMA] Failed to register ${slug} with adapter (legacy resolution will apply):`, e.message);
+    }
+  }
 
   await supabase.from('deployed_markets').upsert({
     slug,
@@ -1126,6 +1325,107 @@ app.get('/api/market/info', async (req, res) => {
     });
   } catch (e) {
     console.error('getMarketInfo:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Resolution transparency (PR 4) ────────────────────────────────────────────
+// GET /api/market/resolution-status?slug=...
+// Tells the app HOW a market resolves: legacy Polymarket-consensus direct
+// resolve, or UMA Optimistic Oracle (with live request state + dispute window).
+app.get('/api/market/resolution-status', async (req, res) => {
+  try {
+    const { slug } = req.query;
+    if (!slug) return res.status(400).json({ error: 'slug required' });
+
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(404).json({ error: 'Market not deployed' });
+
+    const base = {
+      contractAddress: cached.contractAddress,
+      deadline: cached.deadline,
+      resolved: !!cached.resolved,
+      outcome: cached.outcome ?? null,
+      explorerUrl: `https://testnet.arcscan.app/address/${cached.contractAddress}`,
+    };
+
+    if (UMA_RESOLUTION && UMA_ADAPTER_ADDRESS) {
+      try {
+        const r = await getUmaResolution(cached.contractAddress);
+        if (r.registered) {
+          const [bond, liveness] = await Promise.all([
+            publicClient.readContract({ address: UMA_ADAPTER_ADDRESS, abi: UMA_ADAPTER_ABI, functionName: 'bond' }),
+            publicClient.readContract({ address: UMA_ADAPTER_ADDRESS, abi: UMA_ADAPTER_ABI, functionName: 'liveness' }),
+          ]);
+          return res.json({
+            ...base,
+            mode: 'uma',
+            oracle: {
+              adapterAddress: UMA_ADAPTER_ADDRESS,
+              oracleAddress: UMA_OOV2_ADDRESS,
+              identifier: 'YES_OR_NO_QUERY',
+              state: UMA_STATE[r.oracleState] || 'Invalid',
+              requested: r.requested,
+              settled: r.settled,
+              requestTimestamp: Number(r.requestTimestamp),
+              livenessSeconds: Number(liveness),
+              bondUsdc: Number(bond) / 1_000_000,
+              adapterExplorerUrl: `https://testnet.arcscan.app/address/${UMA_ADAPTER_ADDRESS}`,
+              oracleExplorerUrl: `https://testnet.arcscan.app/address/${UMA_OOV2_ADDRESS}`,
+            },
+          });
+        }
+      } catch (e) {
+        console.error('resolution-status UMA read failed:', e.message);
+      }
+    }
+
+    return res.json({ ...base, mode: 'direct' });
+  } catch (e) {
+    console.error('resolution-status error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Price history (PR 4) ─────────────────────────────────────────────────────
+// GET /api/market/price-history?slug=...&hours=168
+// Returns the YES-price series implied by completed trades on this market
+// (entry_price is recorded per trade), oldest first.
+app.get('/api/market/price-history', async (req, res) => {
+  try {
+    const { slug } = req.query;
+    const hours = Math.min(Math.max(parseInt(req.query.hours || '168', 10) || 168, 1), 24 * 90);
+    if (!slug) return res.status(400).json({ error: 'slug required' });
+
+    const cached = deployedMarketsCache.get(slug);
+    if (!cached) return res.status(404).json({ error: 'Market not deployed' });
+
+    const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('trades')
+      .select('side, entry_price, usdc_amount, created_at, state')
+      .eq('market_id', cached.contractAddress)
+      .gte('created_at', since)
+      .order('created_at', { ascending: true })
+      .limit(2000);
+    if (error) throw error;
+
+    const points = (data || [])
+      .filter((t) => t.state === 'COMPLETE' && t.entry_price != null)
+      .map((t) => {
+        const p = parseFloat(t.entry_price);
+        // entry_price is stored for the traded side; normalize to YES price.
+        const yesPrice = t.side === 'NO' ? 1 - p : p;
+        return {
+          t: Math.floor(new Date(t.created_at).getTime() / 1000),
+          yesPrice: Math.min(Math.max(yesPrice, 0), 1),
+          volume: parseFloat(t.usdc_amount) || 0,
+        };
+      });
+
+    res.json({ slug, contractAddress: cached.contractAddress, hours, points });
+  } catch (e) {
+    console.error('price-history error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -1867,6 +2167,27 @@ app.post('/api/market/resolve', authenticateUser, requireVerifiedUser, requireAd
     if (!cached) return res.status(400).json({ error: 'Market contract not deployed' });
     const contractAddress = cached.contractAddress;
 
+    // Markets owned by the UMA adapter can only be force-resolved through its
+    // admin escape hatch (signed by the admin EOA, not a Circle wallet).
+    if (UMA_RESOLUTION && UMA_ADAPTER_ADDRESS) {
+      try {
+        const { registered } = await getUmaResolution(contractAddress);
+        if (registered) {
+          const hash = await walletClient.writeContract({
+            address: UMA_ADAPTER_ADDRESS,
+            abi: [{ name: 'adminResolve', type: 'function', stateMutability: 'nonpayable',
+              inputs: [{ name: 'market', type: 'address' }, { name: 'outcome', type: 'bool' }], outputs: [] }],
+            functionName: 'adminResolve',
+            args: [contractAddress, outcome]
+          });
+          await publicClient.waitForTransactionReceipt({ hash });
+          return res.json({ txHash: hash, state: 'COMPLETE', via: 'uma-adapter' });
+        }
+      } catch (e) {
+        console.error('[UMA] adminResolve check failed, falling back to direct resolve:', e.message);
+      }
+    }
+
     const txRes = await circle.createContractExecutionTransaction({
       walletId,
       contractAddress: contractAddress,
@@ -1928,6 +2249,47 @@ async function checkAndResolveMarkets() {
           if (parseFloat(prices[0]) > 0.9) outcome = true;
           else if (parseFloat(prices[1]) > 0.9) outcome = false;
         } catch {}
+      }
+
+      // ── UMA optimistic oracle path ────────────────────────────────────────
+      // The request can be opened before the outcome is known; proposing and
+      // settling happen on later cron ticks as the OOV2 state machine advances.
+      if (UMA_RESOLUTION && UMA_ADAPTER_ADDRESS) {
+        let umaResult = 'fallback';
+        try {
+          umaResult = await processUmaMarket(market, outcome);
+        } catch (e) {
+          console.error(`[UMA] processing failed for ${market.slug}:`, e.message);
+          continue;
+        }
+        if (umaResult === 'pending') continue;
+        if (umaResult === 'resolved') {
+          // Read the final outcome from chain (source of truth after settlement).
+          const [, , resolvedOnChain, outcomeOnChain] = await publicClient.readContract({
+            address: market.contractAddress,
+            abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [],
+              outputs: [
+                { name: '_slug', type: 'string' },
+                { name: '_deadline', type: 'uint256' },
+                { name: '_resolved', type: 'bool' },
+                { name: '_outcome', type: 'bool' },
+                { name: '_yesOutstanding', type: 'uint256' },
+                { name: '_noOutstanding', type: 'uint256' }
+              ] }],
+            functionName: 'getMarketInfo'
+          });
+          if (resolvedOnChain) {
+            await supabase
+              .from('deployed_markets')
+              .update({ resolved: true, outcome: outcomeOnChain })
+              .eq('slug', market.slug);
+            const entry = deployedMarketsCache.get(market.slug);
+            if (entry) { entry.resolved = true; entry.outcome = outcomeOnChain; }
+            console.log(`✅ [UMA] Market ${market.slug} settled via Optimistic Oracle: ${outcomeOnChain ? 'YES' : 'NO'}`);
+          }
+          continue;
+        }
+        // umaResult === 'fallback' → market predates UMA registration; resolve directly below.
       }
 
       if (outcome === null) {
@@ -3487,6 +3849,7 @@ setInterval(checkAndExecuteLimitOrders, 20 * 1000);
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
+  console.log(`[UMA] Optimistic Oracle resolution: ${UMA_RESOLUTION && UMA_ADAPTER_ADDRESS ? `ENABLED (adapter ${UMA_ADAPTER_ADDRESS}, oracle ${UMA_OOV2_ADDRESS})` : 'disabled (legacy direct resolve)'}`);
   await loadDeployedMarkets();
   loadWalletAddressMapping().catch(console.error);
   checkAndResolveMarkets().catch(console.error);
