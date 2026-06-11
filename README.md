@@ -4,6 +4,8 @@
 
 Users sign in with Google → get a Circle MPC wallet instantly → swipe to trade real predictions with USDC as gas. No ETH, no seed phrase, no friction. Sub-second finality.
 
+🌐 **Live app:** [pulsmarket.tech](https://pulsmarket.tech) · 📱 **Android APK:** [download v1.1.0](https://github.com/rdmbtc/Puls/releases/latest)
+
 ---
 
 > 🏆 **Hackathon submission (Stablecoin Commerce Stack Challenge — Track 4: Best Agentic Economy Experience on Arc):** see [SUBMISSION.md](SUBMISSION.md) — architecture diagram, Circle integration docs, Circle Product Feedback, and demo script.
