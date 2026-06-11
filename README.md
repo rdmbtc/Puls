@@ -6,6 +6,8 @@ Users sign in with Google → get a Circle MPC wallet instantly → swipe to tra
 
 ---
 
+> 🏆 **Hackathon submission (Stablecoin Commerce Stack Challenge — Track 4: Best Agentic Economy Experience on Arc):** see [SUBMISSION.md](SUBMISSION.md) — architecture diagram, Circle integration docs, Circle Product Feedback, and demo script.
+
 ## ⏱ The 2-Minute Demo
 
 1. **Open [pulsmarket.tech](https://pulsmarket.tech)** — note the live market tape: those are real markets with real prices
