@@ -673,6 +673,18 @@ class _FeaturesSection extends StatelessWidget {
       title: 'TikTok-style Feed',
       body: 'Vertical video feed with prediction pills. Swipe through content and lock in your prediction without leaving.',
     ),
+    _Feature(
+      icon: Icons.gavel_rounded,
+      color: Color(0xFFEF4444),
+      title: 'Oracle-Secured Resolution',
+      body: 'Markets settle through UMA\'s Optimistic Oracle on Arc. Bonded proposals, an open dispute window, fully on-chain.',
+    ),
+    _Feature(
+      icon: Icons.add_circle_rounded,
+      color: Color(0xFF10B981),
+      title: 'Create Your Own Markets',
+      body: 'Launch a custom prediction market on any question in seconds. Deployed and funded on-chain for 10 USDC.',
+    ),
   ];
 
   @override

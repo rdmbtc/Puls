@@ -12,6 +12,7 @@ import '../shell/web_layout.dart';
 import 'trade_preview_sheet.dart';
 import 'ai_copilot_sheet.dart';
 import 'advanced_charts.dart';
+import 'resolution_panel.dart';
 
 class MarketDetailScreen extends StatefulWidget {
   const MarketDetailScreen({required this.marketId, super.key});
@@ -29,7 +30,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final market = PulsStateScope.of(context).marketById(widget.marketId);
-    PriceHistoryService.fetch(market.clobTokenId).then((h) {
+    PriceHistoryService.fetchForMarket(market).then((h) {
       if (mounted) setState(() { _history = h; _historyLoading = false; });
     });
   }
@@ -99,6 +100,10 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           _BidAskPanel(market: market, t: t),
           const SizedBox(height: 14),
         ],
+
+        // ── How this market resolves ─────────────────────────────────────
+        ResolutionPanel(market: market),
+        const SizedBox(height: 14),
 
         // ── Resolution date ──────────────────────────────────────────────
         _InfoRow(

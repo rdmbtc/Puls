@@ -112,15 +112,29 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       }
                     },
                     child: Container(
-                      width: 38,
                       height: 38,
+                      padding: EdgeInsets.symmetric(horizontal: kIsWeb ? 12 : 9),
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         color: t.brandSubtle,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: t.brand.withValues(alpha: 0.3)),
                       ),
-                      child: Icon(Icons.add_rounded, color: t.brand, size: 20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded, color: t.brand, size: 20),
+                          if (kIsWeb) ...[
+                            const SizedBox(width: 4),
+                            Text('Create market',
+                                style: TextStyle(
+                                  color: t.brand,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                )),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                   Container(
