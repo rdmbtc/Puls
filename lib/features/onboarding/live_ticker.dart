@@ -47,13 +47,13 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
     try {
       final res = await http
           .get(
-            Uri.parse('$backendUrl/api/markets?limit=14'),
+            Uri.parse('$backendUrl/api/markets?limit=40'),
             headers: {'Accept': 'application/json'},
           )
           .timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return;
       final list = json.decode(res.body) as List<dynamic>;
-      final items = <_TickerItem>[];
+      final all = <_TickerItem>[];
       for (final raw in list) {
         final j = raw as Map<String, dynamic>;
         final q = j['question'] as String? ?? '';
@@ -61,9 +61,14 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
         final yes = (j['yesPrice'] as num?)?.toDouble() ?? 0.5;
         final change = (j['oneDayPriceChange'] as num?)?.toDouble() ?? 0.0;
         final img = j['icon'] as String? ?? j['image'] as String? ?? '';
-        items.add(_TickerItem(q, yes.clamp(0.01, 0.99), change, img));
-        if (items.length >= 12) break;
+        all.add(_TickerItem(q, yes.clamp(0.01, 0.99), change, img));
       }
+      // Prefer markets with contested prices — a tape full of 1¢ longshots
+      // looks dead. Fall back to whatever we have.
+      final lively =
+          all.where((m) => m.yesPrice > 0.04 && m.yesPrice < 0.96).toList();
+      final items =
+          (lively.length >= 6 ? lively : all).take(12).toList();
       if (!mounted || items.length < 4) return;
       setState(() => _items = items);
       _marquee.repeat();
