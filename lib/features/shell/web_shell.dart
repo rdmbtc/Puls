@@ -204,8 +204,9 @@ class _Sidebar extends StatelessWidget {
                 Expanded(
                   child: Text('Puls',
                       style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
                         color: t.text,
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
                       )),

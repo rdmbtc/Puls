@@ -101,9 +101,9 @@ class _Navbar extends StatelessWidget {
     final isMobile = w < 800;
 
     return Container(
-      color: t.bg.withValues(alpha: 0.8),
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 12 : 18),
       decoration: BoxDecoration(
+        color: t.bg.withValues(alpha: 0.8),
         border: Border(bottom: BorderSide(color: t.border.withValues(alpha: 0.5))),
       ),
       child: Row(
@@ -121,9 +121,10 @@ class _Navbar extends StatelessWidget {
           Text(
             'Puls',
             style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
               color: t.text,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
             ),
           ),
@@ -1244,7 +1245,7 @@ class _FooterSection extends StatelessWidget {
                             const SizedBox(width: 10),
                             Text(
                               'Puls',
-                              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800),
+                              style: TextStyle(fontFamily: PulsColors.fontDisplay, color: t.text, fontSize: 17, fontWeight: FontWeight.w700),
                             ),
                           ],
                         ),
@@ -1281,7 +1282,7 @@ class _FooterSection extends StatelessWidget {
                         const SizedBox(width: 10),
                         Text(
                           'Puls',
-                          style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800),
+                          style: TextStyle(fontFamily: PulsColors.fontDisplay, color: t.text, fontSize: 17, fontWeight: FontWeight.w700),
                         ),
                         const Spacer(),
                         Text(
