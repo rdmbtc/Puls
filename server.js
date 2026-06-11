@@ -1954,6 +1954,147 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
   }
 });
 
+// ── AI Market Analyst ─────────────────────────────────────────────────────────
+// Public, cached, auto-generated market brief: thesis, key factors, lean.
+const insightCache = new Map(); // slug -> { data, ts }
+const insightInflight = new Map(); // slug -> Promise
+const INSIGHT_TTL_MS = 6 * 60 * 60 * 1000;
+
+const insightLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function parseLlmJson(text) {
+  let t = (text || '').trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) t = fence[1].trim();
+  const start = t.indexOf('{');
+  const end = t.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('no JSON object in LLM output');
+  return JSON.parse(t.slice(start, end + 1));
+}
+
+async function generateMarketInsight(slug) {
+  // Gather market context (Polymarket first, then our own DB for custom markets)
+  const ctx = { question: null, description: '', yesPrice: null, endDate: null, volume: null, change24h: null };
+  try {
+    const r = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`);
+    if (r.ok) {
+      const arr = await r.json();
+      const m = Array.isArray(arr) ? arr[0] : null;
+      if (m && m.question) {
+        ctx.question = m.question;
+        ctx.description = (m.description || '').slice(0, 1500);
+        try { ctx.yesPrice = parseFloat(JSON.parse(m.outcomePrices || '[]')[0]); } catch {}
+        ctx.endDate = m.endDate || null;
+        ctx.volume = m.volume24hr ?? m.volume ?? null;
+        ctx.change24h = m.oneDayPriceChange ?? null;
+      }
+    }
+  } catch (e) {
+    console.error(`[Insight] Polymarket lookup failed for ${slug}:`, e.message);
+  }
+  if (!ctx.question) {
+    const { data } = await supabase.from('deployed_markets').select('*').eq('slug', slug).maybeSingle();
+    if (!data) throw new Error('unknown market');
+    ctx.question = data.question || slug.replace(/-/g, ' ');
+  }
+
+  const sys = `You are the Puls AI Analyst, a sharp prediction-market researcher. Given a market, produce a concise analyst brief.
+Respond with STRICT JSON only, no prose, matching exactly:
+{"thesis": "<2 sentences: what this market is really about and what the current price implies>", "factors": ["<key factor 1>", "<key factor 2>", "<key factor 3>"], "lean": "YES" | "NO" | "UNCERTAIN", "confidence": "low" | "medium" | "high"}
+Rules: factors are short (max 14 words each), concrete and specific to this question. lean reflects which outcome the evidence and current pricing favor; use UNCERTAIN when genuinely unclear. Never give financial advice wording; this is analysis.`;
+
+  const user = [
+    `Market question: ${ctx.question}`,
+    ctx.description ? `Resolution criteria / description: ${ctx.description}` : null,
+    ctx.yesPrice != null && !Number.isNaN(ctx.yesPrice) ? `Current YES price: ${(ctx.yesPrice * 100).toFixed(0)}¢` : null,
+    ctx.change24h != null ? `24h price change: ${(ctx.change24h * 100).toFixed(1)}¢` : null,
+    ctx.volume != null ? `Volume: $${ctx.volume}` : null,
+    ctx.endDate ? `Resolution date: ${ctx.endDate}` : null,
+  ].filter(Boolean).join('\n');
+
+  const raw = await llmComplete([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ]);
+  const parsed = parseLlmJson(raw);
+  const lean = ['YES', 'NO', 'UNCERTAIN'].includes(parsed.lean) ? parsed.lean : 'UNCERTAIN';
+  const confidence = ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'medium';
+  return {
+    slug,
+    question: ctx.question,
+    thesis: String(parsed.thesis || '').slice(0, 600),
+    factors: (Array.isArray(parsed.factors) ? parsed.factors : []).slice(0, 4).map((f) => String(f).slice(0, 160)),
+    lean,
+    confidence,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+// GET /api/market/insight?slug=...
+app.get('/api/market/insight', insightLimiter, async (req, res) => {
+  try {
+    const slug = (req.query.slug || '').toString().trim();
+    if (!slug) return res.status(400).json({ error: 'slug is required' });
+
+    const cached = insightCache.get(slug);
+    if (cached && Date.now() - cached.ts < INSIGHT_TTL_MS) {
+      return res.json({ ...cached.data, cached: true });
+    }
+
+    let p = insightInflight.get(slug);
+    if (!p) {
+      p = generateMarketInsight(slug)
+        .then((data) => {
+          insightCache.set(slug, { data, ts: Date.now() });
+          return data;
+        })
+        .finally(() => insightInflight.delete(slug));
+      insightInflight.set(slug, p);
+    }
+    res.json(await p);
+  } catch (e) {
+    console.error('insight error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Protocol Stats ────────────────────────────────────────────────────────────
+let statsCache = { data: null, ts: 0 };
+const STATS_TTL_MS = 60 * 1000;
+
+// GET /api/stats — public protocol-level numbers for the landing page
+app.get('/api/stats', async (req, res) => {
+  try {
+    if (statsCache.data && Date.now() - statsCache.ts < STATS_TTL_MS) {
+      return res.json(statsCache.data);
+    }
+    const [tradesRes, marketsRes, resolvedRes] = await Promise.all([
+      supabase.from('trades').select('usdc_amount').eq('state', 'COMPLETE').limit(20000),
+      supabase.from('deployed_markets').select('*', { count: 'exact', head: true }),
+      supabase.from('deployed_markets').select('*', { count: 'exact', head: true }).eq('resolved', true),
+    ]);
+    const rows = tradesRes.data || [];
+    const volumeUsdc = rows.reduce((acc, r) => acc + (parseFloat(r.usdc_amount) || 0), 0);
+    const data = {
+      trades: rows.length,
+      volumeUsdc: Math.round(volumeUsdc * 100) / 100,
+      marketsDeployed: marketsRes.count ?? 0,
+      marketsResolved: resolvedRes.count ?? 0,
+      updatedAt: new Date().toISOString(),
+    };
+    statsCache = { data, ts: Date.now() };
+    res.json(data);
+  } catch (e) {
+    console.error('stats error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (_, res) => res.json({ ok: true }));
 
 // ── Circle Webhook ────────────────────────────────────────────────────────────
