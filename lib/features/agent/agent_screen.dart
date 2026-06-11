@@ -10,6 +10,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart' show backendUrl;
 import '../shell/web_layout.dart';
+import 'pulse_feed.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text, {this.txId, this.contract});
@@ -273,7 +274,33 @@ class _AgentScreenState extends State<AgentScreen> {
           ],
         ),
       ),
-      body: SafeArea(child: WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t))),
+      body: SafeArea(
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              TabBar(
+                labelColor: t.brand,
+                unselectedLabelColor: t.textMuted,
+                indicatorColor: t.brand,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                tabs: const [
+                  Tab(text: 'Pulse · House Agent'),
+                  Tab(text: 'My Agent'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    const WebLayout(maxWidth: 720, child: PulseFeed()),
+                    WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
