@@ -4,6 +4,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
+import '../agent/agent_screen.dart';
 import 'user_profile_screen.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -238,6 +239,59 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
+  Widget _agentCta(PulsThemeColors t) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AgentScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [t.brand.withValues(alpha: 0.12), t.brand.withValues(alpha: 0.04)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: t.brand.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: t.brand.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(Icons.smart_toy_rounded, color: t.brand, size: 24),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Spin up your own AI agent',
+                    style: TextStyle(
+                        color: t.text, fontSize: 14, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'It trades real markets for you 24/7 — and competes right here.',
+                    style: TextStyle(
+                        color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: t.brand, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent(PulsThemeColors t, bool isDark) {
     final myUserId = WalletServiceScope.of(context).state.userId;
     // Top 3 for Podium
@@ -254,6 +308,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             FadeInUp(
               duration: const Duration(milliseconds: 400),
               child: _buildPodium(top3, t),
+            ),
+            const SizedBox(height: 24),
+          ],
+          if (_type == 'agents') ...[
+            FadeInUp(
+              delay: const Duration(milliseconds: 80),
+              duration: const Duration(milliseconds: 400),
+              child: _agentCta(t),
             ),
             const SizedBox(height: 24),
           ],

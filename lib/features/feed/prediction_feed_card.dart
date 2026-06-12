@@ -18,6 +18,7 @@ class PredictionFeedCard extends StatefulWidget {
     required this.onWatchlist,
     required this.onDetails,
     required this.onChoose,
+    this.showSwipeHint = false,
     super.key,
   });
 
@@ -27,14 +28,23 @@ class PredictionFeedCard extends StatefulWidget {
   final VoidCallback onDetails;
   final ValueChanged<MarketSide> onChoose;
 
+  /// When true (first card in the feed), plays a one-time "peek" animation
+  /// nudging the card right then left so users discover swipe-to-trade.
+  final bool showSwipeHint;
+
   @override
   State<PredictionFeedCard> createState() => _PredictionFeedCardState();
 }
 
-class _PredictionFeedCardState extends State<PredictionFeedCard> {
+class _PredictionFeedCardState extends State<PredictionFeedCard>
+    with SingleTickerProviderStateMixin {
+  // Once per app session — not on every rebuild of the first card.
+  static bool _swipeHintPlayed = false;
+
   late final ValueNotifier<double> _dragX;
   List<double> _sparkline = [];
   bool _hasTriggeredHaptic = false;
+  AnimationController? _hintCtrl;
 
   @override
   void initState() {
@@ -43,10 +53,55 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
     PriceHistoryService.fetch(widget.market.clobTokenId).then((prices) {
       if (mounted) setState(() => _sparkline = prices);
     });
+    if (widget.showSwipeHint && !_swipeHintPlayed) {
+      _swipeHintPlayed = true;
+      _scheduleSwipeHint();
+    }
+  }
+
+  void _scheduleSwipeHint() {
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _hintCtrl = ctrl;
+    final anim = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 68.0)
+              .chain(CurveTween(curve: Curves.easeOutCubic)),
+          weight: 26),
+      TweenSequenceItem(
+          tween: Tween(begin: 68.0, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeInOutCubic)),
+          weight: 22),
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: -54.0)
+              .chain(CurveTween(curve: Curves.easeInOutCubic)),
+          weight: 26),
+      TweenSequenceItem(
+          tween: Tween(begin: -54.0, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeOutBack)),
+          weight: 26),
+    ]).animate(ctrl);
+    anim.addListener(() {
+      if (_hintCtrl != null) _dragX.value = anim.value;
+    });
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (mounted && _hintCtrl == ctrl) ctrl.forward();
+    });
+  }
+
+  void _cancelSwipeHint() {
+    final ctrl = _hintCtrl;
+    if (ctrl == null) return;
+    _hintCtrl = null;
+    ctrl.stop();
+    ctrl.dispose();
   }
 
   @override
   void dispose() {
+    _cancelSwipeHint();
     _dragX.dispose();
     super.dispose();
   }
@@ -73,6 +128,10 @@ class _PredictionFeedCardState extends State<PredictionFeedCard> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) {
+        _cancelSwipeHint();
+        _dragX.value = 0.0;
+      },
       onHorizontalDragUpdate: (d) {
         _dragX.value = (_dragX.value + d.delta.dx).clamp(-180.0, 180.0);
         final absDrag = _dragX.value.abs();
