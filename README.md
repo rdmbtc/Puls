@@ -8,18 +8,6 @@ Users sign in with Google → get a Circle MPC wallet instantly → swipe to tra
 
 ---
 
-> 🏆 **Hackathon submission (Stablecoin Commerce Stack Challenge — Track 4: Best Agentic Economy Experience on Arc):** see [SUBMISSION.md](SUBMISSION.md) — architecture diagram, Circle integration docs, Circle Product Feedback, and demo script.
-
-## ⏱ The 2-Minute Demo
-
-1. **Open [pulsmarket.tech](https://pulsmarket.tech)** — note the live market tape: those are real markets with real prices
-2. **Sign in with Google** — a Circle MPC wallet is created instantly: no seed phrase, no extension, no ETH
-3. **Swipe right** on a market — a real LMSR trade on Arc Testnet, gas paid in USDC, confirmed in under a second (watch the timer in the confirmation sheet)
-4. **Open the market detail** — live price chart, order book, and the "How this market resolves" panel showing the UMA oracle status and dispute window
-5. **Tap "View on Arcscan"** — every trade, market, and oracle interaction is verifiable on-chain
-
----
-
 ## Why Arc?
 
 Arc is the only chain where USDC is the **native gas token**. This unlocks a UX that isn't possible anywhere else:
