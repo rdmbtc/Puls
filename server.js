@@ -2931,6 +2931,8 @@ async function updateLeaderboard() {
         let totalPnL = 0;
         let resolvedMarketsCount = 0;
         let winningMarketsCount = 0;
+        let marketsTradedCount = 0;
+        let profitableMarketsCount = 0;
         
         const marketTrades = new Map();
         for (const t of tradesList) {
@@ -3069,9 +3071,24 @@ async function updateLeaderboard() {
           
           const marketPnL = (totalReceived + currentVal) - totalPaid;
           totalPnL += marketPnL;
+          
+          // Win rate counts every market the user put money into:
+          // a "win" is positive PnL (realized for resolved markets,
+          // mark-to-market for open ones). Converges to the realized
+          // win rate as markets resolve.
+          if (totalPaid > 0.001) {
+            marketsTradedCount++;
+            if (marketPnL > 0.001) profitableMarketsCount++;
+          }
         }
         
-        const winRate = resolvedMarketsCount > 0 ? (winningMarketsCount / resolvedMarketsCount) * 100 : 0;
+        // Prefer realized win rate once enough markets have resolved;
+        // fall back to mark-to-market so the leaderboard isn't all 0%.
+        const winRate = resolvedMarketsCount >= 3
+          ? (winningMarketsCount / resolvedMarketsCount) * 100
+          : marketsTradedCount > 0
+            ? (profitableMarketsCount / marketsTradedCount) * 100
+            : 0;
         
         // Ensure profile exists (gracefully skip if profiles table missing)
         try {
