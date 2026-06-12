@@ -477,24 +477,47 @@ class _MarketCardState extends State<_MarketCard> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Expanded(
-                    child: Text(
-                      market.question,
-                      style: TextStyle(
-                        color: t.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (market.imageUrl.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            market.imageUrl,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 44,
+                              height: 44,
+                              color: t.brandSubtle,
+                              child: Icon(Icons.show_chart_rounded,
+                                  color: t.brand, size: 20),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Text(
+                          market.question,
+                          style: TextStyle(
+                            color: t.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 8),
 
-                  // Mini Sparkline
-                  SizedBox(
-                    height: 28,
+                  // Sparkline fills the remaining card space
+                  Expanded(
                     child: _sparkLoading
                         ? Center(
                             child: SizedBox(
@@ -596,9 +619,19 @@ class _MiniSparkline extends StatelessWidget {
             isCurved: true,
             curveSmoothness: 0.35,
             color: color,
-            barWidth: 1.5,
+            barWidth: 1.8,
             dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  color.withValues(alpha: 0.16),
+                  color.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
           ),
         ],
       ),

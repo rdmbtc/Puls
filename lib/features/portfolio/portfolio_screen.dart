@@ -336,8 +336,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         child: _Empty(
           icon: Icons.account_balance_wallet_outlined,
           message: 'Sign in to see your portfolio',
-          sub: 'Connect your wallet in the Profile tab.',
+          sub: 'One tap — a Circle MPC wallet on Arc Testnet is created for you automatically.',
           t: t,
+          ctaLabel: 'Connect with Google',
+          ctaIcon: Icons.login_rounded,
+          onCta: () => WalletServiceScope.of(context).signInWithGoogle(),
         ),
       );
     } else if (_loading) {
@@ -355,6 +358,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
           message: 'Could not load portfolio',
           sub: _error!,
           t: t,
+          ctaLabel: 'Retry',
+          ctaIcon: Icons.refresh_rounded,
+          onCta: _load,
         ),
       );
     } else {
@@ -1198,12 +1204,18 @@ class _Empty extends StatelessWidget {
     required this.sub,
     required this.t,
     this.imageUrl,
+    this.ctaLabel,
+    this.ctaIcon,
+    this.onCta,
   });
   final IconData icon;
   final String message;
   final String sub;
   final PulsThemeColors t;
   final String? imageUrl;
+  final String? ctaLabel;
+  final IconData? ctaIcon;
+  final VoidCallback? onCta;
 
   @override
   Widget build(BuildContext context) {
@@ -1234,6 +1246,24 @@ class _Empty extends StatelessWidget {
           Text(sub,
               style: TextStyle(color: t.textMuted, fontSize: 13),
               textAlign: TextAlign.center),
+          if (ctaLabel != null && onCta != null) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onCta,
+              icon: Icon(ctaIcon ?? Icons.arrow_forward_rounded, size: 18),
+              label: Text(ctaLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.brand,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
         ],
       ),
     );
