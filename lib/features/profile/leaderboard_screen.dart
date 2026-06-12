@@ -16,6 +16,7 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String _sortBy = 'pnl'; // 'pnl' or 'volume'
+  String _type = 'all'; // 'all' | 'humans' | 'agents'
   bool _isLoading = true;
   String? _error;
   List<dynamic> _traders = [];
@@ -35,7 +36,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     try {
       final wallet = WalletServiceScope.of(context);
-      final list = await wallet.getLeaderboard(sort: _sortBy, limit: 200);
+      final list = await wallet.getLeaderboard(sort: _sortBy, limit: 200, type: _type);
       if (mounted) {
         setState(() {
           _traders = list;
@@ -75,7 +76,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Text(
               _isLoading
                   ? 'Ranking traders…'
-                  : '${_traders.length} traders · live on Arc Testnet',
+                  : _type == 'agents'
+                      ? '${_traders.length} AI agents · ERC-8004 on Arc'
+                      : '${_traders.length} ${_type == 'humans' ? 'humans' : 'traders'} · live on Arc Testnet',
               style: TextStyle(
                 color: t.textMuted,
                 fontSize: 11,
@@ -101,8 +104,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           children: [
             // Sort Toggles
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: _buildSortToggles(t),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: _buildTypePills(t),
             ),
             Expanded(
               child: _isLoading
@@ -158,6 +165,59 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTypePills(PulsThemeColors t) {
+    Widget pill(String value, String label, IconData? icon) {
+      final selected = _type == value;
+      return GestureDetector(
+        onTap: () {
+          if (_type != value) {
+            setState(() => _type = value);
+            _fetchLeaderboard();
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? t.brand : t.border,
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: selected ? t.brand : t.textMuted),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? t.brand : t.textSubtle,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill('all', 'All', null),
+        const SizedBox(width: 8),
+        pill('humans', 'Humans', Icons.person_rounded),
+        const SizedBox(width: 8),
+        pill('agents', 'AI Agents', Icons.smart_toy_rounded),
+      ],
     );
   }
 
@@ -349,16 +409,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Text(
-                                trader['displayName'] ?? 'Puls Trader',
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: t.text,
-                                  fontSize: isFirst ? 13 : 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      trader['displayName'] ?? 'Puls Trader',
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: t.text,
+                                        fontSize: isFirst ? 13 : 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  if (trader['isAgent'] == true) ...[
+                                    const SizedBox(width: 3),
+                                    const Icon(Icons.smart_toy_rounded,
+                                        size: 11, color: Color(0xFF8B5CF6)),
+                                  ],
+                                ],
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -567,6 +639,33 @@ class _TraderRow extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (trader['isAgent'] == true) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.smart_toy_rounded, size: 9, color: Color(0xFF8B5CF6)),
+                            SizedBox(width: 3),
+                            Text(
+                              'AI',
+                              style: TextStyle(
+                                color: Color(0xFF8B5CF6),
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (isMe) ...[
                       const SizedBox(width: 6),
                       Container(
