@@ -28,6 +28,58 @@ class PolymarketRepository {
     return markets;
   }
 
+  /// Fetches a single market by slug — used for share deep links (/m/<slug>)
+  /// when the market isn't in the currently loaded feed page.
+  Future<Market?> fetchMarketBySlug(String slug) async {
+    // 1) Polymarket gamma API (open CORS) — covers real Polymarket markets.
+    try {
+      final uri = Uri.parse(
+        'https://gamma-api.polymarket.com/markets?slug=${Uri.encodeQueryComponent(slug)}',
+      );
+      final res = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final list = json.decode(res.body) as List<dynamic>;
+        if (list.isNotEmpty) {
+          final market = _parse(list.first as Map<String, dynamic>);
+          if (market != null) return market;
+        }
+      }
+    } catch (_) {
+      // fall through to backend
+    }
+    // 2) Puls backend — covers custom user-created markets.
+    try {
+      final uri = Uri.parse(
+        '$backendUrl/api/market/info?slug=${Uri.encodeQueryComponent(slug)}',
+      );
+      final res = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final j = json.decode(res.body) as Map<String, dynamic>;
+        return _parse({
+          'id': slug,
+          'slug': slug,
+          'question': j['question'] ?? slug,
+          'contractAddress': j['contractAddress'],
+          'yesPrice': j['yesPrice'],
+          'noPrice': j['noPrice'],
+          'outcomePrices': '["${j['yesPrice'] ?? 0.5}","${j['noPrice'] ?? 0.5}"]',
+          'volumeNum': j['totalVolume'],
+          'endDate': j['deadline'] != null
+              ? DateTime.fromMillisecondsSinceEpoch((j['deadline'] as num).toInt() * 1000)
+                  .toIso8601String()
+              : null,
+        });
+      }
+    } catch (_) {
+      // not found anywhere
+    }
+    return null;
+  }
+
   Future<List<Market>> _fetch(int limit, int offset) async {
     final uri = Uri.parse(
       '$backendUrl/api/markets?limit=$limit&offset=$offset',

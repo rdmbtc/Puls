@@ -53,6 +53,20 @@ class PulsAppState extends ChangeNotifier {
   Market marketById(String id) =>
       _markets.firstWhere((m) => m.id == id);
 
+  /// Resolves a market by slug for share deep links (/m/<slug>). Checks the
+  /// loaded feed first; otherwise fetches the single market and adds it to the
+  /// feed so detail screens can look it up by id.
+  Future<Market?> ensureMarketBySlug(String slug) async {
+    for (final m in _markets) {
+      if (m.slug == slug || m.id == slug) return m;
+    }
+    final fetched = await _polymarket.fetchMarketBySlug(slug);
+    if (fetched == null) return null;
+    _markets = [fetched, ..._markets];
+    notifyListeners();
+    return fetched;
+  }
+
   bool isWatchlisted(String marketId) => _watchlistIds.contains(marketId);
 
   Future<void> _loadMarkets() async {
