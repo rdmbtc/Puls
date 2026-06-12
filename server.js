@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
@@ -58,7 +59,10 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 app.use(allowedOrigins.length ? cors({ origin: allowedOrigins }) : cors());
-app.use(express.json());
+// Capture the raw request body so we can verify Circle's ECDSA webhook
+// signature over the exact bytes Circle signed (re-serializing the parsed JSON
+// would change key order/whitespace and break verification).
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(generalLimiter); // Apply general rate limit globally
 
 // Supabase JWT Authenticate Middleware
@@ -161,6 +165,17 @@ const supabase = createClient(
 const USDC = '0x3600000000000000000000000000000000000000';
 let walletSetId = (process.env.WALLET_SET_ID || '').trim();
 
+// Wallet account type for newly created user wallets.
+//   SCA = ERC-4337 smart contract account → eligible for Circle Gas Station
+//         (gasless). Arc Testnet has a preconfigured Gas Station policy, so new
+//         users transact with ZERO balance and we no longer depend on the
+//         admin-treasury USDC drip for gas.
+//   EOA = legacy externally-owned account (needs gas/USDC funding to transact).
+// Existing wallets keep whatever type they were created with — `get-or-create`
+// returns the stored wallet untouched, so this only affects brand-new users.
+const WALLET_ACCOUNT_TYPE = (process.env.WALLET_ACCOUNT_TYPE || 'SCA').trim().toUpperCase() === 'EOA' ? 'EOA' : 'SCA';
+console.log(`[Wallets] New user wallets will be created as ${WALLET_ACCOUNT_TYPE}${WALLET_ACCOUNT_TYPE === 'SCA' ? ' (gasless via Circle Gas Station)' : ' (legacy, requires gas funding)'}`);
+
 const rpcUrl = (process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network').trim();
 const publicClient = createPublicClient({
   chain: arcTestnet,
@@ -175,6 +190,61 @@ const walletClient = adminAccount ? createWalletClient({
   chain: arcTestnet,
   transport: http(rpcUrl)
 }) : null;
+
+// Read the admin/treasury USDC balance (in whole USDC). Used by the funding
+// guard, /health/deep and the low-balance monitor. Returns null on failure.
+async function getTreasuryUsdcBalance() {
+  if (!adminAccount) return null;
+  try {
+    const raw = await publicClient.readContract({
+      address: USDC,
+      abi: [{ name: 'balanceOf', type: 'function', stateMutability: 'view',
+        inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] }],
+      functionName: 'balanceOf',
+      args: [adminAccount.address],
+    });
+    return Number(raw) / 1_000_000;
+  } catch (e) {
+    console.warn('[Treasury] balance read failed:', e.message);
+    return null;
+  }
+}
+
+// ── Low-balance alerting ──────────────────────────────────────────────────────
+// When the treasury drops below TREASURY_MIN_USDC we log a loud, actionable
+// warning and (if ALERT_WEBHOOK_URL is set) POST a message to a Slack-compatible
+// incoming webhook so funding never silently dies mid-demo again.
+const TREASURY_MIN_USDC = parseFloat(process.env.TREASURY_MIN_USDC || '10');
+const ALERT_WEBHOOK_URL = (process.env.ALERT_WEBHOOK_URL || '').trim();
+let lastTreasuryAlertAt = 0;
+const TREASURY_ALERT_COOLDOWN_MS = 30 * 60 * 1000; // at most one alert / 30 min
+
+async function sendAlert(text) {
+  console.warn(`[ALERT] ${text}`);
+  if (!ALERT_WEBHOOK_URL) return;
+  try {
+    await fetch(ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+  } catch (e) {
+    console.error('[ALERT] webhook post failed:', e.message);
+  }
+}
+
+async function checkTreasuryBalance() {
+  const bal = await getTreasuryUsdcBalance();
+  if (bal == null) return;
+  if (bal < TREASURY_MIN_USDC && Date.now() - lastTreasuryAlertAt > TREASURY_ALERT_COOLDOWN_MS) {
+    lastTreasuryAlertAt = Date.now();
+    await sendAlert(
+      `Puls treasury ${adminAccount.address} is low: ${bal.toFixed(2)} USDC (< ${TREASURY_MIN_USDC}). ` +
+      `New SCA users are gasless, but agent/principal funding and legacy EOA users still need this wallet topped up. ` +
+      `Top up via faucet.circle.com (20 USDC/2h) or the Circle Developer Console.`
+    );
+  }
+}
 
 function normalizeTxHash(txHash) {
   if (!txHash || typeof txHash !== 'string') return txHash;
@@ -966,7 +1036,7 @@ app.post('/api/wallet/get-or-create', authenticateUser, requireVerifiedUser, str
 
     const setId = await ensureWalletSet();
     const createRes = await circle.createWallets({
-      accountType: 'EOA',
+      accountType: WALLET_ACCOUNT_TYPE, // SCA → gasless via Gas Station (see WALLET_ACCOUNT_TYPE)
       blockchains: ['ARC-TESTNET'],
       count: 1,
       walletSetId: setId,
@@ -2176,10 +2246,138 @@ app.get('/api/stats', async (req, res) => {
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 
-// ── Circle Webhook ────────────────────────────────────────────────────────────
+// Deep health check for demo-day readiness: pings every external dependency and
+// reports the treasury balance in one call. Returns 200 when all checks pass,
+// 503 otherwise. Cheap enough to poll, but not behind auth — exposes no secrets.
+app.get('/health/deep', async (_req, res) => {
+  const checks = {};
+  const time = async (fn) => { const t = Date.now(); try { await fn(); return { ok: true, ms: Date.now() - t }; } catch (e) { return { ok: false, ms: Date.now() - t, error: e.message }; } };
+
+  // RPC reachability
+  checks.rpc = await time(async () => { await publicClient.getBlockNumber(); });
+  // Supabase reachability (lightweight count)
+  checks.supabase = await time(async () => {
+    const { error } = await supabase.from('wallets').select('user_id', { count: 'exact', head: true });
+    if (error) throw new Error(error.message);
+  });
+  // Circle API reachability (lightweight list call; tolerate SDK method naming).
+  checks.circle = await time(async () => {
+    if (typeof circle.listWalletSets === 'function') { await circle.listWalletSets({ pageSize: 1 }); }
+    else if (typeof circle.getWalletSets === 'function') { await circle.getWalletSets({ pageSize: 1 }); }
+    else { throw new Error('Circle client not initialized'); }
+  });
+  // Treasury balance (informational — does not fail the check on its own)
+  const treasury = await getTreasuryUsdcBalance();
+  checks.treasury = {
+    address: adminAccount?.address || null,
+    usdc: treasury,
+    ok: treasury == null ? null : treasury >= TREASURY_MIN_USDC,
+    min: TREASURY_MIN_USDC,
+  };
+
+  const critical = ['rpc', 'supabase'];
+  const healthy = critical.every((k) => checks[k].ok);
+  res.status(healthy ? 200 : 503).json({
+    ok: healthy,
+    walletAccountType: WALLET_ACCOUNT_TYPE,
+    gaslessEnabled: WALLET_ACCOUNT_TYPE === 'SCA',
+    checks,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ── Circle webhook + signature verification ──────────────────────────────────
+// Circle signs every webhook with a per-message ECDSA (P-256, SHA-256) key.
+// Headers: `X-Circle-Signature` (base64 DER signature) and `X-Circle-Key-Id`
+// (UUID of the public key). We fetch + cache the public key by id and verify the
+// signature over the RAW request body.
+// Docs: https://developers.circle.com/cpn/guides/webhooks/verify-webhook-signatures
+//
+// Rollout safety: verification is ATTEMPTED on every request, but it is only
+// ENFORCED (request rejected on failure/missing signature) when
+// CIRCLE_WEBHOOK_ENFORCE=true. Default is off so an unverified-but-legitimate
+// webhook can't silently stop trade-state updates during the demo — flip it on
+// once you've confirmed signatures verify in the logs.
+const CIRCLE_WEBHOOK_ENFORCE = (process.env.CIRCLE_WEBHOOK_ENFORCE || 'false').toLowerCase() === 'true';
+const circlePublicKeyCache = new Map(); // keyId -> crypto.KeyObject
+
+async function getCirclePublicKey(keyId) {
+  if (circlePublicKeyCache.has(keyId)) return circlePublicKeyCache.get(keyId);
+  const apiKey = (process.env.CIRCLE_API_KEY || '').trim();
+  // The public-key endpoint path differs across Circle products; try both.
+  const urls = [
+    `https://api.circle.com/v2/notifications/publicKey/${keyId}`,
+    `https://api.circle.com/v2/cpn/notifications/publicKey/${keyId}`,
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const b64 = j?.data?.publicKey;
+      if (!b64) continue;
+      const keyObj = crypto.createPublicKey({ key: Buffer.from(b64, 'base64'), format: 'der', type: 'spki' });
+      circlePublicKeyCache.set(keyId, keyObj);
+      return keyObj;
+    } catch (_) { /* try next url */ }
+  }
+  return null;
+}
+
+// Verify the signature. Returns true if valid, false if invalid, and null if it
+// could not be checked (no headers / key fetch failed) so the caller can decide.
+async function verifyCircleWebhook(req) {
+  const signature = req.headers['x-circle-signature'];
+  const keyId = req.headers['x-circle-key-id'];
+  if (!signature || !keyId || !req.rawBody) return null;
+  const keyObj = await getCirclePublicKey(keyId);
+  if (!keyObj) return null;
+  try {
+    return crypto.verify('sha256', req.rawBody, keyObj, Buffer.from(signature, 'base64'));
+  } catch (e) {
+    console.warn('[Circle Webhook] signature verify error:', e.message);
+    return false;
+  }
+}
+
+// Bounded de-dupe set so retried webhooks (Circle retries on non-2xx or timeout)
+// are processed at most once. Keyed by Circle's notificationId.
+const processedNotifications = new Set();
+function markProcessed(id) {
+  if (!id) return false;
+  if (processedNotifications.has(id)) return true; // already handled
+  processedNotifications.add(id);
+  if (processedNotifications.size > 5000) {
+    // drop oldest ~1000 to cap memory
+    const it = processedNotifications.values();
+    for (let i = 0; i < 1000; i++) { const n = it.next(); if (n.done) break; processedNotifications.delete(n.value); }
+  }
+  return false;
+}
+
 app.post('/api/webhook/circle', async (req, res) => {
+  // Verify BEFORE acting. Ack with 200 only after the security decision so Circle
+  // doesn't keep retrying a request we deliberately rejected.
+  const verified = await verifyCircleWebhook(req);
+  if (verified === false) {
+    console.warn('[Circle Webhook] INVALID signature — rejected.');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  if (verified === null) {
+    if (CIRCLE_WEBHOOK_ENFORCE) {
+      console.warn('[Circle Webhook] Unsigned/unverifiable request rejected (enforce on).');
+      return res.status(401).json({ error: 'Unverified webhook' });
+    }
+    console.warn('[Circle Webhook] Could not verify signature (enforce off) — processing anyway. Set CIRCLE_WEBHOOK_ENFORCE=true once verification is confirmed.');
+  }
+
   res.sendStatus(200);
   try {
+    const notificationId = req.body?.notificationId || req.body?.id;
+    if (markProcessed(notificationId)) {
+      console.log(`Webhook: duplicate notification ${notificationId} ignored`);
+      return;
+    }
     const { notificationType, transaction } = req.body;
     if (notificationType !== 'transactions.outbound' || !transaction) return;
     const { id: txId, state, txHash } = transaction;
@@ -2196,8 +2394,23 @@ app.post('/api/webhook/circle', async (req, res) => {
 
 // ── QuickNode Webhook ─────────────────────────────────────────────────────────
 
+const processedChainLogs = new Set();
 async function handleQuickNodeLog(log) {
   try {
+    // Idempotency: a (txHash, logIndex) pair uniquely identifies an on-chain
+    // event, so retried/duplicated webhook deliveries are processed once.
+    const logKey = `${(log.transactionHash || '').toLowerCase()}:${log.logIndex ?? ''}`;
+    if (logKey !== ':' ) {
+      if (processedChainLogs.has(logKey)) {
+        console.log(`[QuickNode Webhook] Duplicate log ${logKey} ignored`);
+        return;
+      }
+      processedChainLogs.add(logKey);
+      if (processedChainLogs.size > 10000) {
+        const it = processedChainLogs.values();
+        for (let i = 0; i < 2000; i++) { const n = it.next(); if (n.done) break; processedChainLogs.delete(n.value); }
+      }
+    }
     const contractAddress = log.address.toLowerCase();
     const slug = contractToSlugCache.get(contractAddress);
     if (!slug) {
@@ -3193,7 +3406,7 @@ app.post('/api/agent/start', authenticateUser, requireVerifiedUser, strictLimite
     if (!agentWalletId) {
       const setId = await ensureWalletSet();
       const createRes = await circle.createWallets({
-        accountType: 'EOA', blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
+        accountType: WALLET_ACCOUNT_TYPE, blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
       });
       const w = createRes.data.wallets[0];
       agentWalletId = w.id;
@@ -4067,9 +4280,13 @@ const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, async () => {
   console.log(`Puls backend :${PORT}`);
   console.log(`[UMA] Optimistic Oracle resolution: ${UMA_RESOLUTION && UMA_ADAPTER_ADDRESS ? `ENABLED (adapter ${UMA_ADAPTER_ADDRESS}, oracle ${UMA_OOV2_ADDRESS})` : 'disabled (legacy direct resolve)'}`);
+  console.log(`[Wallets] account type: ${WALLET_ACCOUNT_TYPE}; Circle webhook signature enforce: ${CIRCLE_WEBHOOK_ENFORCE}`);
   await loadDeployedMarkets();
   checkAndResolveMarkets().catch(console.error);
   warmupTopMarkets().catch(console.error);
+  // Treasury low-balance monitor (alerts via ALERT_WEBHOOK_URL if configured).
+  checkTreasuryBalance().catch(console.error);
+  setInterval(() => checkTreasuryBalance().catch(console.error), 5 * 60 * 1000);
   // Leaderboard needs the wallet mapping for on-chain position reads
   loadWalletAddressMapping()
     .catch(console.error)
@@ -4407,7 +4624,7 @@ async function ensureHouseAgentWallet() {
   if (!walletId) {
     const setId = await ensureWalletSet();
     const createRes = await circle.createWallets({
-      accountType: 'EOA', blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
+      accountType: WALLET_ACCOUNT_TYPE, blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
     });
     const w = createRes.data.wallets[0];
     walletId = w.id;
@@ -4425,24 +4642,36 @@ async function ensureHouseAgentWallet() {
   }, { onConflict: 'user_id' });
 
   // Self-funding: top up once per process from the admin treasury (testnet).
-  // Must happen BEFORE ERC-8004 registration — the wallet needs gas (USDC).
+  // The house agent still needs USDC *principal* to place its trades (gas itself
+  // is sponsored when the wallet is SCA). We pre-check the treasury balance so an
+  // empty treasury produces ONE clear warning instead of a stream of reverted
+  // `ERC20: transfer amount exceeds balance` transactions (the old 438-error bug).
   let balance = parseFloat(info.usdcBalance) || 0;
   if (balance < 0.6 && !houseAgentFundedThisRun && walletClient && adminAccount) {
-    try {
-      await walletClient.writeContract({
-        address: USDC,
-        abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
-          inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
-          outputs: [{ type: 'bool' }] }],
-        functionName: 'transfer',
-        args: [info.address, 5_000_000n], // 5 USDC
-      });
-      houseAgentFundedThisRun = true;
-      console.log(`[Pulse] Funded agent wallet ${info.address} with 5 USDC from treasury`);
-      await new Promise(r => setTimeout(r, 3000));
-      balance = parseFloat((await getWalletInfo(walletId)).usdcBalance) || 0;
-    } catch (e) {
-      console.error('[Pulse] funding error:', e.message);
+    const treasury = await getTreasuryUsdcBalance();
+    if (treasury != null && treasury < 5) {
+      houseAgentFundedThisRun = true; // don't retry a doomed transfer every run
+      await sendAlert(
+        `Puls house agent needs 5 USDC but treasury ${adminAccount.address} only holds ${treasury.toFixed(2)} USDC. ` +
+        `Skipping funding to avoid a reverting transfer. Top up the treasury to re-enable the house agent.`
+      );
+    } else {
+      try {
+        await walletClient.writeContract({
+          address: USDC,
+          abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
+            inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
+            outputs: [{ type: 'bool' }] }],
+          functionName: 'transfer',
+          args: [info.address, 5_000_000n], // 5 USDC
+        });
+        houseAgentFundedThisRun = true;
+        console.log(`[Pulse] Funded agent wallet ${info.address} with 5 USDC from treasury`);
+        await new Promise(r => setTimeout(r, 3000));
+        balance = parseFloat((await getWalletInfo(walletId)).usdcBalance) || 0;
+      } catch (e) {
+        console.error('[Pulse] funding error:', e.message);
+      }
     }
   }
 
