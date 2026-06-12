@@ -400,11 +400,36 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: Text(
-                  widget.market.question,
-                  style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700, height: 1.3),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.market.imageUrl.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          widget.market.imageUrl,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 40,
+                            height: 40,
+                            color: t.brandSubtle,
+                            child: Icon(Icons.show_chart_rounded, color: t.brand, size: 18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Text(
+                        widget.market.question,
+                        style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700, height: 1.3),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
