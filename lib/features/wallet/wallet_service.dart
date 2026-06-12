@@ -466,7 +466,7 @@ class WalletService extends ChangeNotifier {
 
   // ── Profiles & Leaderboard ────────────────────────────────────────────────
   
-  Future<List<dynamic>> getLeaderboard({String sort = 'pnl', int limit = 50}) async {
+  Future<List<dynamic>> getLeaderboard({String sort = 'pnl', int limit = 50, String type = 'all'}) async {
     final headers = <String, String>{};
     final session = _supabase.auth.currentSession;
     if (session != null) {
@@ -475,6 +475,7 @@ class WalletService extends ChangeNotifier {
     final uri = Uri.parse('$backendUrl/api/leaderboard').replace(queryParameters: {
       'sort': sort,
       'limit': limit.toString(),
+      'type': type,
     });
     final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
