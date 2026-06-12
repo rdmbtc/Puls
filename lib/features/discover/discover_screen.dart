@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/trade_math.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
 import '../market/market_detail_screen.dart';
@@ -27,6 +28,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   String _category = 'All';
   bool _searchFocused = false;
   final _focusNode = FocusNode();
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -39,7 +41,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _clearFilters() {
+    _searchCtrl.clear();
+    setState(() {
+      _query = '';
+      _category = 'All';
+    });
   }
 
   String _getCategoryEmoji(String category) {
@@ -67,6 +78,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           m.context.toLowerCase().contains(_query.toLowerCase());
       return matchCat && matchQ;
     }).toList();
+    final isInitialLoading =
+        appState.feedStatus == FeedStatus.loading && appState.markets.isEmpty;
+    final hasFilters = _query.isNotEmpty || _category != 'All';
 
     final header = SliverToBoxAdapter(
       child: Padding(
@@ -167,6 +181,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ],
                 ),
                 child: TextField(
+                  controller: _searchCtrl,
                   focusNode: _focusNode,
                   style: TextStyle(color: t.text, fontSize: 14),
                   decoration: InputDecoration(
@@ -260,7 +275,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: t.border),
                     ),
-                    child: Text('${markets.length} found',
+                    child: Text(isInitialLoading ? 'loading…' : '${markets.length} found',
                         style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                 ],
@@ -275,7 +290,36 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final emptySliver = SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: _EmptyState(t: t),
+        child: _EmptyState(t: t, onClear: hasFilters ? _clearFilters : null),
+      ),
+    );
+
+    final skeletonGridSliver = SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      sliver: SliverGrid.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 440,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.45,
+        ),
+        itemCount: 6,
+        itemBuilder: (context, i) => FadeIn(
+          delay: Duration(milliseconds: 40 * i),
+          duration: const Duration(milliseconds: 250),
+          child: const DiscoverCardSkeleton(),
+        ),
+      ),
+    );
+
+    final skeletonListSliver = SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      sliver: SliverList.builder(
+        itemCount: 4,
+        itemBuilder: (context, i) => const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: SizedBox(height: 220, child: DiscoverCardSkeleton()),
+        ),
       ),
     );
 
@@ -335,7 +379,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final scrollView = CustomScrollView(
       slivers: [
         header,
-        if (markets.isEmpty)
+        if (isInitialLoading)
+          kIsWeb ? skeletonGridSliver : skeletonListSliver
+        else if (markets.isEmpty)
           emptySliver
         else
           kIsWeb ? gridSliver : listSliver,
@@ -686,7 +732,9 @@ class _BuyBtn extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.t});
+  const _EmptyState({required this.t, this.onClear});
+
+  final VoidCallback? onClear;
   final PulsThemeColors t;
 
   @override
@@ -708,6 +756,24 @@ class _EmptyState extends StatelessWidget {
           Text('Try searching for another keyword or selection.',
               style: TextStyle(color: t.textMuted, fontSize: 13),
               textAlign: TextAlign.center),
+          if (onClear != null) ...[
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: onClear,
+              style: TextButton.styleFrom(
+                foregroundColor: t.brand,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: t.brand.withValues(alpha: 0.4)),
+                ),
+              ),
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+              label: const Text('Clear search & filters',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ],
         ],
       ),
     );

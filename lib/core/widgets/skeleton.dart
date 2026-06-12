@@ -115,3 +115,64 @@ class MarketCardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Compact skeleton matching the Discover/Home market-card layout.
+/// Expects a bounded height (grid cell or a SizedBox wrapper in lists).
+class DiscoverCardSkeleton extends StatelessWidget {
+  const DiscoverCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.border),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Skeleton(width: 64, height: 18, radius: 6),
+              Spacer(),
+              Skeleton(width: 18, height: 18, radius: 9),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Skeleton(width: 44, height: 44, radius: 10),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Skeleton(height: 12),
+                    SizedBox(height: 8),
+                    Skeleton(height: 12, width: 140),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Expanded(child: Skeleton(height: double.infinity, radius: 12)),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Skeleton(width: 84, height: 32, radius: 10),
+              SizedBox(width: 8),
+              Skeleton(width: 84, height: 32, radius: 10),
+              Spacer(),
+              Skeleton(width: 44, height: 20, radius: 6),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
