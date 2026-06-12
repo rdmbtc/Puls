@@ -564,7 +564,9 @@ async function loadDeployedMarkets() {
       console.error('Failed to load deployed_markets from Supabase:', error.message);
       return;
     }
+    let archivedCount = 0;
     for (const row of (data || [])) {
+      if (row.archived === true) { archivedCount++; continue; } // zombies stay out of cache, cron and listings
       const entry = {
         contractAddress: row.contract_address,
         deadline: Number(row.deadline),
@@ -574,6 +576,7 @@ async function loadDeployedMarkets() {
       deployedMarketsCache.set(row.slug, entry);
       contractToSlugCache.set(row.contract_address.toLowerCase(), row.slug);
     }
+    if (archivedCount) console.log(`Skipped ${archivedCount} archived markets.`);
     console.log(`Loaded ${deployedMarketsCache.size} deployed markets into cache.`);
   } catch (e) {
     console.error('loadDeployedMarkets error:', e.message);
@@ -708,6 +711,14 @@ async function getOrDeployMarket(slug, deadlineSeconds) {
   
   let cached = deployedMarketsCache.get(slug);
   if (cached) return cached.contractAddress;
+
+  // Guard: never try to deploy a market whose deadline already passed — the
+  // factory reverts with "Deadline in past", wasting an RPC round-trip and
+  // spamming the error log. Require at least 5 minutes of remaining lifetime.
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!deadlineSeconds || Number(deadlineSeconds) <= nowSec + 300) {
+    throw new Error(`Market ${slug} deadline ${deadlineSeconds} is in the past (or <5min away) — skipping deployment`);
+  }
 
   if (pendingDeployments.has(slug)) {
     return pendingDeployments.get(slug);
@@ -1140,6 +1151,7 @@ app.get('/api/markets', async (req, res) => {
     const customList = [];
     if (!customErr && dbCustomMarkets) {
       for (const row of dbCustomMarkets) {
+        if (row.archived === true) continue;
         const slug = row.slug;
         const contractAddress = row.contract_address;
         
@@ -2637,9 +2649,45 @@ app.post('/api/market/resolve', authenticateUser, requireVerifiedUser, requireAd
 });
 
 // ── Auto-Resolution Cron ──────────────────────────────────────────────────────
+// ── Stale-market archiving ────────────────────────────────────────────────────
+// Markets that are long past their deadline and that Polymarket can no longer
+// resolve (slug gone, or never resolves) are "zombies": they clutter the app and
+// make every resolution-cron tick slower/noisier. We mark them archived in
+// Supabase (column `archived boolean default false`), drop them from the cache,
+// and exclude them from listings. Archiving touches nothing on-chain.
+const ARCHIVE_AFTER_DAYS = parseFloat(process.env.ARCHIVE_AFTER_DAYS || '3');
+
+async function archiveMarket(slug, reason) {
+  try {
+    const { error } = await supabase
+      .from('deployed_markets')
+      .update({ archived: true })
+      .eq('slug', slug);
+    if (error) {
+      if (/archived/.test(error.message)) {
+        console.warn(`[Archive] 'archived' column missing — run in Supabase SQL editor: alter table deployed_markets add column if not exists archived boolean default false;`);
+      } else {
+        console.error(`[Archive] failed for ${slug}:`, error.message);
+      }
+      return false;
+    }
+    const entry = deployedMarketsCache.get(slug);
+    if (entry) {
+      contractToSlugCache.delete((entry.contractAddress || '').toLowerCase());
+      deployedMarketsCache.delete(slug);
+    }
+    console.log(`[Archive] ${slug} archived (${reason})`);
+    return true;
+  } catch (e) {
+    console.error(`[Archive] error for ${slug}:`, e.message);
+    return false;
+  }
+}
+
 async function checkAndResolveMarkets() {
   console.log('Running auto-resolution cron check...');
   const now = Math.floor(Date.now() / 1000);
+  const archiveCutoff = now - ARCHIVE_AFTER_DAYS * 24 * 3600;
   
   const marketsToResolve = [];
   for (const [slug, entry] of deployedMarketsCache.entries()) {
@@ -2662,12 +2710,20 @@ async function checkAndResolveMarkets() {
       if (!res.ok) continue;
       
       const list = await res.json();
-      if (!list || list.length === 0) continue;
+      if (!list || list.length === 0) {
+        // Slug no longer exists on Polymarket → can never auto-resolve.
+        if (market.deadline < archiveCutoff) await archiveMarket(market.slug, 'slug gone from Polymarket');
+        continue;
+      }
       
       const pmMarket = list[0];
       const isResolved = pmMarket.closed === true || pmMarket.resolved === true;
       if (!isResolved) {
-        console.log(`Market ${market.slug} is past deadline but not yet resolved on Polymarket.`);
+        if (market.deadline < archiveCutoff) {
+          await archiveMarket(market.slug, `unresolved on Polymarket ${ARCHIVE_AFTER_DAYS}+ days past deadline`);
+        } else {
+          console.log(`Market ${market.slug} is past deadline but not yet resolved on Polymarket.`);
+        }
         continue;
       }
       
@@ -2726,7 +2782,11 @@ async function checkAndResolveMarkets() {
       }
 
       if (outcome === null) {
-        console.log(`Could not determine outcome for resolved market ${market.slug}`);
+        if (market.deadline < archiveCutoff) {
+          await archiveMarket(market.slug, 'Polymarket closed but outcome indeterminate');
+        } else {
+          console.log(`Could not determine outcome for resolved market ${market.slug}`);
+        }
         continue;
       }
 

@@ -34,5 +34,9 @@ create table if not exists deployed_markets (
   deadline bigint not null,
   resolved boolean default false,
   outcome boolean,
+  archived boolean default false,
   created_at timestamptz default now()
 );
+
+-- Migration for existing databases:
+alter table deployed_markets add column if not exists archived boolean default false;
