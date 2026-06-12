@@ -115,8 +115,17 @@ class PolymarketRepository {
           ? DateTime.tryParse(endRaw) ?? DateTime.now().add(const Duration(days: 30))
           : DateTime.now().add(const Duration(days: 30));
 
-      final yesPrice = (j['yesPrice'] as num?)?.toDouble() ?? prices[0];
-      final noPrice = (j['noPrice'] as num?)?.toDouble() ?? prices[1];
+      // Freshly deployed on-chain LMSR pools sit at exactly 50/50 until the
+      // first trade — that's "no price discovery yet", not a real signal.
+      // Prefer Polymarket's live odds in that case so the feed shows real
+      // market prices instead of a wall of 50¢ placeholders.
+      final onchainYes = (j['yesPrice'] as num?)?.toDouble();
+      final onchainNo = (j['noPrice'] as num?)?.toDouble();
+      final hasPriceDiscovery =
+          onchainYes != null && (onchainYes - 0.5).abs() > 0.001;
+      final yesPrice = hasPriceDiscovery ? onchainYes : prices[0];
+      final noPrice =
+          hasPriceDiscovery ? (onchainNo ?? (1 - yesPrice)) : prices[1];
 
       return Market(
         id: j['id']?.toString() ?? j['slug']?.toString() ?? '',

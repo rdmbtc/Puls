@@ -66,7 +66,18 @@ class _HeroMarketStackState extends State<HeroMarketStack>
         final j = raw as Map<String, dynamic>;
         final q = j['question'] as String? ?? '';
         if (q.isEmpty || q.length > 80) continue;
-        final yes = ((j['yesPrice'] as num?)?.toDouble() ?? 0.5).clamp(0.01, 0.99);
+        // Fresh on-chain pools sit at exactly 50/50 (no price discovery yet) —
+        // fall back to Polymarket's real odds so the hero shows live prices.
+        var yes = ((j['yesPrice'] as num?)?.toDouble() ?? 0.5);
+        if ((yes - 0.5).abs() <= 0.001) {
+          try {
+            final prices = json.decode(j['outcomePrices'] as String? ?? '[]') as List;
+            if (prices.isNotEmpty) {
+              yes = double.tryParse(prices.first.toString()) ?? yes;
+            }
+          } catch (_) {/* keep on-chain price */}
+        }
+        yes = yes.clamp(0.01, 0.99);
         if (yes < 0.08 || yes > 0.92) continue; // contested markets look alive
         final change = (j['oneDayPriceChange'] as num?)?.toDouble() ?? 0.0;
         final img = j['icon'] as String? ?? j['image'] as String? ?? '';
