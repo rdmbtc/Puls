@@ -11,6 +11,7 @@ import '../../data/polymarket/price_history_service.dart';
 import '../shell/web_layout.dart';
 import 'trade_preview_sheet.dart';
 import 'ai_copilot_sheet.dart';
+import 'share_market_sheet.dart';
 import 'advanced_charts.dart';
 import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
@@ -130,6 +131,11 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
         ),
         title: const Text('Market'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.ios_share_rounded, size: 20, color: t.text),
+            tooltip: 'Share market',
+            onPressed: () => ShareMarketSheet.show(context, market),
+          ),
           IconButton(
             icon: Icon(Icons.auto_awesome_rounded, size: 20, color: t.brand),
             onPressed: () => AiCopilotSheet.show(context, market),
