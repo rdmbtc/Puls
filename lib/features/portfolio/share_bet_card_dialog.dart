@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/config.dart' show appBaseUrl;
 import '../../core/theme/app_theme.dart';
 
 class ShareBetCardDialog extends StatefulWidget {
@@ -38,7 +39,7 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
 
     final text = 'I just bet $side on "$question" on Puls! '
         'My P&L is currently $pnlSign\$${pnlVal.toStringAsFixed(2)} USDC $emoji\n'
-        'Trade predictions live: https://puls.market/m/$slug';
+        'Trade predictions live: $appBaseUrl/m/$slug';
 
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
@@ -50,7 +51,7 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
 
   Future<void> _copyLink() async {
     final slug = widget.position['slug'] as String? ?? '';
-    final url = 'https://puls.market/m/$slug';
+    final url = '$appBaseUrl/m/$slug';
     await Clipboard.setData(ClipboardData(text: url));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
