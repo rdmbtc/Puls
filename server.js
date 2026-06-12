@@ -2904,13 +2904,24 @@ async function updateLeaderboard() {
       if (!data || data.length < PAGE) break;
     }
     
+    // Humans vs agents: house-agent trades live under 'house_pulse'; user-agent
+    // trades are saved under the owner's user_id with a '🤖 Agent:' question
+    // prefix (and the position is held by the agent_<userId> wallet). Bucket
+    // agent activity separately so the leaderboard can rank them side by side.
+    const agentOwnerKey = (t) => {
+      if (t.user_id === HOUSE_AGENT_USER) return HOUSE_AGENT_USER;
+      const isAgentTrade = typeof t.question === 'string' && t.question.startsWith('🤖 Agent:');
+      return isAgentTrade ? `agent_${t.user_id}` : t.user_id;
+    };
+
     const userTrades = new Map();
     for (const t of (trades || [])) {
       if (!t.user_id) continue;
-      if (!userTrades.has(t.user_id)) {
-        userTrades.set(t.user_id, []);
+      const key = agentOwnerKey(t);
+      if (!userTrades.has(key)) {
+        userTrades.set(key, []);
       }
-      userTrades.get(t.user_id).push(t);
+      userTrades.get(key).push(t);
     }
     
     for (const [userId, tradesList] of userTrades.entries()) {
@@ -2967,6 +2978,8 @@ async function updateLeaderboard() {
           
           try {
             let userAddress = userIdToAddressCache.get(userId);
+            // House agent trades under 'house_pulse' but its wallet row is keyed 'agent_house_pulse'
+            if (!userAddress && userId === HOUSE_AGENT_USER) userAddress = userIdToAddressCache.get(HOUSE_AGENT_KEY);
             // Resolve addresses not in the wallet cache: eth_-prefixed and raw-address user ids
             if (!userAddress && userId.startsWith('eth_')) userAddress = userId.slice(4);
             if (!userAddress && userId.startsWith('0x') && userId.length === 42) userAddress = userId;
@@ -3103,6 +3116,7 @@ async function updateLeaderboard() {
         
         leaderboardStats.set(userId, {
           user_id: userId,
+          is_agent: userId === HOUSE_AGENT_USER || userId.startsWith('agent_'),
           volume: parseFloat(totalVolume.toFixed(2)),
           pnl: parseFloat(totalPnL.toFixed(2)),
           trades_count: tradesCount,
@@ -3131,11 +3145,16 @@ const LEADERBOARD_CACHE_TTL = 60_000; // 60 seconds
 
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const { sort = 'pnl', limit = 50 } = req.query;
+    const { sort = 'pnl', limit = 50, type = 'all' } = req.query;
     const maxLimit = Math.min(500, parseInt(limit) || 50);
+    const kind = ['all', 'humans', 'agents'].includes(type) ? type : 'all';
+    const kindFilter = (row) => {
+      const isAgent = row.is_agent === true || row.user_id === HOUSE_AGENT_USER || (row.user_id || '').startsWith('agent_');
+      return kind === 'all' ? true : kind === 'agents' ? isAgent : !isAgent;
+    };
     
     // Check cache first
-    const cacheKey = `${sort}:${maxLimit}`;
+    const cacheKey = `${sort}:${maxLimit}:${kind}`;
     const cached = leaderboardCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < LEADERBOARD_CACHE_TTL) {
       return res.json(cached.data);
@@ -3146,6 +3165,7 @@ app.get('/api/leaderboard', async (req, res) => {
     let leaderboardData = null;
     if (leaderboardStats.size > 0) {
       leaderboardData = Array.from(leaderboardStats.values())
+        .filter(kindFilter)
         .sort((a, b) => sort === 'volume' ? b.volume - a.volume : b.pnl - a.pnl)
         .slice(0, maxLimit);
     }
@@ -3155,7 +3175,7 @@ app.get('/api/leaderboard', async (req, res) => {
       try {
         const { data: allTrades, error: tradesError } = await supabase
           .from('trades')
-          .select('user_id, side, usdc_amount, state')
+          .select('user_id, side, usdc_amount, state, question')
           .eq('state', 'COMPLETE')
           .limit(5000);
         
@@ -3165,19 +3185,26 @@ app.get('/api/leaderboard', async (req, res) => {
           const userStats = {};
           for (const t of allTrades) {
             if (!t.user_id) continue;
-            if (!userStats[t.user_id]) {
-              userStats[t.user_id] = { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 };
+            // Same humans-vs-agents bucketing as the cron (see updateLeaderboard)
+            const isAgentTrade = typeof t.question === 'string' && t.question.startsWith('🤖 Agent:');
+            const key = t.user_id === HOUSE_AGENT_USER
+              ? HOUSE_AGENT_USER
+              : (isAgentTrade ? `agent_${t.user_id}` : t.user_id);
+            if (!userStats[key]) {
+              userStats[key] = { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 };
             }
-            const s = userStats[t.user_id];
+            const s = userStats[key];
             s.trades_count++;
             s.volume += Math.abs(parseFloat(t.usdc_amount || 0));
           }
           leaderboardData = Object.entries(userStats)
             .map(([userId, stats]) => ({
               user_id: userId,
+              is_agent: userId === HOUSE_AGENT_USER || userId.startsWith('agent_'),
               ...stats,
               volume: parseFloat(stats.volume.toFixed(2))
             }))
+            .filter(kindFilter)
             .sort((a, b) => sort === 'volume' ? b.volume - a.volume : b.pnl - a.pnl)
             .slice(0, maxLimit);
         }
@@ -3188,15 +3215,22 @@ app.get('/api/leaderboard', async (req, res) => {
     
     if (!leaderboardData) leaderboardData = [];
     
-    // Enrich with actual profile display names and avatars
+    // Enrich with actual profile display names and avatars. For user agents
+    // (agent_<ownerId>) also fetch the OWNER's profile so the agent can be
+    // labelled "<owner>'s Agent".
     let profilesMap = {};
     if (leaderboardData.length > 0) {
       try {
-        const userIds = leaderboardData.map(r => r.user_id).filter(Boolean);
+        const userIds = new Set();
+        for (const r of leaderboardData) {
+          if (!r.user_id) continue;
+          userIds.add(r.user_id);
+          if (r.user_id.startsWith('agent_')) userIds.add(r.user_id.slice(6));
+        }
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, display_name, avatar_url, bio')
-          .in('user_id', userIds);
+          .in('user_id', [...userIds]);
         if (profiles) {
           for (const p of profiles) {
             profilesMap[p.user_id] = p;
@@ -3207,23 +3241,36 @@ app.get('/api/leaderboard', async (req, res) => {
     
     // Format response with real profile data, falling back to defaults
     const formatted = leaderboardData.map(row => {
+      const isAgent = row.is_agent === true || row.user_id === HOUSE_AGENT_USER || (row.user_id || '').startsWith('agent_');
       const profile = profilesMap[row.user_id];
       let defaultName = 'Puls Trader';
       let defaultAvatar = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=${row.user_id}`;
+      let erc8004Id = null;
       if (row.user_id?.startsWith('eth_')) {
         const addr = row.user_id.replace('eth_', '');
         defaultName = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
         defaultAvatar = `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${addr}`;
+      } else if (row.user_id === HOUSE_AGENT_USER) {
+        defaultName = 'Pulse · House Agent';
+        defaultAvatar = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=pulse-house`;
+        erc8004Id = agentTokenIds.get(HOUSE_AGENT_KEY) ?? null;
+      } else if (row.user_id?.startsWith('agent_')) {
+        const ownerProfile = profilesMap[row.user_id.slice(6)];
+        const ownerName = ownerProfile?.display_name || 'Puls Trader';
+        defaultName = `${ownerName}'s Agent`;
+        erc8004Id = agentTokenIds.get(row.user_id) ?? null;
       }
       return {
         userId: row.user_id,
+        isAgent,
+        erc8004Id,
         volume: parseFloat(row.volume || 0),
         pnl: parseFloat(row.pnl || 0),
         tradesCount: row.trades_count || 0,
         winRate: parseFloat(row.win_rate || 0),
         displayName: profile?.display_name || defaultName,
         avatarUrl: profile?.avatar_url || defaultAvatar,
-        bio: profile?.bio || ''
+        bio: profile?.bio || (isAgent ? 'Autonomous AI trading agent with on-chain ERC-8004 identity.' : '')
       };
     });
     
