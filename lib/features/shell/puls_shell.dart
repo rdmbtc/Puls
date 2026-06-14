@@ -11,6 +11,7 @@ import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
+import 'shell_nav.dart';
 import 'web_shell.dart';
 
 class PulsShell extends StatelessWidget {
@@ -46,12 +47,31 @@ class _PulsShellState extends State<_MobileShell> {
     ProfileScreen(),
   ];
 
+  // Map shell-independent tab ids → this shell's page index.
+  static const _tabIndex = {
+    PulsTab.feed: 0,
+    PulsTab.portfolio: 1,
+    PulsTab.leaderboard: 2,
+    PulsTab.agent: 3,
+    PulsTab.profile: 4,
+    // Mobile shell has no Discover/Home tabs → fall back to Feed.
+    PulsTab.discover: 0,
+    PulsTab.home: 0,
+  };
+
+  void _goToTab(PulsTab tab) {
+    final i = _tabIndex[tab] ?? 0;
+    if (i != _index) setState(() => _index = i);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
     final isLight = !context.isDark;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return ShellNavScope(
+      goToTab: _goToTab,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: isLight
           ? SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent)
           : SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
@@ -71,6 +91,7 @@ class _PulsShellState extends State<_MobileShell> {
           setState(() => _index = i);
         },
         ),
+      ),
       ),
     );
   }
