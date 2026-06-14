@@ -4051,7 +4051,10 @@ app.get('/api/notifications', authenticateUser, async (req, res) => {
       .limit(50);
       
     if (error) throw error;
-    res.json(data || []);
+    // Return an object (not a bare array): the Flutter client decodes every
+    // response body as a Map and reads res['notifications'], so a bare array
+    // makes the cast throw and the bell silently shows nothing.
+    res.json({ notifications: data || [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4235,7 +4238,9 @@ app.get('/api/trade/limit-orders', authenticateUser, requireVerifiedUser, async 
       .order('created_at', { ascending: false });
       
     if (error) throw error;
-    res.json(data || []);
+    // Object, not bare array: the client reads res['orders'] (decodes body as
+    // a Map), so a bare array would throw and the limit-orders list stays empty.
+    res.json({ orders: data || [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
