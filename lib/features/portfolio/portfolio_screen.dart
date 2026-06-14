@@ -1107,6 +1107,7 @@ class _PositionCardState extends State<_PositionCard> {
                                 ),
                                 side: isYes ? MarketSide.yes : MarketSide.no,
                                 initialIsBuy: false,
+                                owner: (position['owner'] as String?) ?? 'user',
                                 maxShares: (position['shares'] as num?)?.toDouble() ?? (amount > 0 ? (amount / (hasRealEntryPrice ? entryPrice : 0.5)) : 0.0),
                               ).then((_) => widget.onRefresh?.call());
                             }
