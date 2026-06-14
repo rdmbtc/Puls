@@ -5122,6 +5122,148 @@ app.get('/api/agents/house', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Economy Explorer — live on-chain USDC feed (Blockscout / Arcscan v2 API).
+// Aggregates USDC token-transfers for Puls-owned addresses (treasury + house
+// agent) into a verifiable activity feed with proof links. No secrets needed:
+// testnet.arcscan.app is a public Blockscout instance. If ARC_EXPLORER_API is
+// pointed at api.blockscout.com (multichain gateway), BLOCKSCOUT_API_KEY is
+// appended automatically.
+// ---------------------------------------------------------------------------
+const ARC_EXPLORER_API = (process.env.ARC_EXPLORER_API || 'https://testnet.arcscan.app/api/v2').replace(/\/+$/, '');
+const ARC_EXPLORER_TX = (process.env.ARC_EXPLORER_TX || 'https://testnet.arcscan.app/tx').replace(/\/+$/, '');
+const ECONOMY_FEED_TTL_MS = parseInt(process.env.ECONOMY_FEED_TTL_MS || '45000', 10);
+
+// Small cache + pacer so we never exceed explorer rate limits (default <4 req/s).
+const _explorerCache = new Map(); // path -> { at, data }
+let _explorerLastCall = 0;
+async function explorerFetch(path, ttlMs = ECONOMY_FEED_TTL_MS) {
+  const hit = _explorerCache.get(path);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  const wait = Math.max(0, _explorerLastCall + 260 - Date.now());
+  if (wait) await new Promise((r) => setTimeout(r, wait));
+  _explorerLastCall = Date.now();
+  let url = `${ARC_EXPLORER_API}${path}`;
+  if (process.env.BLOCKSCOUT_API_KEY && ARC_EXPLORER_API.includes('api.blockscout.com')) {
+    url += `${path.includes('?') ? '&' : '?'}apikey=${process.env.BLOCKSCOUT_API_KEY}`;
+  }
+  const r = await fetch(url, { headers: { accept: 'application/json' } });
+  if (!r.ok) throw new Error(`explorer ${r.status}`);
+  const data = await r.json();
+  _explorerCache.set(path, { at: Date.now(), data });
+  return data;
+}
+
+// Resolve the house agent wallet address once (cached for process lifetime).
+let _houseAgentAddr = null;
+async function getHouseAgentAddress() {
+  if (_houseAgentAddr !== null) return _houseAgentAddr;
+  try {
+    const wid = await getWalletId(HOUSE_AGENT_KEY);
+    _houseAgentAddr = wid ? ((await getWalletInfo(wid))?.address || '') : '';
+  } catch (e) {
+    console.warn('[economy] house agent addr resolve failed:', e.message);
+    _houseAgentAddr = '';
+  }
+  return _houseAgentAddr;
+}
+
+let _economyFeedCache = { at: 0, data: null };
+app.get('/api/economy/feed', generalLimiter, async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '30', 10)));
+    if (_economyFeedCache.data && Date.now() - _economyFeedCache.at < ECONOMY_FEED_TTL_MS) {
+      return res.json({ ..._economyFeedCache.data, feed: _economyFeedCache.data.feed.slice(0, limit), cached: true });
+    }
+
+    // Puls-owned addresses we track on-chain.
+    const tracked = {}; // lowercased addr -> { label, role }
+    const treasury = adminAccount?.address || null;
+    if (treasury) tracked[treasury.toLowerCase()] = { label: 'Treasury', role: 'treasury', address: treasury };
+    const houseAgent = await getHouseAgentAddress();
+    if (houseAgent) tracked[houseAgent.toLowerCase()] = { label: 'Pulse (house agent)', role: 'agent', address: houseAgent };
+
+    const all = [];
+    for (const a of Object.keys(tracked)) {
+      try {
+        const d = await explorerFetch(`/addresses/${a}/token-transfers?type=ERC-20`);
+        for (const it of (d.items || [])) all.push(it);
+      } catch (e) {
+        console.warn('[economy] transfers fetch failed for', a, e.message);
+      }
+    }
+
+    // Keep USDC only + dedupe by tx_hash:log_index.
+    const seen = new Set();
+    const usdcItems = [];
+    for (const it of all) {
+      const tokenAddr = (it.token?.address_hash || it.token?.address || '').toLowerCase();
+      const sym = (it.token?.symbol || '').toUpperCase();
+      if (!(tokenAddr === USDC.toLowerCase() || sym === 'USDC')) continue;
+      const key = `${it.transaction_hash}:${it.log_index}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      usdcItems.push(it);
+    }
+    usdcItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const labelFor = (addr) => {
+      if (!addr) return { label: '—', address: null };
+      const low = addr.toLowerCase();
+      if (tracked[low]) return { label: tracked[low].label, address: addr };
+      return { label: `${addr.slice(0, 6)}…${addr.slice(-4)}`, address: addr };
+    };
+
+    const feed = usdcItems.slice(0, limit).map((it) => {
+      const from = it.from?.hash || '';
+      const to = it.to?.hash || '';
+      const decimals = parseInt(it.total?.decimals || it.token?.decimals || '6', 10);
+      const value = Number(it.total?.value || '0') / Math.pow(10, decimals);
+      const fromRole = tracked[from.toLowerCase()]?.role || null;
+      const toRole = tracked[to.toLowerCase()]?.role || null;
+      let action;
+      if (fromRole === 'treasury') action = 'Treasury drip (gas/credit)';
+      else if (toRole === 'treasury') action = 'Returned to treasury';
+      else if (fromRole === 'agent') action = 'Agent payment out';
+      else if (toRole === 'agent') action = 'Agent received funds';
+      else action = 'USDC transfer';
+      return {
+        hash: it.transaction_hash,
+        explorer_url: `${ARC_EXPLORER_TX}/${it.transaction_hash}`,
+        timestamp: it.timestamp,
+        block: it.block_number,
+        method: it.method || null,
+        from: { ...labelFor(from), role: fromRole },
+        to: { ...labelFor(to), role: toRole },
+        value_usdc: Number(value.toFixed(6)),
+        token: 'USDC',
+        action,
+      };
+    });
+
+    const vol = feed.reduce((s, x) => s + x.value_usdc, 0);
+    const metrics = {
+      tx_count: feed.length,
+      total_volume_usdc: Number(vol.toFixed(4)),
+      avg_payment_usdc: feed.length ? Number((vol / feed.length).toFixed(6)) : 0,
+      tracked_addresses: Object.keys(tracked).length,
+    };
+
+    const payload = {
+      feed,
+      metrics,
+      tracked: Object.values(tracked).map((t) => ({ label: t.label, role: t.role, address: t.address })),
+      explorer: ARC_EXPLORER_TX,
+      updated_at: new Date().toISOString(),
+    };
+    _economyFeedCache = { at: Date.now(), data: payload };
+    res.json(payload);
+  } catch (e) {
+    console.error('[economy/feed] error:', e.message);
+    res.status(500).json({ error: 'economy feed failed' });
+  }
+});
+
 if (HOUSE_AGENT) {
   setTimeout(houseAgentTick, 45 * 1000); // first cycle shortly after boot
   setInterval(houseAgentTick, 5 * 60 * 1000); // cooldown enforces the real cadence
