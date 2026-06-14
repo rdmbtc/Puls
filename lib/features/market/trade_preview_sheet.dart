@@ -55,7 +55,6 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
   late bool _isBuy;
   double _amount = 50;
   bool _isExecuting = false;
-  bool _isDeploying = false;
 
   String _formatShares(double shares) {
     final microShares = (shares * 1000000).floor();
@@ -513,10 +512,6 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                   onPressed: (_amount > 0 && !_isExecuting)
                       ? () async {
                           setState(() => _isExecuting = true);
-                          // Show deploying state for cold markets (no contract yet)
-                          if (hasRealWallet && widget.market.contractAddress == null) {
-                            setState(() => _isDeploying = true);
-                          }
                           try {
                             if (hasRealWallet) {
                               final Map<String, dynamic> result;
@@ -568,6 +563,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                                   txId: result['txId'] as String,
                                   side: isYes ? 'YES' : 'NO',
                                   amount: _amount,
+                                  isBuy: _isBuy,
                                   walletService: walletService,
                                 );
                               }
@@ -608,7 +604,6 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             if (mounted) {
                               setState(() {
                                 _isExecuting = false;
-                                _isDeploying = false;
                               });
                             }
                           }
@@ -633,10 +628,10 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                                 strokeWidth: 2.5,
                               ),
                             ),
-                            if (_isDeploying) ...[
+                            if (_isExecuting) ...[
                               const SizedBox(width: 10),
                               const Text(
-                                'Deploying on Arc Testnet…',
+                                'Processing…',
                                 style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ],

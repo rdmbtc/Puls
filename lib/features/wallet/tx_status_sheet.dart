@@ -19,13 +19,15 @@ class TxStatusSheet extends StatefulWidget {
     required this.txId,
     required this.side,
     required this.amount,
+    this.isBuy = true,
     this.walletService,
     super.key,
   });
 
   final String txId;
   final String side; // 'YES' or 'NO'
-  final double amount;
+  final double amount; // USDC spent (buy) or shares sold (sell)
+  final bool isBuy;
   final WalletService? walletService;
 
   static Future<void> show(
@@ -33,6 +35,7 @@ class TxStatusSheet extends StatefulWidget {
     required String txId,
     required String side,
     required double amount,
+    bool isBuy = true,
     WalletService? walletService,
   }) {
     return showModalBottomSheet(
@@ -43,6 +46,7 @@ class TxStatusSheet extends StatefulWidget {
         txId: txId,
         side: side,
         amount: amount,
+        isBuy: isBuy,
         walletService: walletService,
       ),
     );
@@ -118,6 +122,18 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
     // Timeout
     if (mounted) setState(() => _status = TxStatus.failed);
     _timer?.cancel();
+  }
+
+  String _formatShares(double shares) {
+    String str = shares.toStringAsFixed(4);
+    while (str.contains('.') && (str.endsWith('0') || str.endsWith('.'))) {
+      if (str.endsWith('.')) {
+        str = str.substring(0, str.length - 1);
+        break;
+      }
+      str = str.substring(0, str.length - 1);
+    }
+    return str;
   }
 
   @override
@@ -205,9 +221,13 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
           // Subtitle
           Text(
             _status == TxStatus.pending
-                ? 'Your USDC is being sent to Arc Testnet'
+                ? (widget.isBuy
+                    ? 'Your USDC is being sent to Arc Testnet'
+                    : 'Selling your ${widget.side} shares on Arc Testnet')
                 : _status == TxStatus.complete
-                    ? 'You bought \$${widget.amount.toStringAsFixed(2)} ${widget.side} on Arc Testnet'
+                    ? (widget.isBuy
+                        ? 'You bought \$${widget.amount.toStringAsFixed(2)} ${widget.side} on Arc Testnet'
+                        : 'You sold ${_formatShares(widget.amount)} ${widget.side} shares on Arc Testnet')
                     : 'Transaction was not completed',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
@@ -223,7 +243,10 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
                 Text(widget.side,
                     style: TextStyle(color: sideColor, fontWeight: FontWeight.w800, fontSize: 15)),
                 const SizedBox(width: 8),
-                Text('\$${widget.amount.toStringAsFixed(2)} USDC',
+                Text(
+                    widget.isBuy
+                        ? '\$${widget.amount.toStringAsFixed(2)} USDC'
+                        : '${_formatShares(widget.amount)} shares',
                     style: TextStyle(color: sideColor, fontSize: 14)),
               ],
             ),

@@ -334,6 +334,9 @@ class WalletService extends ChangeNotifier {
         return {'txId': txHash, 'state': 'COMPLETE'};
       }
 
+      // Cold markets deploy their LMSR contract on-chain inside this request
+      // (several seconds), so give the first trade a generous timeout — a 15s
+      // cap was causing a "Future not completed" error on the first buy.
       final res = await _post('/api/trade/buy', {
         'userId': _state.userId!,
         'side': isYes ? 'YES' : 'NO',
@@ -342,7 +345,9 @@ class WalletService extends ChangeNotifier {
         'entryPrice': entryPrice.toStringAsFixed(4),
         'slug': slug,
         'deadline': deadline,
-      });
+      }, timeout: contractAddress == null
+          ? const Duration(seconds: 75)
+          : const Duration(seconds: 30));
 
       // Trigger a sync in the background immediately
       refreshBalance();
@@ -421,7 +426,7 @@ class WalletService extends ChangeNotifier {
         'deadline': deadline,
         'owner': owner,
         if (contractAddress != null && contractAddress.isNotEmpty) 'contractAddress': contractAddress,
-      });
+      }, timeout: const Duration(seconds: 30));
 
       // Trigger a sync in the background immediately
       refreshBalance();
@@ -643,7 +648,7 @@ class WalletService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body, {Duration? timeout}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
@@ -655,7 +660,7 @@ class WalletService extends ChangeNotifier {
       Uri.parse('$_backendUrl$path'),
       headers: headers,
       body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 15));
+    ).timeout(timeout ?? const Duration(seconds: 15));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
     return data;
