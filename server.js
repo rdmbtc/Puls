@@ -1590,11 +1590,16 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, 
 
 app.post('/api/trade/sell', authenticateUser, requireVerifiedUser, tradeLimiter, async (req, res) => {
   try {
-    const { userId, side, shares, question, slug, contractAddress: reqContract } = req.body;
+    const { userId, side, shares, question, slug, contractAddress: reqContract, owner } = req.body;
     if (!userId || !side || !shares) return res.status(400).json({ error: 'Missing fields' });
 
-    const walletId = await getWalletId(userId);
-    if (!walletId) return res.status(400).json({ error: 'No wallet' });
+    // Agent-bought positions are held by the user's AI-agent wallet, so the sell
+    // must execute from that wallet (the user wallet holds none of those shares).
+    // The agent wallet is derived from the authenticated userId — no cross-user risk.
+    const isAgentPosition = owner === 'agent';
+    const walletOwnerId = isAgentPosition ? `agent_${userId}` : userId;
+    const walletId = await getWalletId(walletOwnerId);
+    if (!walletId) return res.status(400).json({ error: isAgentPosition ? 'No agent wallet' : 'No wallet' });
 
     // Prefer the position's own contract; fall back to slug -> cache.
     let contractAddress = (reqContract && /^0x[0-9a-fA-F]{40}$/.test(reqContract)) ? reqContract : null;
@@ -1849,7 +1854,10 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
         try {
           let yesShares = 0, noShares = 0, claimed = false;
           let rpcPositionSuccess = false;
-          
+          // Track shares PER holding wallet so each position can be sold from the
+          // wallet that actually owns it (user vs. their AI-agent wallet).
+          const holders = []; // { owner: 'user'|'agent', address, yesShares, noShares }
+
           try {
             for (const addr of scanAddresses) {
               const [yesSharesRaw, noSharesRaw, claimedRaw] = await publicClient.readContract({
@@ -1868,9 +1876,19 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
                 functionName: 'getUserPosition',
                 args: [addr]
               });
-              yesShares += Number(yesSharesRaw) / 1_000_000;
-              noShares += Number(noSharesRaw) / 1_000_000;
+              const y = Number(yesSharesRaw) / 1_000_000;
+              const n = Number(noSharesRaw) / 1_000_000;
+              yesShares += y;
+              noShares += n;
               if (claimedRaw) claimed = true;
+              if (y > 0.0001 || n > 0.0001) {
+                holders.push({
+                  owner: agentAddress && addr.toLowerCase() === agentAddress.toLowerCase() ? 'agent' : 'user',
+                  address: addr,
+                  yesShares: y,
+                  noShares: n,
+                });
+              }
             }
             rpcPositionSuccess = true;
           } catch (rpcErr) {
@@ -1896,6 +1914,10 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
             if (noShares < 0) noShares = 0;
             
             claimed = completedTrades.some(r => r.side === 'CLAIM');
+            // Can't attribute a holder from DB alone → assume user wallet.
+            if (yesShares > 0.0001 || noShares > 0.0001) {
+              holders.push({ owner: 'user', address: userAddress, yesShares, noShares });
+            }
           }
 
           if (yesShares < 0.0001 && noShares < 0.0001) return;
@@ -1978,48 +2000,56 @@ app.get('/api/portfolio', authenticateUser, async (req, res) => {
           const yesCost = completedTrades.filter(r => r.side === 'YES').reduce((sum, r) => sum + parseFloat(r.usdc_amount ?? 0), 0);
           const noCost = completedTrades.filter(r => r.side === 'NO').reduce((sum, r) => sum + parseFloat(r.usdc_amount ?? 0), 0);
 
-          if (yesShares > 0.0001) {
-            const entryPrice = yesCost > 0 ? Math.min(0.99, Math.max(0.01, yesCost / yesShares)) : 0.5;
-            positions.push({
-              id: `${userId}-${marketAddress}-YES`,
-              side: 'YES',
-              usdcAmount: yesCost > 0 ? yesCost : yesShares * entryPrice,
-              entryPrice: entryPrice,
-              shares: yesShares,
-              question,
-              slug,
-              marketId: marketAddress,
-              contractAddress: marketAddress,
-              state: 'COMPLETE',
-              claimed,
-              resolved,
-              outcome,
-              isEstimate: !rpcPositionSuccess,
-              txHash: completedTrades.find(r => r.side === 'YES')?.tx_hash || null,
-              timestamp: completedTrades.find(r => r.side === 'YES')?.created_at || new Date().toISOString()
-            });
-          }
-
-          if (noShares > 0.0001) {
-            const entryPrice = noCost > 0 ? Math.min(0.99, Math.max(0.01, noCost / noShares)) : 0.5;
-            positions.push({
-              id: `${userId}-${marketAddress}-NO`,
-              side: 'NO',
-              usdcAmount: noCost > 0 ? noCost : noShares * entryPrice,
-              entryPrice: entryPrice,
-              shares: noShares,
-              question,
-              slug,
-              marketId: marketAddress,
-              contractAddress: marketAddress,
-              state: 'COMPLETE',
-              claimed,
-              resolved,
-              outcome,
-              isEstimate: !rpcPositionSuccess,
-              txHash: completedTrades.find(r => r.side === 'NO')?.tx_hash || null,
-              timestamp: completedTrades.find(r => r.side === 'NO')?.created_at || new Date().toISOString()
-            });
+          // Emit one position per holding wallet + side, so each is sellable from
+          // the wallet that actually owns the shares (e.g. agent-bought positions).
+          const yesEntryPrice = yesCost > 0 ? Math.min(0.99, Math.max(0.01, yesCost / yesShares)) : 0.5;
+          const noEntryPrice = noCost > 0 ? Math.min(0.99, Math.max(0.01, noCost / noShares)) : 0.5;
+          for (const h of holders) {
+            const ownerSuffix = h.owner === 'agent' ? '-AGENT' : '';
+            if (h.yesShares > 0.0001) {
+              positions.push({
+                id: `${userId}-${marketAddress}-YES${ownerSuffix}`,
+                side: 'YES',
+                owner: h.owner,
+                holderAddress: h.address,
+                usdcAmount: h.yesShares * yesEntryPrice,
+                entryPrice: yesEntryPrice,
+                shares: h.yesShares,
+                question,
+                slug,
+                marketId: marketAddress,
+                contractAddress: marketAddress,
+                state: 'COMPLETE',
+                claimed,
+                resolved,
+                outcome,
+                isEstimate: !rpcPositionSuccess,
+                txHash: completedTrades.find(r => r.side === 'YES')?.tx_hash || null,
+                timestamp: completedTrades.find(r => r.side === 'YES')?.created_at || new Date().toISOString()
+              });
+            }
+            if (h.noShares > 0.0001) {
+              positions.push({
+                id: `${userId}-${marketAddress}-NO${ownerSuffix}`,
+                side: 'NO',
+                owner: h.owner,
+                holderAddress: h.address,
+                usdcAmount: h.noShares * noEntryPrice,
+                entryPrice: noEntryPrice,
+                shares: h.noShares,
+                question,
+                slug,
+                marketId: marketAddress,
+                contractAddress: marketAddress,
+                state: 'COMPLETE',
+                claimed,
+                resolved,
+                outcome,
+                isEstimate: !rpcPositionSuccess,
+                txHash: completedTrades.find(r => r.side === 'NO')?.tx_hash || null,
+                timestamp: completedTrades.find(r => r.side === 'NO')?.created_at || new Date().toISOString()
+              });
+            }
           }
         } catch (err) {
           console.error(`Failed to read position for user ${userAddress} on market ${marketAddress}:`, err.message);
