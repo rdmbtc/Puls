@@ -11,6 +11,7 @@ import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
+import 'shell_nav.dart';
 
 class WebShell extends StatefulWidget {
   const WebShell({super.key});
@@ -63,6 +64,19 @@ class _WebShellState extends State<WebShell>
     super.dispose();
   }
 
+  // Map shell-independent tab ids → this shell's page index.
+  static const _tabIndex = {
+    PulsTab.feed: 0,
+    PulsTab.discover: 1,
+    PulsTab.home: 2,
+    PulsTab.portfolio: 3,
+    PulsTab.leaderboard: 4,
+    PulsTab.agent: 5,
+    PulsTab.profile: 6,
+  };
+
+  void _goToTab(PulsTab tab) => _navigate(_tabIndex[tab] ?? 0);
+
   void _navigate(int i) {
     if (i == _index) {
       if (i == 0) PulsStateScope.of(context).refresh();
@@ -94,7 +108,9 @@ class _WebShellState extends State<WebShell>
         ? const Color(0x0AFFFFFF)
         : const Color(0x0A4F46E5);
 
-    return Scaffold(
+    return ShellNavScope(
+      goToTab: _goToTab,
+      child: Scaffold(
       backgroundColor: gradientBg,
       body: Stack(
         children: [
@@ -153,6 +169,7 @@ class _WebShellState extends State<WebShell>
             ],
           ),
         ],
+      ),
       ),
     );
   }
