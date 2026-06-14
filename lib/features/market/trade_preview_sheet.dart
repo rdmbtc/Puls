@@ -13,6 +13,7 @@ Future<void> showTradePreviewSheet({
   required MarketSide side,
   bool initialIsBuy = true,
   double? maxShares,
+  String owner = 'user',
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -23,6 +24,7 @@ Future<void> showTradePreviewSheet({
       side: side,
       initialIsBuy: initialIsBuy,
       maxShares: maxShares,
+      owner: owner,
     ),
   );
 }
@@ -33,6 +35,7 @@ class TradePreviewSheet extends StatefulWidget {
     required this.side,
     this.initialIsBuy = true,
     this.maxShares,
+    this.owner = 'user',
     super.key,
   });
 
@@ -40,6 +43,8 @@ class TradePreviewSheet extends StatefulWidget {
   final MarketSide side;
   final bool initialIsBuy;
   final double? maxShares;
+  // Which wallet holds the position being sold: 'user' or 'agent'.
+  final String owner;
 
   @override
   State<TradePreviewSheet> createState() => _TradePreviewSheetState();
@@ -553,6 +558,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                                     contractAddress: widget.market.contractAddress,
                                     slug: widget.market.slug,
                                     deadline: widget.market.deadline.millisecondsSinceEpoch ~/ 1000,
+                                    owner: widget.owner,
                                   );
                                 }
                                 if (!context.mounted) return;

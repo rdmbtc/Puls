@@ -306,7 +306,7 @@ class WalletService extends ChangeNotifier {
     _setState(_state.copyWith(usdcBalance: newVal.toStringAsFixed(2)));
 
     try {
-      if (_state.isExternalWallet) {
+      if (_state.isExternalWallet && !isAgentPosition) {
         String addr = contractAddress ?? '';
         if (addr.isEmpty) {
           final activateRes = await _post('/api/market/activate', {
@@ -366,9 +366,14 @@ class WalletService extends ChangeNotifier {
     required int deadline,
     double entryPrice = 0.5,
     String? contractAddress,
+    String owner = 'user',
   }) async {
     if (_state.userId == null) throw Exception('Not signed in');
     if (!_state.hasWallet) throw Exception('No wallet');
+
+    // Agent-bought positions are held by the user's AI-agent (MPC) wallet, so they
+    // must be sold server-side from that wallet — never via the browser wallet.
+    final isAgentPosition = owner == 'agent';
 
     // Optimistic balance update: estimate payout based on entryPrice (1ms UI update)
     final currentVal = double.tryParse(_state.usdcBalance) ?? 0.0;
@@ -377,7 +382,7 @@ class WalletService extends ChangeNotifier {
     _setState(_state.copyWith(usdcBalance: newVal.toStringAsFixed(2)));
 
     try {
-      if (_state.isExternalWallet) {
+      if (_state.isExternalWallet && !isAgentPosition) {
         String addr = contractAddress ?? '';
         if (addr.isEmpty) {
           final activateRes = await _post('/api/market/activate', {
@@ -414,6 +419,7 @@ class WalletService extends ChangeNotifier {
         'entryPrice': entryPrice.toStringAsFixed(4),
         'slug': slug,
         'deadline': deadline,
+        'owner': owner,
         if (contractAddress != null && contractAddress.isNotEmpty) 'contractAddress': contractAddress,
       });
 
