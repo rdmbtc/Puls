@@ -13,6 +13,8 @@ import '../../data/polymarket/price_history_service.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../shell/web_layout.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import '../../app/puls_app.dart';
 import 'create_market_dialog.dart';
 
@@ -111,6 +113,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         letterSpacing: -1.0,
                       )),
                   const Spacer(),
+                  const HelpButton(tab: PulsTab.discover),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
                       final ws = WalletServiceScope.of(context).state;

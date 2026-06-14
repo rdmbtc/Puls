@@ -15,6 +15,8 @@ import '../../core/theme/app_theme.dart';
 import '../shell/web_layout.dart';
 import '../../data/models/market.dart';
 import '../market/trade_preview_sheet.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
 
 import '../../core/config.dart' show backendUrl;
@@ -591,6 +593,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        actions: const [HelpAction(tab: PulsTab.portfolio)],
       ),
       body: SafeArea(
         child: RefreshIndicator(

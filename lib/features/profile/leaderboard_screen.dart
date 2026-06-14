@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
 import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import 'user_profile_screen.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -97,7 +98,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             icon: Icon(Icons.refresh_rounded, color: t.text),
             onPressed: _fetchLeaderboard,
           ),
-          const SizedBox(width: 8),
+          const HelpAction(tab: PulsTab.leaderboard),
         ],
       ),
       body: SafeArea(
