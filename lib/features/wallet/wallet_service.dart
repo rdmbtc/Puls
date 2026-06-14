@@ -306,7 +306,7 @@ class WalletService extends ChangeNotifier {
     _setState(_state.copyWith(usdcBalance: newVal.toStringAsFixed(2)));
 
     try {
-      if (_state.isExternalWallet && !isAgentPosition) {
+      if (_state.isExternalWallet) {
         String addr = contractAddress ?? '';
         if (addr.isEmpty) {
           final activateRes = await _post('/api/market/activate', {
