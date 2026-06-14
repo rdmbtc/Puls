@@ -11,6 +11,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -571,6 +573,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        actions: const [HelpAction(tab: PulsTab.profile)],
       ),
       body: SafeArea(
         child: RefreshIndicator(

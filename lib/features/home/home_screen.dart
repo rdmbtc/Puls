@@ -10,6 +10,8 @@ import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../shell/web_layout.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import '../wallet/wallet_service.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -103,6 +105,8 @@ class _WebHomeScreen extends StatelessWidget {
                   Text('Trending Predictions',
                       style: Theme.of(context).textTheme.titleLarge),
                   const Spacer(),
+                  const HelpButton(tab: PulsTab.home),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () => PulsStateScope.of(context).refresh(),
                     icon: Icon(Icons.refresh_rounded, size: 16, color: t.brand),

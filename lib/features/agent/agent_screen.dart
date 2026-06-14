@@ -10,6 +10,8 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart' show backendUrl;
 import '../shell/web_layout.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import 'pulse_feed.dart';
 
 class _Msg {
@@ -273,6 +275,7 @@ class _AgentScreenState extends State<AgentScreen> {
             Text('AI Agent', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
           ],
         ),
+        actions: const [HelpAction(tab: PulsTab.agent)],
       ),
       body: SafeArea(
         child: DefaultTabController(

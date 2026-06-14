@@ -14,6 +14,8 @@ import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../profile/notifications_screen.dart';
+import '../shell/shell_nav.dart';
+import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
 
@@ -268,6 +270,8 @@ class _FeedHeader extends StatelessWidget {
             ],
           ),
           const Spacer(),
+          const HelpButton(tab: PulsTab.feed),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: () {
               Navigator.of(context).push(
