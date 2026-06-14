@@ -3413,9 +3413,31 @@ app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res
 
 // ── Agentic Economy (ERC-8004 + autonomous trading) ───────────────────────────
 
-const LLM_URL = (process.env.AGENT_LLM_URL || 'https://opengateway.gitlawb.com/v1/chat/completions').trim();
-const LLM_KEY = (process.env.AGENT_LLM_KEY || '').trim();
-const LLM_MODEL = (process.env.AGENT_MODEL || 'mimo-v2.5-pro').trim();
+// Agent LLM providers: primary + ordered fallbacks. Configure via env —
+// AGENT_LLM_URL / AGENT_LLM_KEY / AGENT_MODEL is the primary; numbered suffixes
+// _2, _3, … add fallbacks tried in order. A provider is skipped unless it has a
+// URL, key AND model. URLs may be a base ("…/v1") — "/chat/completions" is
+// appended automatically when missing. All keys live in .env, never in the repo.
+function buildLlmProviders() {
+  const list = [];
+  for (const sfx of ['', '_2', '_3', '_4', '_5']) {
+    let url = (process.env[`AGENT_LLM_URL${sfx}`] || '').trim();
+    const key = (process.env[`AGENT_LLM_KEY${sfx}`] || '').trim();
+    const model = (process.env[`AGENT_MODEL${sfx}`] || '').trim();
+    if (!url || !key || !model) continue;
+    if (!/\/(chat\/)?completions\/?$/.test(url)) url = url.replace(/\/+$/, '') + '/chat/completions';
+    list.push({ url, key, model });
+  }
+  return list;
+}
+const LLM_PROVIDERS = buildLlmProviders();
+const LLM_TIMEOUT_MS = parseInt(process.env.AGENT_LLM_TIMEOUT_MS || '60000', 10);
+const LLM_RETRIES = Math.max(1, parseInt(process.env.AGENT_LLM_RETRIES || '1', 10)); // attempts per provider
+if (LLM_PROVIDERS.length === 0) {
+  console.warn('[llm] No agent LLM providers configured (set AGENT_LLM_URL/KEY/MODEL).');
+} else {
+  console.log(`[llm] ${LLM_PROVIDERS.length} provider(s): ${LLM_PROVIDERS.map(p => p.model).join(' → ')}`);
+}
 const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 const REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
 const AGENT_METADATA_URI = 'ipfs://bafkreibdi6623n3xpf7ymk62ckb4bo75o3qemwkpfvp5i25j66itxvsoei';
@@ -3484,13 +3506,13 @@ async function recordAgentReputation(agentKey, agentAddress, score, tag) {
   }
 }
 
-// Streams an OpenAI-compatible SSE chat completion and returns the full text.
-async function llmComplete(messages) {
-  if (!LLM_KEY) throw new Error('Agent LLM key not configured');
-  const r = await fetch(LLM_URL, {
+// Streams an OpenAI-compatible SSE chat completion from ONE provider.
+async function llmCompleteOne(provider, messages, signal) {
+  const r = await fetch(provider.url, {
     method: 'POST',
-    headers: { authorization: `Bearer ${LLM_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: LLM_MODEL, messages, stream: true }),
+    headers: { authorization: `Bearer ${provider.key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: provider.model, messages, stream: true }),
+    signal,
   });
   if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const reader = r.body.getReader();
@@ -3515,6 +3537,33 @@ async function llmComplete(messages) {
     }
   }
   return out.trim();
+}
+
+// Tries each configured provider in priority order (primary → fallbacks) with a
+// per-attempt timeout and optional retries. Returns the first successful result.
+async function llmComplete(messages) {
+  if (LLM_PROVIDERS.length === 0) throw new Error('Agent LLM key not configured');
+  const errors = [];
+  for (let i = 0; i < LLM_PROVIDERS.length; i++) {
+    const provider = LLM_PROVIDERS[i];
+    for (let attempt = 1; attempt <= LLM_RETRIES; attempt++) {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), LLM_TIMEOUT_MS);
+      try {
+        const out = await llmCompleteOne(provider, messages, ac.signal);
+        clearTimeout(timer);
+        if (!out) throw new Error('empty completion');
+        if (i > 0) console.log(`[llm] served by fallback #${i + 1} (${provider.model})`);
+        return out;
+      } catch (e) {
+        clearTimeout(timer);
+        const reason = ac.signal.aborted ? `timeout after ${LLM_TIMEOUT_MS}ms` : (e.message || String(e));
+        errors.push(`${provider.model}: ${reason}`);
+        console.error(`[llm] provider #${i + 1} (${provider.model}) attempt ${attempt}/${LLM_RETRIES} failed: ${reason}`);
+      }
+    }
+  }
+  throw new Error(`All LLM providers failed → ${errors.join(' | ')}`);
 }
 
 // Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
