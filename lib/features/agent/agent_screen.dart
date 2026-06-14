@@ -13,6 +13,7 @@ import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'pulse_feed.dart';
+import 'economy_feed.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text, {this.txId, this.contract});
@@ -279,10 +280,12 @@ class _AgentScreenState extends State<AgentScreen> {
       ),
       body: SafeArea(
         child: DefaultTabController(
-          length: 2,
+          length: 3,
           child: Column(
             children: [
               TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.center,
                 labelColor: t.brand,
                 unselectedLabelColor: t.textMuted,
                 indicatorColor: t.brand,
@@ -290,6 +293,7 @@ class _AgentScreenState extends State<AgentScreen> {
                 tabs: const [
                   Tab(text: 'Pulse · House Agent'),
                   Tab(text: 'My Agent'),
+                  Tab(text: 'Economy'),
                 ],
               ),
               Expanded(
@@ -297,6 +301,7 @@ class _AgentScreenState extends State<AgentScreen> {
                   children: [
                     const WebLayout(maxWidth: 720, child: PulseFeed()),
                     WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
+                    const WebLayout(maxWidth: 720, child: EconomyFeed()),
                   ],
                 ),
               ),
