@@ -26,6 +26,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _avatarUrl;
   bool _loadingProfile = false;
 
+  /// True once we know the signed-in user has no display name set yet — used to
+  /// nudge them to pick a nickname (so they don't show up nameless on the
+  /// leaderboard). Hidden while the profile is still loading to avoid flicker.
+  bool get _needsNickname =>
+      !_loadingProfile &&
+      (_displayName == null || _displayName!.trim().isEmpty);
+
   @override
   void initState() {
     super.initState();
@@ -92,9 +99,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              child: Container(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: cardDecoration(t, radius: 20),
+                child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,6 +256,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+                ),
+              ),
               ),
             );
           },
@@ -287,6 +300,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       avatarUrl: _avatarUrl,
                       onEditTap: _showEditProfileDialog,
                     ),
+                    if (ws.userId != null && _needsNickname) ...[
+                      const SizedBox(height: 16),
+                      _NicknameReminderCard(t: t, onTap: _showEditProfileDialog),
+                    ],
                     const SizedBox(height: 20),
                     _WalletCard(ws: ws, wallet: wallet, t: t),
                   ],
@@ -423,6 +440,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onEditTap: _showEditProfileDialog,
             ),
           ),
+          if (ws.userId != null && _needsNickname) ...[
+            const SizedBox(height: 16),
+            FadeInUp(
+              delay: const Duration(milliseconds: 70),
+              duration: const Duration(milliseconds: 350),
+              child: _NicknameReminderCard(t: t, onTap: _showEditProfileDialog),
+            ),
+          ],
           const SizedBox(height: 16),
           FadeInUp(
             delay: const Duration(milliseconds: 80),
@@ -631,6 +656,77 @@ class _GlassCardState extends State<GlassCard> {
       );
     }
     return container;
+  }
+}
+
+// ── Nickname reminder ────────────────────────────────────────────────────────
+/// Shown in the profile when the signed-in user hasn't set a display name yet,
+/// nudging them to pick one (tapping opens the Edit Profile dialog).
+class _NicknameReminderCard extends StatelessWidget {
+  const _NicknameReminderCard({required this.t, required this.onTap});
+
+  final PulsThemeColors t;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: t.brand.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: t.brand.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: t.brand,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.badge_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Set your nickname',
+                      style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pick a display name so you stand out on the leaderboard.',
+                      style: TextStyle(color: t.textSubtle, fontSize: 12, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: t.brand,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Set',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
