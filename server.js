@@ -5221,8 +5221,13 @@ app.get('/api/economy/feed', generalLimiter, async (req, res) => {
       const value = Number(it.total?.value || '0') / Math.pow(10, decimals);
       const fromRole = tracked[from.toLowerCase()]?.role || null;
       const toRole = tracked[to.toLowerCase()]?.role || null;
+      const m = (it.method || '').toLowerCase();
       let action;
-      if (fromRole === 'treasury') action = 'Treasury drip (gas/credit)';
+      if (m.includes('createmarket')) action = 'Market created';
+      else if (m.includes('buy')) action = 'Share buy';
+      else if (m.includes('sell')) action = 'Share sell';
+      else if (m.includes('claim') || m.includes('redeem')) action = 'Winnings claimed';
+      else if (fromRole === 'treasury') action = 'Treasury drip (gas/credit)';
       else if (toRole === 'treasury') action = 'Returned to treasury';
       else if (fromRole === 'agent') action = 'Agent payment out';
       else if (toRole === 'agent') action = 'Agent received funds';
