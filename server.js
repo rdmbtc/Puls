@@ -2127,7 +2127,7 @@ Rules: factors are short (max 14 words each), concrete and specific to this ques
     return {
       slug,
       question: ctx.question,
-      thesis: String(parsed.thesis || '').slice(0, 600),
+      thesis: formatForApp(String(parsed.thesis || '').slice(0, 600)),
       factors: (Array.isArray(parsed.factors) ? parsed.factors : []).slice(0, 4).map((f) => String(f).slice(0, 160)),
       lean,
       confidence,
@@ -3566,6 +3566,22 @@ async function llmComplete(messages) {
   throw new Error(`All LLM providers failed → ${errors.join(' | ')}`);
 }
 
+// The Puls app renders Telegram/Slack-style markdown where a SINGLE asterisk = bold.
+// LLMs emit standard markdown (**bold**, ## headings), so normalise their prose to
+// the app's flavour before sending it to the client. Idempotent & safe on plain text.
+function formatForApp(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    // ATX headings (#, ##, ### …) → a bold line
+    .replace(/^[ \t]*#{1,6}[ \t]+(.+?)[ \t]*$/gm, '*$1*')
+    // bold+italic ***x*** → *x*
+    .replace(/\*\*\*([^\n*][^\n]*?)\*\*\*/g, '*$1*')
+    // bold **x** → *x*
+    .replace(/\*\*([^\n*][^\n]*?)\*\*/g, '*$1*')
+    // __bold__ → *x*
+    .replace(/__([^\n_][^\n]*?)__/g, '*$1*');
+}
+
 // Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
 app.post('/api/agent/start', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
@@ -3892,7 +3908,7 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
       }
     }
 
-    res.json({ reply: intent.reply || 'Done.', trade, remaining: Math.max(0, remaining - spentNow), reputation: agentRepCount.get(`agent_${userId}`) ?? 0 });
+    res.json({ reply: formatForApp(intent.reply) || 'Done.', trade, remaining: Math.max(0, remaining - spentNow), reputation: agentRepCount.get(`agent_${userId}`) ?? 0 });
   } catch (e) {
     console.error('agent chat error:', e.message);
     res.status(500).json({ error: e.message });
@@ -3919,7 +3935,7 @@ Your goals:
 1. Provide insight on market sentiment, historical context, and potential resolution.
 2. Suggest trading strategies (e.g. buying YES vs buying NO depending on news/odds).
 3. If they ask for a strategy, you can propose one and end with a structured action recommendation.
-4. Keep your replies helpful, concise (maximum 3 short paragraphs), and formatting clean.
+4. Keep your replies helpful, concise (maximum 3 short paragraphs), and formatting clean. For bold use a SINGLE asterisk like *this* (never double **), and do not use markdown headings (#).
 5. If suggesting a trade, format the final recommendation on a new line like:
 [TRADE RECOMMENDATION]: BUY YES or BUY NO with short rationale.`;
 
@@ -3928,7 +3944,7 @@ Your goals:
       { role: 'user', content: message },
     ]);
 
-    res.json({ reply });
+    res.json({ reply: formatForApp(reply) });
   } catch (e) {
     console.error('copilot chat error:', e.message);
     res.status(500).json({ error: e.message });
@@ -4954,7 +4970,7 @@ async function houseAgentDecide(candidates, balance) {
     const parsed = parseLlmJson(raw);
     const chosen = top.find(c => c.slug === parsed.slug) || top[0];
     const side = ['YES', 'NO'].includes(parsed.side) ? parsed.side : chosen.side;
-    return { ...chosen, side, amount, reasoning: String(parsed.reasoning || '').slice(0, 500), brain: 'llm' };
+    return { ...chosen, side, amount, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm' };
   } catch (e) {
     const c = top[0];
     const cheapPrice = c.side === 'YES' ? c.onChainYes : 1 - c.onChainYes;
