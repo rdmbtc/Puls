@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/utils/kv_store.dart';
 import '../core/utils/trade_math.dart';
 import '../data/mock/mock_market_repository.dart';
 import '../data/models/market.dart';
@@ -12,8 +13,17 @@ class PulsAppState extends ChangeNotifier {
   PulsAppState({required this.mockRepo}) {
     _positions = List<Position>.from(mockRepo.initialPositions);
     _watchlistIds = mockRepo.initialWatchlistIds.toSet();
+    // Restore the saved theme so a dark/light choice survives a reload.
+    final savedTheme = kvGet(_kThemeKey);
+    if (savedTheme == 'dark') {
+      themeMode = ThemeMode.dark;
+    } else if (savedTheme == 'light') {
+      themeMode = ThemeMode.light;
+    }
     _loadMarkets();
   }
+
+  static const String _kThemeKey = 'puls_theme_mode';
 
   final MockMarketRepository mockRepo;
   final _polymarket = PolymarketRepository();
@@ -95,6 +105,8 @@ class PulsAppState extends ChangeNotifier {
 
   void toggleThemeMode() {
     themeMode = themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    // Persist so the choice is kept across reloads/sessions.
+    kvSet(_kThemeKey, themeMode == ThemeMode.dark ? 'dark' : 'light');
     notifyListeners();
   }
 

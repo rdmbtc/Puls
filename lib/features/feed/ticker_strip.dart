@@ -76,34 +76,47 @@ class _WebTickerStripState extends State<WebTickerStrip>
               ? '${question.substring(0, 22)}…'
               : question;
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(shortQ,
-                    style: TextStyle(
-                      color: t.text,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    )),
-                const SizedBox(width: 8),
-                Text('YES ${(yesPrice * 100).toStringAsFixed(0)}¢',
-                    style: const TextStyle(
-                      color: Color(0xFF818CF8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    )),
-                const SizedBox(width: 6),
-                Text(
-                  '${isUp ? '↑' : '↓'} ${(trend * 100).abs().toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    color: trendColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+          // Fixed item width is intentional: live price/percent updates change
+          // the text length every couple of seconds. With content-sized items
+          // that shifts the list's maxScrollExtent, and since the marquee maps
+          // its position as `value * maxScrollExtent`, the scroll offset would
+          // jump on every update — the visible stutter. A constant width keeps
+          // the extent stable so the tape glides smoothly while prices refresh.
+          return SizedBox(
+            width: 220,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(shortQ,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: t.text,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        )),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text('YES ${(yesPrice * 100).toStringAsFixed(0)}¢',
+                      style: const TextStyle(
+                        color: Color(0xFF818CF8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      )),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${isUp ? '↑' : '↓'} ${(trend * 100).abs().toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      color: trendColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
