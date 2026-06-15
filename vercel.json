@@ -2,6 +2,14 @@
   "buildCommand": "bash build_vercel.sh",
   "outputDirectory": "build/web",
   "installCommand": "echo 'skip'",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "pulsmarket.tech" }],
+      "destination": "https://app.pulsmarket.tech/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/m/:slug", "destination": "/api/market-share?slug=:slug" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
