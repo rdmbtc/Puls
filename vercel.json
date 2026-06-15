@@ -4,6 +4,12 @@
   "installCommand": "echo 'skip'",
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "pulsmarket.tech" }],
+      "destination": "https://app.pulsmarket.tech/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "pulsmarket.tech" }],
       "destination": "https://app.pulsmarket.tech/:path*",
