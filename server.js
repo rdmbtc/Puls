@@ -2317,6 +2317,68 @@ app.get('/api/alpha/sample', x402Paywall('$0.001', '/api/alpha/sample', {
   });
 });
 
+// Creator earnings / x402 receipts — the in-app proof feed for nanopayments.
+// Each settled x402 payment is logged to Supabase `x402_payments`. We surface
+// them as human receipts: amount, resource, payer, and the Circle Gateway
+// transfer id (a payment receipt — NOT an on-chain tx hash, since Gateway
+// batches settlements). The real on-chain settlement to the seller shows up in
+// /api/economy/feed (seller is a tracked address) with an openable Arcscan tx.
+app.get('/api/x402/payments', async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '30', 10)));
+    const seller = (process.env.X402_SELLER_ADDRESS || '').trim();
+    const sellerExplorerUrl = seller ? `https://testnet.arcscan.app/address/${seller}` : null;
+
+    let rows = [];
+    try {
+      const { data, error } = await supabase
+        .from('x402_payments')
+        .select('id, endpoint, payer, pay_to, amount_usdc, network, gateway_tx, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      rows = data || [];
+    } catch (e) {
+      // Table may not exist yet — receipts are best-effort. Return empty, not 500.
+      console.warn('[x402/payments] supabase read failed:', e.message);
+    }
+
+    const short = (a) => (a && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : (a || '—'));
+    const payments = rows.map((r) => ({
+      id: r.id,
+      endpoint: r.endpoint,
+      payer: r.payer || null,
+      payerShort: short(r.payer),
+      payTo: r.pay_to || seller || null,
+      amountUsdc: Number(r.amount_usdc || 0),
+      network: r.network || 'eip155:5042002',
+      // Circle Gateway transfer id = a settlement RECEIPT (UUID), not a tx hash.
+      receiptId: r.gateway_tx || null,
+      status: r.gateway_tx ? 'settled' : 'recorded',
+      createdAt: r.created_at,
+    }));
+
+    const totalUsdc = payments.reduce((s, p) => s + (p.amountUsdc || 0), 0);
+
+    res.json({
+      seller: seller || null,
+      sellerExplorerUrl,
+      totals: {
+        count: payments.length,
+        usdc: Number(totalUsdc.toFixed(6)),
+      },
+      // The Economy tab shows the on-chain batch settlement to this seller.
+      onchainProofUrl: sellerExplorerUrl,
+      payments,
+      note: 'Receipt ids are Circle Gateway transfer ids. On-chain USDC settles to the seller in batches — see the Economy tab / seller address for the Arcscan tx.',
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[x402/payments] error:', e.message);
+    res.status(500).json({ error: 'x402 payments feed failed' });
+  }
+});
+
 app.get('/health', (_, res) => res.json({ ok: true }));
 
 // Deep health check for demo-day readiness: pings every external dependency and
@@ -5218,6 +5280,11 @@ app.get('/api/economy/feed', generalLimiter, async (req, res) => {
     if (treasury) tracked[treasury.toLowerCase()] = { label: 'Treasury', role: 'treasury', address: treasury };
     const houseAgent = await getHouseAgentAddress();
     if (houseAgent) tracked[houseAgent.toLowerCase()] = { label: 'Pulse (house agent)', role: 'agent', address: houseAgent };
+    // x402 creator/seller — batched nanopayments settle here on-chain. Surfacing
+    // the seller means every Circle Gateway batch flush shows up with a real,
+    // openable Arcscan tx (the on-chain proof behind the instant receipts).
+    const x402Seller = (process.env.X402_SELLER_ADDRESS || '').trim();
+    if (x402Seller) tracked[x402Seller.toLowerCase()] = { label: 'Alpha creator (x402)', role: 'creator', address: x402Seller };
 
     const all = [];
     for (const a of Object.keys(tracked)) {
@@ -5263,6 +5330,8 @@ app.get('/api/economy/feed', generalLimiter, async (req, res) => {
       else if (m.includes('buy')) action = 'Share buy';
       else if (m.includes('sell')) action = 'Share sell';
       else if (m.includes('claim') || m.includes('redeem')) action = 'Winnings claimed';
+      else if (toRole === 'creator') action = 'Creator paid (x402 batch)';
+      else if (fromRole === 'creator') action = 'Creator payout';
       else if (fromRole === 'treasury') action = 'Treasury drip (gas/credit)';
       else if (toRole === 'treasury') action = 'Returned to treasury';
       else if (fromRole === 'agent') action = 'Agent payment out';
