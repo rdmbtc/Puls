@@ -326,7 +326,8 @@ class _EconomyFeedState extends State<EconomyFeed> {
   }
 
   Widget _partyChip(PulsThemeColors t, _Party p) {
-    final known = p.role == 'treasury' || p.role == 'agent';
+    final known =
+        p.role == 'treasury' || p.role == 'agent' || p.role == 'creator';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -342,7 +343,9 @@ class _EconomyFeedState extends State<EconomyFeed> {
                 ? Icons.account_balance_rounded
                 : p.role == 'agent'
                     ? Icons.smart_toy_rounded
-                    : Icons.person_outline_rounded,
+                    : p.role == 'creator'
+                        ? Icons.workspace_premium_rounded
+                        : Icons.person_outline_rounded,
             size: 13,
             color: known ? t.brand : t.textMuted,
           ),
