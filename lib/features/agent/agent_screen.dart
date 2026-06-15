@@ -9,6 +9,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart' show backendUrl;
+import '../../core/widgets/shimmer_text.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
@@ -605,16 +606,19 @@ class _AgentScreenState extends State<AgentScreen> {
       );
 
   Widget _thinking(PulsThemeColors t) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, left: 16),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14, height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: t.brand),
-            ),
-            const SizedBox(width: 8),
-            Text('Agent is thinking…', style: TextStyle(color: t.textSubtle, fontSize: 12)),
-          ],
+        padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ShimmerText(
+            highlightColor: t.brand,
+            phrases: const [
+              'Thinking…',
+              'Reviewing your portfolio…',
+              'Checking the latest odds…',
+              'Reasoning through it…',
+              'Putting it together…',
+            ],
+          ),
         ),
       );
 
