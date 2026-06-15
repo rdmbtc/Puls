@@ -5,6 +5,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:http/http.dart' as http;
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/shimmer_text.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../data/models/market.dart';
 import 'trade_preview_sheet.dart';
@@ -328,20 +329,19 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
   }
 
   Widget _thinking(PulsThemeColors t) => Padding(
-        padding: const EdgeInsets.only(bottom: 12, left: 16),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.8, color: t.brand),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Analyst is analyzing market data...',
-              style: TextStyle(color: t.textSubtle, fontSize: 11),
-            ),
-          ],
+        padding: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ShimmerText(
+            highlightColor: t.brand,
+            phrases: const [
+              'Reading the market…',
+              'Scanning recent news…',
+              'Weighing the sentiment…',
+              'Crunching the odds…',
+              'Drafting a strategy…',
+            ],
+          ),
         ),
       );
 

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/widgets/shimmer_text.dart';
 import '../../data/models/market.dart';
 
 /// AI Analyst brief — auto-generated thesis, key factors, and lean for a
@@ -98,7 +99,21 @@ class _AiInsightCardState extends State<AiInsightCard> {
                       fontSize: 14,
                       fontWeight: FontWeight.w700)),
               const Spacer(),
-              if (!_loading)
+              if (_loading)
+                ShimmerText(
+                  leadingDot: false,
+                  highlightColor: t.brand,
+                  style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6),
+                  phrases: const [
+                    'ANALYZING…',
+                    'READING NEWS…',
+                    'WEIGHING ODDS…',
+                  ],
+                )
+              else
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
