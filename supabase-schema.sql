@@ -136,3 +136,52 @@ create index if not exists comment_likes_comment_idx on comment_likes(comment_id
 
 -- Idempotent upgrade for deployments created before the soft-delete column.
 alter table comments add column if not exists deleted boolean not null default false;
+
+-- ── Support tickets (in-app help desk, F5) ───────────────────────────────────
+-- Our own ticket support, replacing the region-blocked Tawk.to live-chat. A
+-- ticket holds a subject + status; messages thread under it from the user or an
+-- admin. Text is tiny so the Supabase free tier is plenty. Same infra as the
+-- comments layer (verified-only writes, in-app notifications).
+create table if not exists support_tickets (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null,
+  subject text not null,
+  -- 'open' = awaiting a reply from the desk; 'answered' = admin replied;
+  -- 'closed' = resolved (owner or admin can close).
+  status text not null default 'open',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists support_tickets_user_idx on support_tickets(user_id, updated_at desc);
+create index if not exists support_tickets_status_idx on support_tickets(status, updated_at desc);
+
+create table if not exists support_messages (
+  id uuid default gen_random_uuid() primary key,
+  ticket_id uuid not null references support_tickets(id) on delete cascade,
+  sender text not null,        -- 'user' | 'admin'
+  body text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists support_messages_ticket_idx on support_messages(ticket_id, created_at asc);
+
+-- ── Referrals (refer-a-friend, invite mechanic only, F3) ─────────────────────
+-- NO automatic USDC payout (little testnet USDC + farming risk). Each user gets
+-- a stable code + share link; a new user claims a code once. We surface an
+-- "invited N friends" badge so referrers climb the social board together.
+create table if not exists referral_codes (
+  user_id text primary key,
+  code text unique not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists referrals (
+  id uuid default gen_random_uuid() primary key,
+  referrer_user_id text not null,
+  invitee_user_id text not null unique,   -- one attribution per invitee, ever
+  code text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists referrals_referrer_idx on referrals(referrer_user_id);

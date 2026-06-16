@@ -13,6 +13,8 @@ import { registerCopyTrade } from './lib/copytrade.js';
 import { registerAlpha } from './lib/alpha.js';
 import { registerTips } from './lib/tips.js';
 import { registerComments } from './lib/comments.js';
+import { registerSupport } from './lib/support.js';
+import { registerReferrals } from './lib/referrals.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -2479,6 +2481,31 @@ registerTips(app, {
 // Supabase; writes throttled + verified-only; soft-delete. Moves no funds, so
 // it's ON by default (optional COMMENTS_ENABLED kill-switch).
 registerComments(app, {
+  supabase,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  createNotification,
+});
+
+// ── Support tickets (in-app help desk, F5) ───────────────────────────────────
+// Our own ticket support replaces the region-blocked Tawk.to live-chat. Verified
+// users open tickets; an admin (ADMIN_USER_IDS) answers, and the user gets an
+// in-app notification. Stored in Supabase; writes throttled + verified-only.
+// Moves no funds → ON by default (optional SUPPORT_ENABLED kill-switch).
+registerSupport(app, {
+  supabase,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  createNotification,
+});
+
+// ── Referrals (refer-a-friend, invite mechanic only, F3) ─────────────────────
+// Invite mechanic only — NO automatic USDC payout (little testnet USDC + farming
+// risk). Each user gets a code + share link; new users claim a code once; we
+// surface an "invited N friends" badge. ON by default (REFERRALS_ENABLED switch).
+registerReferrals(app, {
   supabase,
   authenticateUser,
   requireVerifiedUser,
