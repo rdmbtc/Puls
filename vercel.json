@@ -4,6 +4,7 @@
   "installCommand": "echo 'skip'",
   "rewrites": [
     { "source": "/m/:slug", "destination": "/api/market-share?slug=:slug" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
