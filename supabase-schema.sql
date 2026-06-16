@@ -76,3 +76,20 @@ create table if not exists copy_follows (
 
 create index if not exists copy_follows_leader_idx on copy_follows(leader_user_id);
 create index if not exists copy_follows_follower_idx on copy_follows(follower_user_id);
+
+-- ── Alpha paid-analysis (T1 creator layer) ───────────────────────────────────
+-- A reader unlocks a premium forecast's full thesis by paying the creator a
+-- sub-cent USDC micro-fee (recorded in x402_payments with endpoint='alpha_unlock').
+-- One row per (user, signal) grants durable access. Live payments are gated
+-- server-side by env ALPHA_PAID_ENABLED.
+create table if not exists alpha_unlocks (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null,
+  signal_id text not null,
+  amount_usdc numeric not null default 0,
+  tx_id text,
+  created_at timestamptz default now(),
+  unique (user_id, signal_id)
+);
+
+create index if not exists alpha_unlocks_user_idx on alpha_unlocks(user_id);
