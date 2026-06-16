@@ -10,6 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 import { x402Paywall, x402Info } from './lib/x402.js';
 import { registerCopyTrade } from './lib/copytrade.js';
+import { registerAlpha } from './lib/alpha.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -2363,7 +2364,12 @@ app.get('/api/x402/payments', async (req, res) => {
       endpoint: r.endpoint,
       // Label the receipt without depending on a possibly-unmigrated column:
       // copy-trade creator fees write endpoint='copy_fee'; everything else is a paywall read.
-      paymentType: r.endpoint === 'copy_fee' ? 'copy_fee' : 'paywall',
+      paymentType:
+        r.endpoint === 'copy_fee'
+          ? 'copy_fee'
+          : r.endpoint === 'alpha_unlock'
+            ? 'alpha_unlock'
+            : 'paywall',
       payer: r.payer || null,
       payerShort: short(r.payer),
       payTo: r.pay_to || seller || null,
@@ -2413,6 +2419,21 @@ const copyTrade = registerCopyTrade(app, {
   requireVerifiedUser,
   strictLimiter,
   clampPrice,
+});
+
+// ── Alpha paid-analysis (T1 creator layer) ───────────────────────────────────
+// Premium forecasts sold per-read: teaser free, full thesis unlocks for a sub-cent
+// USDC micro-payment to the creator. Real on-chain transfer (gasless SCA), receipt
+// in the Earnings tab (endpoint='alpha_unlock'). Live payments gated by ALPHA_PAID_ENABLED.
+registerAlpha(app, {
+  supabase,
+  circle,
+  USDC,
+  getWalletId,
+  getWalletInfo,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
