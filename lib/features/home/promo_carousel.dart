@@ -47,6 +47,7 @@ class _PromoCarouselState extends State<PromoCarousel> {
   }
 
   void _startAutoPlay() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_ctrl.hasClients) return;
       final next = (_current + 1) % widget.slides.length;
@@ -76,7 +77,10 @@ class _PromoCarouselState extends State<PromoCarousel> {
           child: PageView.builder(
             controller: _ctrl,
             itemCount: widget.slides.length,
-            onPageChanged: (i) => setState(() => _current = i),
+            onPageChanged: (i) {
+              setState(() => _current = i);
+              _startAutoPlay();
+            },
             itemBuilder: (context, i) => _PromoCard(
               slide: widget.slides[i],
               t: t,
@@ -139,11 +143,11 @@ class _PromoCard extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.72),
-                      Colors.black.withValues(alpha: 0.35),
+                      Colors.black.withValues(alpha: 0.75),
+                      Colors.black.withValues(alpha: 0.3),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.5, 1.0],
