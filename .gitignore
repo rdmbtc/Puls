@@ -20,7 +20,7 @@ android/app/release
 
 *.iml
 *.log
-
+VPS.txt
 .idea/
 .vscode/
 
