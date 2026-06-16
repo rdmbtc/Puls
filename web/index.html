@@ -116,17 +116,6 @@
     }
   </style>
 
-  <!-- Tawk.to z-index fix: force chat widget above Flutter canvas -->
-  <style>
-    #tawkchat-container,
-    div[id^="tawk"],
-    .widget-visible iframe,
-    iframe[src*="tawk"] {
-      z-index: 2147483000 !important;
-      position: fixed !important;
-    }
-  </style>
-
   <!-- Ethers.js for WalletConnect -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
@@ -377,18 +366,5 @@
   </script>
 
   <script src="flutter_bootstrap.js" async></script>
-
-  <!-- Tawk.to live chat widget -->
-  <script type="text/javascript">
-    var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
-    (function () {
-      var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
-      s1.async = true;
-      s1.src = "https://embed.tawk.to/6a302b261a6cbf1d42d42324/1jr62h4ao";
-      s1.charset = "UTF-8";
-      s1.setAttribute("crossorigin", "*");
-      s0.parentNode.insertBefore(s1, s0);
-    })();
-  </script>
 </body>
 </html>
