@@ -116,6 +116,17 @@
     }
   </style>
 
+  <!-- Tawk.to z-index fix: force chat widget above Flutter canvas -->
+  <style>
+    #tawkchat-container,
+    div[id^="tawk"],
+    .widget-visible iframe,
+    iframe[src*="tawk"] {
+      z-index: 2147483000 !important;
+      position: fixed !important;
+    }
+  </style>
+
   <!-- Ethers.js for WalletConnect -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
