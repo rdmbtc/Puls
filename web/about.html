@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Puls — Prediction Markets on Arc</title>
+  <meta name="description" content="About Puls — a mobile-first, swipe-to-trade prediction market on Arc Testnet. Google sign-in, gasless Circle MPC wallets, USDC, UMA oracle. Built by RDM. See the team, stack, and on-chain contracts.">
+  <link rel="canonical" href="https://pulsmarket.tech/about">
+  <meta name="robots" content="index, follow">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pulsmarket.tech/about">
+  <meta property="og:title" content="About Puls — Prediction Markets on Arc">
+  <meta property="og:description" content="A mobile-first, swipe-to-trade prediction market on Arc Testnet. No seed phrase, USDC-powered, oracle-settled.">
+  <meta property="og:image" content="https://pulsmarket.tech/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <style>
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --text: #1A1A2E; --muted: #5A5A72;
+      --border: #E8E8EE; --brand: #4F46E5; --brand-soft: #EEF0FF;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E0B1E; --surface: #16132A; --text: #F5F5FF; --muted: #B0B0CC;
+        --border: #251F45; --brand: #8B85FF; --brand-soft: #1E1B3A;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.65; -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 48px 22px 80px; }
+    header { margin-bottom: 8px; }
+    .wordmark {
+      font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--brand);
+    }
+    h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.6px; margin: 18px 0 6px; }
+    .lede { color: var(--muted); font-size: 16px; margin-bottom: 28px; }
+    h2 { font-size: 19px; font-weight: 700; margin: 34px 0 10px; letter-spacing: -0.2px; }
+    p, li { color: var(--text); font-size: 15px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    strong { font-weight: 700; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 20px; margin: 14px 0;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+    .badges { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 999px;
+      padding: 7px 14px; font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; word-break: break-all; }
+    .divider { height: 1px; background: var(--border); border: 0; margin: 36px 0; }
+    .nav { font-size: 14px; margin-bottom: 6px; }
+    .nav a { margin-right: 14px; font-weight: 600; }
+    footer { color: var(--muted); font-size: 13px; text-align: center; }
+    .back { display: inline-block; margin-top: 26px; font-size: 14px; font-weight: 600; color: var(--brand); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="wordmark">Puls</div></header>
+    <h1>About Puls</h1>
+    <p class="lede">The market for what happens next — a mobile-first prediction market
+      built on Arc, Circle's stablecoin-native L1 where USDC is the gas token.</p>
+
+    <div class="badges">
+      <span class="badge">⚡ Built on Arc</span>
+      <span class="badge">🔐 Circle MPC Wallets</span>
+      <span class="badge">💵 USDC-powered</span>
+      <span class="badge">🔮 UMA Oracle</span>
+      <span class="badge">📊 Polymarket data</span>
+      <span class="badge">🔒 Secured by Vercel</span>
+    </div>
+
+    <h2>What is Puls?</h2>
+    <p>Puls lets anyone trade on real-world predictions in seconds. You sign in with Google,
+      a gasless Circle MPC smart wallet is created for you instantly — no seed phrase, no ETH —
+      and you swipe to trade markets funded in USDC on Arc Testnet. Markets settle through
+      UMA's optimistic oracle.</p>
+
+    <h2>How it works</h2>
+    <ul>
+      <li><strong>Sign in with Google</strong> → a Circle MPC smart wallet is created
+        automatically. You control it; there is no seed phrase to lose.</li>
+      <li><strong>Swipe to trade</strong> live prediction markets — right for YES, left for
+        NO — funded in USDC, with sub-second finality on Arc.</li>
+      <li><strong>Markets resolve</strong> via UMA's optimistic oracle, and winnings are
+        claimable straight to your wallet.</li>
+      <li><strong>Forecasters are creators:</strong> they earn USDC per read on premium
+        analysis and a micro-fee when others copy their trades — real per-event nanopayments
+        via x402 on Arc.</li>
+    </ul>
+
+    <h2>Why Arc?</h2>
+    <p>Arc is the only chain where <strong>USDC is the native gas token</strong>. Users never
+      need ETH, fees are predictable, and trades confirm in under a second — unlocking a UX
+      that isn't possible elsewhere.</p>
+
+    <h2>On-chain transparency</h2>
+    <div class="card">
+      <p><strong>Network:</strong> Arc Testnet · Chain ID <span class="mono">5042002</span> ·
+        USDC as gas</p>
+      <p><strong>LMSR Market Factory:</strong><br>
+        <a class="mono" href="https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b" target="_blank" rel="noopener">0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b</a></p>
+      <p><strong>USDC (gas token):</strong>
+        <span class="mono">0x3600000000000000000000000000000000000000</span></p>
+      <p><strong>Explorer:</strong>
+        <a href="https://testnet.arcscan.app" target="_blank" rel="noopener">testnet.arcscan.app</a> ·
+        <strong>Source &amp; contracts:</strong>
+        <a href="https://github.com/rdmbtc/Puls" target="_blank" rel="noopener">github.com/rdmbtc/Puls</a></p>
+    </div>
+
+    <h2>Wallet &amp; security</h2>
+    <p>Your wallet is created through <strong>Circle MPC technology</strong>. No seed
+      phrases. You control your funds, and authentication runs through Google sign-in. All
+      tokens are testnet USDC with no real monetary value.</p>
+
+    <h2>Stack</h2>
+    <div class="grid">
+      <div class="card">
+        <p><strong>App</strong><br>Flutter (Android + Web)</p>
+      </div>
+      <div class="card">
+        <p><strong>Wallets</strong><br>Circle Developer-Controlled Wallets (MPC)</p>
+      </div>
+      <div class="card">
+        <p><strong>Chain</strong><br>Arc Testnet · USDC gas · sub-second finality</p>
+      </div>
+      <div class="card">
+        <p><strong>Oracle &amp; data</strong><br>UMA optimistic oracle · Polymarket Gamma API</p>
+      </div>
+      <div class="card">
+        <p><strong>Auth &amp; data</strong><br>Supabase + Google OAuth</p>
+      </div>
+      <div class="card">
+        <p><strong>Payments</strong><br>x402 / Circle nanopayments</p>
+      </div>
+    </div>
+
+    <h2>Who builds Puls</h2>
+    <p>Puls is built by <strong>RDM (Nursultan Nurdaulet)</strong>, an independent developer.
+      The project is being built in the open for the Lepton Agents Hackathon (Canteen ×
+      Circle × Arc).</p>
+    <div class="badges">
+      <a class="badge" href="https://github.com/rdmbtc" target="_blank" rel="noopener">GitHub @rdmbtc</a>
+      <a class="badge" href="https://x.com/rdmnad" target="_blank" rel="noopener">X @rdmnad</a>
+      <a class="badge" href="https://www.youtube.com/@rdmdev" target="_blank" rel="noopener">YouTube @rdmdev</a>
+      <a class="badge" href="https://www.linkedin.com/in/natlusrun" target="_blank" rel="noopener">LinkedIn</a>
+      <a class="badge" href="https://therdm.dev" target="_blank" rel="noopener">therdm.dev</a>
+    </div>
+
+    <hr class="divider">
+    <div class="nav">
+      <a href="/terms">Terms of Use</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/disclaimer">Risk Disclaimer</a>
+    </div>
+    <footer>
+      This is a testnet product. Use at your own risk. No real financial value is involved.
+      <br><a class="back" href="/">← Back to Puls</a>
+    </footer>
+  </div>
+</body>
+</html>
