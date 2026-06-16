@@ -417,6 +417,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
                         ),
+                        _Row(
+                          icon: Icons.menu_book_rounded,
+                          title: 'Documentation',
+                          subtitle: 'docs.pulsmarket.tech',
+                          t: t,
+                          onTap: () => launchUrl(
+                            Uri.parse('https://docs.pulsmarket.tech'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
+                        ),
                       ],
                     ),
                   ],
@@ -554,6 +565,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   t: t,
                   onTap: () => launchUrl(
                     Uri.parse('https://circle.com'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
+                ),
+                _Row(
+                  icon: Icons.menu_book_rounded,
+                  title: 'Documentation',
+                  subtitle: 'docs.pulsmarket.tech',
+                  t: t,
+                  onTap: () => launchUrl(
+                    Uri.parse('https://docs.pulsmarket.tech'),
                     mode: LaunchMode.externalApplication,
                   ),
                   trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),

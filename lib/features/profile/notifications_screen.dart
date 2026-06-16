@@ -82,7 +82,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final isDark = !context.isDark;
+    final isDark = context.isDark;
 
     return Scaffold(
       backgroundColor: t.bg,
