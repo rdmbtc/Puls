@@ -8,11 +8,16 @@ class OnboardingFlags {
   OnboardingFlags._();
 
   static const _welcomeKey = 'onb_welcome_seen_v1';
+  static const _firstTradeKey = 'onb_first_trade_seen_v1';
   static String _tabKey(PulsTab tab) => 'onb_tab_seen_v1_${tab.name}';
 
   /// Whether the one-time welcome sheet has been shown on this device.
   static bool get welcomeSeen => kvGet(_welcomeKey) == '1';
   static void markWelcomeSeen() => kvSet(_welcomeKey, '1');
+
+  /// Whether the user has seen the first-trade celebration.
+  static bool get firstTradeSeen => kvGet(_firstTradeKey) == '1';
+  static void markFirstTradeSeen() => kvSet(_firstTradeKey, '1');
 
   /// Whether the user has opened the help/tips for a given tab before. Drives
   /// the small "new" pulse dot on the help button.

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/confetti_burst.dart';
+import '../onboarding/onboarding_flags.dart';
 import 'wallet_service.dart';
 
 import '../../core/config.dart' show backendUrl;
@@ -110,6 +111,18 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
           Haptics.notification(HapticNotificationStyle.success);
           _timer?.cancel();
           widget.walletService?.notifyTrade();
+          if (!OnboardingFlags.firstTradeSeen) {
+            OnboardingFlags.markFirstTradeSeen();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('🎉 Your first trade is live on Arc!'),
+                  duration: const Duration(seconds: 4),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
           return;
         } else if (state == 'FAILED' || state == 'DENIED' || state == 'CANCELLED') {
           if (mounted) setState(() => _status = TxStatus.failed);
