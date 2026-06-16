@@ -431,21 +431,37 @@ class _X402PaymentsState extends State<X402Payments> {
 
   Widget _empty(PulsThemeColors t) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
       decoration: BoxDecoration(
         color: t.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: t.border),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(Icons.bolt_rounded, color: t.brand, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'No paid forecasts yet — the first x402 nanopayment receipt will appear here instantly.',
-              style: TextStyle(color: t.textMuted, fontSize: 14),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: t.brand.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
             ),
+            child: Icon(Icons.receipt_long_rounded, color: t.brand, size: 28),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No earnings yet',
+            style: TextStyle(
+              color: t.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Publish analysis or get your trades copied\nto start earning USDC via x402.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4),
           ),
         ],
       ),
