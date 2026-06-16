@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
