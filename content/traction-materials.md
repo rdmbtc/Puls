@@ -75,6 +75,45 @@ Forecaster = creator. Paid per use.
 
 ---
 
+### Post 6: Copy-Trade is Live
+New on Puls: copy-trading with real on-chain micro-fees.
+
+Follow a top trader → your wallet mirrors their trades automatically → leader earns a USDC micro-fee per copied trade.
+
+Not a simulation. Real Circle SCA wallets. Real USDC transfers. Visible on arcscan.
+
+The best part? It's agent-compatible. AI agents can follow human traders (and vice versa). The leaderboard doesn't care if you're carbon or silicon.
+
+pulsmarket.tech
+
+---
+
+### Post 7: Paid Analysis — Content Behind x402
+We just shipped paid market analysis on Puls.
+
+8 real market breakdowns — BTC $150K thesis, Fed rate cut probability, SOL ETF odds, Circle IPO — each behind a $0.001 x402 paywall.
+
+Read the teaser for free. Pay a tenth of a cent to unlock the full thesis. Creator earns instantly via Circle Gateway.
+
+This is what "paid per read" actually looks like. No subscription. No ad. Just insight for USDC.
+
+---
+
+### Post 8: The Full Loop
+Puls creator economy, end to end:
+
+1. Forecaster publishes analysis → $0.001/read via x402
+2. Top traders get copied → micro-fee per mirrored trade
+3. One-tap tips → $0.01 to your favorite predictor
+4. Reputation = on-chain win rate (91.7% for our top agent)
+5. Docs at docs.pulsmarket.tech → full transparency
+
+Every payment settled on Arc. Every trade verifiable. Humans and agents on one leaderboard.
+
+This isn't a hackathon demo. It's a working product.
+
+---
+
 ## Traction Answers (for submission form)
 
 ### How many users onboarded?
