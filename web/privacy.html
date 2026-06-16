@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Puls</title>
+  <meta name="description" content="Privacy Policy for Puls — how a prediction market prototype on Arc Testnet collects, uses, and protects your data. Testnet product, 18+.">
+  <link rel="canonical" href="https://pulsmarket.tech/privacy">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <style>
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --text: #1A1A2E; --muted: #5A5A72;
+      --border: #E8E8EE; --brand: #4F46E5; --brand-soft: #EEF0FF;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E0B1E; --surface: #16132A; --text: #F5F5FF; --muted: #B0B0CC;
+        --border: #251F45; --brand: #8B85FF; --brand-soft: #1E1B3A;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.65; -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 48px 22px 80px; }
+    header { margin-bottom: 8px; }
+    .wordmark {
+      font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--brand);
+    }
+    h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.6px; margin: 18px 0 4px; }
+    .updated { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .notice {
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 16px; font-size: 14px; color: var(--text); margin-bottom: 30px;
+    }
+    h2 {
+      font-size: 17px; font-weight: 700; margin: 30px 0 8px; letter-spacing: -0.2px;
+    }
+    p, li { color: var(--text); font-size: 15px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    strong { font-weight: 700; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .divider { height: 1px; background: var(--border); border: 0; margin: 36px 0; }
+    .nav { font-size: 14px; margin-bottom: 6px; }
+    .nav a { margin-right: 14px; font-weight: 600; }
+    footer { color: var(--muted); font-size: 13px; text-align: center; }
+    .back {
+      display: inline-block; margin-top: 26px; font-size: 14px; font-weight: 600;
+      color: var(--brand);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="wordmark">Puls</div></header>
+    <h1>Privacy Policy</h1>
+    <div class="updated">Last updated: June 17, 2026</div>
+
+    <div class="notice">
+      <strong>Puls is a testnet product.</strong> It is an experimental hackathon
+      prototype. We collect the minimum data needed to run the service and never sell
+      your personal information.
+    </div>
+
+    <h2>1. Who We Are</h2>
+    <p>Puls ("the Platform", "we", "us", "our") is a prediction-market prototype operated
+      by RDM and built on Arc Testnet (chain ID 5042002). This Privacy Policy explains what
+      data we collect, how we use it, and the choices you have.</p>
+
+    <h2>2. Information We Collect</h2>
+    <ul>
+      <li><strong>Account data:</strong> when you sign in with Google, we receive your
+        email address and a basic profile identifier to create your account.</li>
+      <li><strong>Wallet data:</strong> a blockchain wallet address is generated for you
+        via Circle's MPC technology. On-chain activity tied to that address is public by
+        nature of the blockchain.</li>
+      <li><strong>Usage data:</strong> trades, positions, comments, support tickets,
+        referrals, and similar in-app activity needed to operate Platform features.</li>
+      <li><strong>Technical data:</strong> device type, browser, and basic logs used for
+        security, debugging, and abuse prevention.</li>
+    </ul>
+
+    <h2>3. How We Use Your Information</h2>
+    <ul>
+      <li>To create and secure your account and wallet.</li>
+      <li>To provide core features — trading, copy-trading, analysis, comments, support,
+        referrals, and notifications.</li>
+      <li>To prevent fraud, multi-accounting, and abuse of the Platform.</li>
+      <li>To improve the product and fix bugs.</li>
+    </ul>
+
+    <h2>4. Wallets &amp; Key Custody</h2>
+    <p>Your wallet is created using <strong>Circle MPC (Multi-Party Computation)</strong>
+      technology. There is no seed phrase for you to manage. We do not have unilateral
+      access to move your funds outside of the actions you initiate in the app. All tokens
+      are <strong>testnet USDC with no real monetary value</strong>.</p>
+
+    <h2>5. Third-Party Services</h2>
+    <p>We rely on trusted providers to operate Puls, including:</p>
+    <ul>
+      <li><strong>Google</strong> — sign-in / authentication</li>
+      <li><strong>Circle</strong> — MPC wallets and USDC infrastructure</li>
+      <li><strong>Supabase</strong> — authentication and database</li>
+      <li><strong>Polymarket Gamma API</strong> — market data</li>
+      <li><strong>UMA</strong> — optimistic oracle market resolution</li>
+      <li><strong>Vercel</strong> — web hosting</li>
+    </ul>
+    <p>Each provider processes data under its own privacy policy.</p>
+
+    <h2>6. Data Sharing</h2>
+    <p>We do <strong>not</strong> sell your personal information. We share data only with
+      the service providers above as needed to run the Platform, or where required by law.
+      On-chain transactions are inherently public.</p>
+
+    <h2>7. Data Retention</h2>
+    <p>We keep account and usage data for as long as your account is active or as needed to
+      provide the service. Because this is a testnet prototype, data may be reset or removed
+      as the product evolves.</p>
+
+    <h2>8. Your Choices</h2>
+    <ul>
+      <li>You can request deletion of your account data via the in-app support channel.</li>
+      <li>You can stop using the Platform at any time.</li>
+      <li>On-chain records cannot be deleted, as they live on a public blockchain.</li>
+    </ul>
+
+    <h2>9. Security</h2>
+    <p>We take reasonable measures to protect your data, but no system is perfectly secure.
+      As this is an experimental testnet product, do not store sensitive personal
+      information on the Platform.</p>
+
+    <h2>10. Children</h2>
+    <p>Puls is not intended for anyone under 18. We do not knowingly collect data from
+      minors.</p>
+
+    <h2>11. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Continued use of the Platform
+      after changes constitutes acceptance of the updated policy.</p>
+
+    <h2>12. Contact</h2>
+    <p>For privacy questions, contact us through the in-app support channel or the email
+      provided on our website.</p>
+
+    <hr class="divider">
+    <div class="nav">
+      <a href="/terms">Terms of Use</a>
+      <a href="/disclaimer">Risk Disclaimer</a>
+      <a href="/about">About</a>
+    </div>
+    <footer>
+      This is a testnet product. Use at your own risk. No real financial value is involved.
+      <br><a class="back" href="/">← Back to Puls</a>
+    </footer>
+  </div>
+</body>
+</html>
