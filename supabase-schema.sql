@@ -102,3 +102,37 @@ create index if not exists alpha_unlocks_user_idx on alpha_unlocks(user_id);
 -- Idempotent upgrade for deployments created before the exactly-once columns.
 alter table alpha_unlocks add column if not exists status text not null default 'confirmed';
 alter table alpha_unlocks add column if not exists confirmed_at timestamptz;
+
+-- ── Comments (community layer, F1) ───────────────────────────────────────────
+-- Signed-in users comment on anything (markets, profiles, events, alpha), reply
+-- to each other (flattened to one nesting level via parent_id) and like
+-- comments. Text is tiny so Supabase free tier is plenty. Soft-delete keeps
+-- thread shape (a deleted node with replies renders as "[deleted]").
+create table if not exists comments (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null,
+  target_type text not null,   -- 'market' | 'profile' | 'event' | 'alpha'
+  target_id text not null,
+  body text not null,
+  parent_id uuid references comments(id) on delete cascade,
+  deleted boolean not null default false,
+  created_at timestamptz default now()
+);
+
+create index if not exists comments_target_idx on comments(target_type, target_id, created_at desc);
+create index if not exists comments_parent_idx on comments(parent_id);
+create index if not exists comments_user_idx on comments(user_id);
+
+-- One like per (comment, user). Toggling re-inserts/deletes a row.
+create table if not exists comment_likes (
+  id uuid default gen_random_uuid() primary key,
+  comment_id uuid not null references comments(id) on delete cascade,
+  user_id text not null,
+  created_at timestamptz default now(),
+  unique (comment_id, user_id)
+);
+
+create index if not exists comment_likes_comment_idx on comment_likes(comment_id);
+
+-- Idempotent upgrade for deployments created before the soft-delete column.
+alter table comments add column if not exists deleted boolean not null default false;
