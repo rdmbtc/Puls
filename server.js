@@ -11,6 +11,7 @@ import { arcTestnet } from 'viem/chains';
 import { x402Paywall, x402Info } from './lib/x402.js';
 import { registerCopyTrade } from './lib/copytrade.js';
 import { registerAlpha } from './lib/alpha.js';
+import { registerTips } from './lib/tips.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -2426,6 +2427,21 @@ const copyTrade = registerCopyTrade(app, {
 // USDC micro-payment to the creator. Real on-chain transfer (gasless SCA), receipt
 // in the Earnings tab (endpoint='alpha_unlock'). Live payments gated by ALPHA_PAID_ENABLED.
 registerAlpha(app, {
+  supabase,
+  circle,
+  USDC,
+  getWalletId,
+  getWalletInfo,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+});
+
+// ── One-tap tips (T1 creator layer) ──────────────────────────────────────────
+// A reader tips a forecaster a small fixed USDC amount with one tap — a real
+// on-chain transfer (gasless SCA) to the creator, receipt in the Earnings tab
+// (endpoint='tip'). Live payments gated by TIPS_ENABLED.
+registerTips(app, {
   supabase,
   circle,
   USDC,
