@@ -1,69 +1,59 @@
 # QA Report — Puls (pulsmarket.tech)
 
-_QA performed: 2026-06-16 by Mimo (second pass)_
+_QA performed: 2026-06-17 by Mimo (third pass)_
 
 ## Backend Health
 
 | Endpoint | Status | Notes |
 |---|---|---|
-| `/health/deep` | ✅ OK | RPC 405ms, Supabase 365ms, Circle 446ms, Treasury 1060.79 USDC |
+| `/health/deep` | ✅ OK | RPC 495ms, Supabase 367ms, Circle 478ms, Treasury 980.75 USDC |
 | `/api/x402/info` | ✅ OK | Configured=true, seller 0xa93F…894e, Gateway wallet 0x0077…19B9 |
-| `/api/alpha/sample` | ✅ 402 | Paywall correctly returns HTTP 402 with payment requirements |
-| `/api/x402/payments` | ✅ OK | 2 settled payments ($0.001 each), receiptIds present |
-| `/api/copy/status` | ✅ 401 | Auth required — registered and working |
-| `/api/markets` | ✅ OK | Returns live Polymarket data |
-| `/api/leaderboard` | ✅ OK | Real data with win rates (Pulse 🤖 91.7%, humans 90-100%) |
-| `/terms` | ❌ 404 | Not deployed yet — Viktor needs to integrate content/terms-of-use.md |
+| `/api/alpha/sample` | ✅ 402 | Paywall correctly returns HTTP 402 |
+| `/api/x402/payments` | ✅ OK | 2 settled payments ($0.001 each) |
+| `/api/copy/status` | ✅ 401 | Auth required — registered |
+| `/api/markets` | ✅ OK | Live Polymarket data |
+| `/api/leaderboard` | ✅ OK | Pulse 🤖 92.3% win rate (62 trades), humans 90-100% |
+| `/api/comments/config` | ✅ OK | `live:true, maxLen:1000, targetTypes:[market,profile,event,alpha]` |
+| `/terms` | ❌ 404 | Not deployed yet |
 
-## Docs Site (docs.pulsmarket.tech)
+## New Features (since last QA)
 
-| Check | Status | Notes |
+| Feature | Status | Notes |
 |---|---|---|
-| Landing page | ✅ OK | "What is Puls" renders correctly |
-| CardGroup links | ✅ OK | Quickstart, How it works, Creator economy, Agents |
-| Content quality | ✅ OK | Clear value prop, well-structured |
-| Testnet disclaimer | ✅ OK | Present at bottom |
-
-## UI Checks (after PRs #25, #26, #29)
-
-| Check | Status | Notes |
-|---|---|---|
-| Win Rate display | ✅ FIXED | Shows "—" for 0% (PR #25 merged) |
-| Display names | ✅ FIXED | Truncated wallet addresses instead of "Puls Trader" (PR #26 merged) |
-| Notifications theme | ✅ FIXED | Theme inversion removed (PR #29 merged) |
-| Documentation link | ✅ ADDED | Profile → docs.pulsmarket.tech (PR #29 merged) |
-| Leaderboard data | ✅ OK | Pulse 🤖 91.7%, real humans showing 90-100% win rate |
+| Promo carousel (Home) | ✅ LIVE | 4 HD banners, auto-scroll, dot indicators, deep-links |
+| Humans vs Agents card (Home) | ✅ LIVE | Viktor PR #34 merged |
+| Alpha teaser (Feed) | ✅ LIVE | Viktor PR #35 merged |
+| Docs link (landing) | ✅ LIVE | Viktor PR #36 merged |
+| First-trade celebration | ✅ LIVE | PR #32 — snackbar on first trade |
+| Discover trending empty-state | ✅ LIVE | PR #33 — 3 trending markets |
+| Tawk.to | ❌ REMOVED | Blocked in RDM region, removed PR #41 |
+| Comments UI | 🟡 READY | Widget built (PR #42), needs integration into market/profile screens |
 
 ## Bugs — Previous Status
 
 | Bug | Status | Notes |
 |---|---|---|
-| BUG-1: Leaderboard 0% win rate | ✅ FIXED | PR #25 — now shows "—" for new users |
-| BUG-2: Duplicate display names | ✅ FIXED | PR #26 — truncated wallet addresses |
-| BUG-3: Resolved markets accepting orders | 🔴 OPEN | Viktor needs to fix market archival logic |
-| BUG-4: Landing page SEO | 🟡 LOW | Flutter web limitation, not blocking |
+| BUG-1: Leaderboard 0% win rate | ✅ FIXED | PR #25 |
+| BUG-2: Duplicate display names | ✅ FIXED | PR #26 |
+| BUG-3: Resolved markets accepting orders | 🔴 OPEN | Viktor needs to fix |
+| BUG-4: Landing page SEO | 🟡 LOW | Flutter web limitation |
+| BUG-5: /terms returns 404 | 🔴 OPEN | Content ready, Viktor deploy |
 
-## New Findings
+## Carousel QA
 
-### BUG-5: /terms returns 404
-- **Severity:** Medium
-- **Steps:** `GET https://84-22-148-57.sslip.io/terms`
-- **Expected:** Terms of Use page
-- **Actual:** 404 Not Found
-- **Note:** Content ready in `content/terms-of-use.md` — Viktor needs to deploy
-- **⤴️ FOR VIKTOR:** Integrate terms content into a route
-
-### BUG-6: Alpha/tips/copy-trade behind feature flags
-- **Severity:** Info (expected)
-- **Note:** `COPY_TRADE_ENABLED` and `ALPHA_PAID_ENABLED` are OFF on prod. Features work but not visible to users.
-- **Status:** Expected for pre-demo state. RDM will enable for demo recording.
+| Check | Status | Notes |
+|---|---|---|
+| Auto-scroll (5s) | ✅ OK | Works, resets on manual swipe |
+| Dot indicators | ✅ OK | Animated width on active dot |
+| Text readability | ✅ IMPROVED | Scrim gradient now bottom-up |
+| Deep-links | ✅ OK | Leaderboard, Discover, Alpha tab, X profile |
+| Images load | ✅ OK | All 4 promo PNGs in assets/promo/ |
+| Mobile height | ✅ OK | 170px, reasonable on small screens |
 
 ## Summary
 
-- **Backend:** Fully functional, all endpoints responding
-- **x402 flow:** Working end-to-end (402 → payment → settle)
+- **Backend:** Fully functional, all endpoints healthy
+- **New since last QA:** Carousel, Humans-vs-Agents, Alpha teaser, Docs link, Comments widget
 - **Critical bugs:** 0
-- **Medium bugs:** 2 (resolved markets accepting orders, /terms 404)
-- **Low bugs:** 1 (landing SEO — Flutter limitation)
-- **Fixed since last QA:** 3 (win rate display, display names, notifications theme)
-- **Overall:** Product is demo-ready. Main remaining items are Viktor's domain (terms page, market archival).
+- **Open bugs:** 2 (resolved markets, /terms — both Viktor's domain)
+- **Overall:** Product is demo-ready. Comments widget built, needs integration. Carousel polished.
