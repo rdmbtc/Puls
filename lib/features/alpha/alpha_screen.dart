@@ -13,6 +13,9 @@ import '../profile/profile_screen.dart' show GlassCard;
 ///
 /// Live payments are gated server-side by ALPHA_PAID_ENABLED; when off, the UI
 /// honestly shows "activates at launch" instead of charging.
+/// Fixed one-tap tip amount (USDC). Server validates against TIP_PRESETS.
+const double _kTipAmount = 0.05;
+
 class AlphaScreen extends StatefulWidget {
   const AlphaScreen({super.key});
 
@@ -112,6 +115,30 @@ class _AlphaScreenState extends State<AlphaScreen> {
       } else {
         // Gated (live:false) — honest "coming at launch".
         _snack(res['message']?.toString() ?? 'Paid analysis activates at launch.');
+      }
+    } catch (e) {
+      _snack(e.toString().replaceAll('Exception:', '').trim());
+    } finally {
+      if (mounted) setState(() => _busy.remove(id));
+    }
+  }
+
+  // One-tap tip to the forecaster — a small real USDC nanopayment.
+  Future<void> _tip(Map<String, dynamic> sig) async {
+    final id = sig['id'] as String;
+    final wallet = WalletServiceScope.of(context);
+    if (wallet.state.userId == null) {
+      _snack('Sign in to tip forecasters.');
+      return;
+    }
+    setState(() => _busy.add(id));
+    try {
+      final res = await wallet.tipCreator(amountUsdc: _kTipAmount, context: 'alpha:$id');
+      if (!mounted) return;
+      if (res['ok'] == true) {
+        _snack('Tipped \$${_kTipAmount.toStringAsFixed(2)} to the forecaster 🙌');
+      } else {
+        _snack(res['message']?.toString() ?? 'Tips activate at launch.');
       }
     } catch (e) {
       _snack(e.toString().replaceAll('Exception:', '').trim());
@@ -235,6 +262,8 @@ class _AlphaScreenState extends State<AlphaScreen> {
                   busy: _busy.contains(s['id']),
                   onUnlock: () => _unlock(s),
                   onView: () => _viewUnlocked(s['id'] as String),
+                  onTip: () => _tip(s),
+                  tipAmount: _kTipAmount,
                   t: t,
                 ),
               )),
@@ -251,6 +280,8 @@ class _AlphaCard extends StatelessWidget {
     required this.busy,
     required this.onUnlock,
     required this.onView,
+    required this.onTip,
+    required this.tipAmount,
     required this.t,
   });
 
@@ -259,6 +290,8 @@ class _AlphaCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onUnlock;
   final VoidCallback onView;
+  final VoidCallback onTip;
+  final double tipAmount;
   final PulsThemeColors t;
 
   @override
@@ -302,10 +335,13 @@ class _AlphaCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            unlocked && thesis != null ? thesis! : (signal['teaser']?.toString() ?? ''),
-            style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.5),
-          ),
+          if (unlocked && thesis != null)
+            _MarkdownLite(text: thesis!, t: t)
+          else
+            Text(
+              signal['teaser']?.toString() ?? '',
+              style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.5),
+            ),
           const SizedBox(height: 6),
           Text('by @${signal['creatorHandle'] ?? 'puls'}',
               style: TextStyle(color: t.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -316,6 +352,19 @@ class _AlphaCard extends StatelessWidget {
                 Icon(Icons.lock_open_rounded, size: 16, color: t.yes),
                 const SizedBox(width: 6),
                 Text('Unlocked', style: TextStyle(color: t.yes, fontSize: 12, fontWeight: FontWeight.w800)),
+                const Spacer(),
+                // One-tap tip: thank the forecaster with a small USDC nanopayment.
+                TextButton.icon(
+                  onPressed: busy ? null : onTip,
+                  icon: Icon(Icons.volunteer_activism_rounded, size: 16, color: t.brand),
+                  label: Text('Tip \$${tipAmount.toStringAsFixed(2)}',
+                      style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w800)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
               ],
             )
           else
@@ -351,5 +400,97 @@ class _AlphaCard extends StatelessWidget {
         Text(text, style: TextStyle(color: t.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
       ],
     );
+  }
+}
+
+/// Minimal markdown renderer for unlocked alpha theses — no extra dependency.
+/// Handles headings (#/##/###), full-line bold labels (**...**), bullet lists
+/// (- ...) and inline **bold** spans. Anything else renders as a paragraph.
+class _MarkdownLite extends StatelessWidget {
+  const _MarkdownLite({required this.text, required this.t});
+
+  final String text;
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.replaceAll('\r\n', '\n').split('\n');
+    final widgets = <Widget>[];
+    for (final raw in lines) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+      final heading = RegExp(r'^(#{1,3})\s+(.*)$').firstMatch(trimmed);
+      if (heading != null) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 4),
+          child: Text(heading.group(2)!.replaceAll('**', ''),
+              style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w900)),
+        ));
+        continue;
+      }
+      final fullBold = RegExp(r'^\*\*(.+?)\*\*:?$').firstMatch(trimmed);
+      if (fullBold != null) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 2),
+          child: Text(fullBold.group(1)!.replaceAll('**', ''),
+              style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w800)),
+        ));
+        continue;
+      }
+      final bullet = RegExp(r'^[-*]\s+(.*)$').firstMatch(trimmed);
+      if (bullet != null) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 8),
+                child: Icon(Icons.circle, size: 5, color: t.brand),
+              ),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.45),
+                    children: _inlineSpans(bullet.group(1)!),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ));
+        continue;
+      }
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.5),
+            children: _inlineSpans(trimmed),
+          ),
+        ),
+      ));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
+  List<TextSpan> _inlineSpans(String line) {
+    final spans = <TextSpan>[];
+    final re = RegExp(r'\*\*(.+?)\*\*');
+    var index = 0;
+    for (final m in re.allMatches(line)) {
+      if (m.start > index) spans.add(TextSpan(text: line.substring(index, m.start)));
+      spans.add(TextSpan(
+        text: m.group(1),
+        style: TextStyle(color: t.text, fontWeight: FontWeight.w800),
+      ));
+      index = m.end;
+    }
+    if (index < line.length) spans.add(TextSpan(text: line.substring(index)));
+    if (spans.isEmpty) spans.add(TextSpan(text: line));
+    return spans;
   }
 }
