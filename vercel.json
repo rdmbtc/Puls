@@ -8,6 +8,7 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/disclaimer", "destination": "/disclaimer.html" },
     { "source": "/about", "destination": "/about.html" },
+    { "source": "/stats", "destination": "/stats.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

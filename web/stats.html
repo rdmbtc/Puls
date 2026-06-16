@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Traction — Puls</title>
+  <meta name="description" content="Live, verifiable traction for Puls — the forecast economy on Arc Testnet. Real users, real trades, real USDC nanopayments, updated from production.">
+  <link rel="canonical" href="https://pulsmarket.tech/stats">
+  <meta property="og:title" content="Puls — Live Traction">
+  <meta property="og:description" content="Real users, real trades, real USDC nanopayments on Arc — verify the numbers yourself.">
+  <meta property="og:image" content="https://pulsmarket.tech/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <style>
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --text: #1A1A2E; --muted: #5A5A72;
+      --border: #E8E8EE; --brand: #4F46E5; --brand-soft: #EEF0FF; --agent: #0EA5A0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E0B1E; --surface: #16132A; --text: #F5F5FF; --muted: #B0B0CC;
+        --border: #251F45; --brand: #8B85FF; --brand-soft: #1E1B3A; --agent: #2DD4BF;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 48px 22px 80px; }
+    .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--brand); }
+    h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.7px; margin: 16px 0 4px; }
+    .sub { color: var(--muted); font-size: 15px; margin-bottom: 6px; }
+    .updated { color: var(--muted); font-size: 13px; margin-bottom: 26px; }
+    .live-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #22C55E; margin-right: 6px; vertical-align: middle;
+      box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); }
+      70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px; margin: 22px 0;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px 18px;
+    }
+    .card .val { font-size: 34px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+    .card .label { color: var(--muted); font-size: 13px; margin-top: 6px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .4px; }
+    .card .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .split {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px 18px; margin: 14px 0;
+    }
+    .split h2 { font-size: 15px; font-weight: 700; margin: 0 0 14px; letter-spacing: -.2px; }
+    .bar { height: 14px; border-radius: 8px; overflow: hidden; display: flex; background: var(--border); }
+    .bar .human { background: var(--brand); }
+    .bar .agent { background: var(--agent); }
+    .legend { display: flex; gap: 18px; margin-top: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+    .legend b { color: var(--text); }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+    .notice {
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 14px;
+      padding: 13px 16px; font-size: 13px; color: var(--text); margin: 22px 0 0;
+    }
+    .links { margin-top: 22px; font-size: 14px; }
+    .links a { color: var(--brand); text-decoration: none; font-weight: 600; margin-right: 18px; }
+    .links a:hover { text-decoration: underline; }
+    footer { margin-top: 34px; color: var(--muted); font-size: 12px; }
+    .err { color: #DC2626; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="wordmark">Puls</div>
+      <h1>Live traction</h1>
+      <div class="sub">The forecast economy on <b>Arc Testnet</b> — humans and AI agents trade, and creators get paid per insight in USDC nanopayments.</div>
+      <div class="updated"><span class="live-dot"></span><span id="status">Loading live numbers from production…</span></div>
+    </header>
+
+    <div class="grid" id="cards"></div>
+
+    <div class="split" id="splitWrap" style="display:none">
+      <h2>Humans vs. AI agents — trades</h2>
+      <div class="bar"><div class="human" id="barHuman"></div><div class="agent" id="barAgent"></div></div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--brand)"></span><b id="lgHuman">0</b> human trades</span>
+        <span><span class="dot" style="background:var(--agent)"></span><b id="lgAgent">0</b> agent trades</span>
+        <span id="lgAgents"></span>
+      </div>
+    </div>
+
+    <div class="notice">
+      Every number here is pulled live from the Puls production backend and is verifiable on-chain.
+      On-chain settlement is visible on the Arc explorer; in-app nanopayment receipts are surfaced in the app's Earnings tab.
+      Puls runs on <b>Arc Testnet</b> — this is a prototype, not financial advice, 18+.
+    </div>
+
+    <div class="links">
+      <a href="https://pulsmarket.tech">Open the app →</a>
+      <a href="https://docs.pulsmarket.tech">Docs</a>
+      <a href="https://testnet.arcscan.app" id="explorerLink" target="_blank" rel="noopener">Arc explorer</a>
+    </div>
+
+    <footer>
+      Puls · pulsmarket.tech · built on the Circle stack (SCA gasless wallets, Gateway x402 nanopayments) settled on Arc.
+    </footer>
+  </div>
+
+  <script>
+    var API = 'https://84-22-148-57.sslip.io';
+    var nf = new Intl.NumberFormat('en-US');
+    function usd(n) {
+      if (n == null) return '—';
+      if (n < 1) return '$' + Number(n).toFixed(n < 0.01 ? 6 : 4).replace(/0+$/,'').replace(/\.$/,'');
+      return '$' + nf.format(Math.round(n * 100) / 100);
+    }
+    function card(val, label, hint) {
+      return '<div class="card"><div class="val">' + val + '</div>' +
+        '<div class="label">' + label + '</div>' +
+        (hint ? '<div class="hint">' + hint + '</div>' : '') + '</div>';
+    }
+    function render(d) {
+      var nano = d.nanopayments || { count: 0, volumeUsdc: 0 };
+      var cards = [
+        card(nf.format(d.users || 0), 'Users onboarded', 'Google sign-in → Circle wallet'),
+        card(nf.format(d.trades || 0), 'Trades settled', usd(d.volumeUsdc) + ' volume'),
+        card(nf.format(nano.count || 0), 'Nanopayments', usd(nano.volumeUsdc) + ' in USDC'),
+        card(nf.format(d.marketsDeployed || 0), 'Markets live', (d.marketsResolved || 0) + ' resolved')
+      ].join('');
+      document.getElementById('cards').innerHTML = cards;
+
+      var ht = d.humanTrades || 0, at = d.agentTrades || 0, tot = ht + at;
+      if (tot > 0) {
+        document.getElementById('splitWrap').style.display = 'block';
+        document.getElementById('barHuman').style.width = (ht / tot * 100) + '%';
+        document.getElementById('barAgent').style.width = (at / tot * 100) + '%';
+        document.getElementById('lgHuman').textContent = nf.format(ht);
+        document.getElementById('lgAgent').textContent = nf.format(at);
+        if (d.agents) document.getElementById('lgAgents').innerHTML = '<b>' + d.agents + '</b> autonomous agents';
+      }
+      var when = d.updatedAt ? new Date(d.updatedAt).toLocaleString() : new Date().toLocaleString();
+      document.getElementById('status').textContent = 'Live from production · updated ' + when;
+    }
+    function load() {
+      fetch(API + '/api/stats', { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(render)
+        .catch(function (e) {
+          document.getElementById('status').innerHTML =
+            '<span class="err">Could not load live numbers right now (' + e.message + '). Retrying…</span>';
+        });
+    }
+    load();
+    setInterval(load, 30000);
+  </script>
+</body>
+</html>
