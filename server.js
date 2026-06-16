@@ -1289,6 +1289,11 @@ app.get('/api/markets', async (req, res) => {
         currentPrices = JSON.parse(rawPrices).map(p => parseFloat(p) || 0.5);
       } catch {}
 
+      // A real-world event can finish before Polymarket flips `closed` (e.g. a
+      // sports match that just ended). Don't let users trade those: if the event
+      // has ended (or our on-chain market is resolved) force acceptingOrders off.
+      const eventEnded = j.ended === true || j.finishedTimestamp != null || resolved === true;
+
       return {
         ...j,
         contractAddress,
@@ -1298,7 +1303,9 @@ app.get('/api/markets', async (req, res) => {
         poolNo,
         resolved,
         outcome,
-        totalVolume
+        totalVolume,
+        ended: eventEnded,
+        acceptingOrders: eventEnded ? false : (j.acceptingOrders !== false),
       };
     }));
 
@@ -1521,6 +1528,14 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, 
   try {
     const { userId, side, usdcAmount, question, slug, deadline } = req.body;
     if (!userId || !side || !usdcAmount || !slug || !deadline) return res.status(400).json({ error: 'Missing fields' });
+
+    // Reject trades on markets whose deadline has already passed (the event is
+    // over). Cheap guard with no extra network call; the feed also marks ended
+    // markets acceptingOrders:false, and the on-chain contract enforces it too.
+    const deadlineSec = Number(deadline);
+    if (Number.isFinite(deadlineSec) && deadlineSec > 0 && deadlineSec * 1000 < Date.now()) {
+      return res.status(400).json({ error: 'This market has closed — pick another one.' });
+    }
 
     const walletId = await getWalletId(userId);
     if (!walletId) return res.status(400).json({ error: 'No wallet' });
@@ -3457,6 +3472,15 @@ app.get('/api/leaderboard', async (req, res) => {
         defaultName = `${ownerName}'s Agent`;
         erc8004Id = agentTokenIds.get(row.user_id) ?? null;
       }
+      // Resolve a display name, disambiguating the generic "Puls Trader" default
+      // so the board isn't a wall of identical names (BUG-2). Custom names,
+      // agents and wallet-address (eth_) names are left untouched.
+      const customName = (profile?.display_name || '').trim();
+      let displayName = customName || defaultName;
+      if (!isAgent && defaultName === 'Puls Trader' && (!customName || customName === 'Puls Trader')) {
+        const suffix = (row.user_id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+        if (suffix) displayName = `Puls Trader ${suffix}`;
+      }
       return {
         userId: row.user_id,
         isAgent,
@@ -3465,7 +3489,7 @@ app.get('/api/leaderboard', async (req, res) => {
         pnl: parseFloat(row.pnl || 0),
         tradesCount: row.trades_count || 0,
         winRate: parseFloat(row.win_rate || 0),
-        displayName: profile?.display_name || defaultName,
+        displayName,
         avatarUrl: profile?.avatar_url || defaultAvatar,
         bio: profile?.bio || (isAgent ? 'Autonomous AI trading agent with on-chain ERC-8004 identity.' : '')
       };
