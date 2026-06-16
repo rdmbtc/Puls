@@ -18,6 +18,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
+import '../agent/agent_screen.dart' show agentSubTabRequest;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -939,14 +940,27 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
           flex: 6,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: filteredMarkets.isEmpty
-                ? Center(
-                    child: Text(
-                      'No predictions in this category.',
-                      style: TextStyle(color: t.textMuted),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 600),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(0, 4, 0, 10),
+                      child: _AlphaFeedTeaser(),
                     ),
-                  )
-                : ListView.builder(
+                  ),
+                ),
+                Expanded(
+                  child: filteredMarkets.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No predictions in this category.',
+                            style: TextStyle(color: t.textMuted),
+                          ),
+                        )
+                      : ListView.builder(
                     itemCount: 1000, // Large number to act as infinite
                     itemBuilder: (context, index) {
                       final market = filteredMarkets[index % filteredMarkets.length];
@@ -978,6 +992,9 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                       );
                     },
                   ),
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -1143,6 +1160,140 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
               ),
               const SizedBox(height: 8),
               Divider(color: t.border, height: 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A slim banner at the top of the Feed that surfaces the latest paid "alpha"
+/// forecast. Tapping it deep-links into the Agent → Alpha sub-tab so users meet
+/// the creator-economy paywall earlier in the flow. Renders nothing until a
+/// signal is available, so it never blocks the feed.
+class _AlphaFeedTeaser extends StatefulWidget {
+  const _AlphaFeedTeaser();
+
+  @override
+  State<_AlphaFeedTeaser> createState() => _AlphaFeedTeaserState();
+}
+
+class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
+  Map<String, dynamic>? _signal;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await WalletServiceScope.of(context).getAlphaList();
+      final signals = ((data['signals'] as List?) ?? []).cast<Map<String, dynamic>>();
+      // Prefer a signal the user hasn't unlocked yet, else just the first.
+      final pick = signals.firstWhere(
+        (s) => s['unlocked'] != true,
+        orElse: () => signals.isNotEmpty ? signals.first : <String, dynamic>{},
+      );
+      if (mounted) {
+        setState(() {
+          _signal = pick.isEmpty ? null : pick;
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  void _openAlpha() {
+    // 2 = Alpha sub-tab inside the Agent screen.
+    agentSubTabRequest.value = 2;
+    final nav = ShellNavScope.maybeOf(context);
+    nav?.goToTab(PulsTab.agent);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final sig = _signal;
+    if (!_loaded || sig == null) return const SizedBox.shrink();
+
+    final title = sig['title']?.toString() ?? 'Premium forecast';
+    final price = (sig['priceUsdc'] as num?)?.toDouble() ?? 0;
+    final priceStr = price <= 0
+        ? 'unlock'
+        : '\$${price.toStringAsFixed(price < 0.01 ? 4 : 2)}';
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _openAlpha,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.brand.withValues(alpha: 0.35)),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                t.brand.withValues(alpha: 0.14),
+                t.surfaceRaised,
+              ],
+            ),
+          ),
+          child: Row(
+            children: [
+              Text('🔥', style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'TOP ALPHA DROP',
+                      style: TextStyle(
+                        color: t.brand,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: t.text,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: t.brand,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$priceStr to read',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
