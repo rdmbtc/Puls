@@ -294,7 +294,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final emptySliver = SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: _EmptyState(t: t, onClear: hasFilters ? _clearFilters : null),
+        child: _EmptyState(
+          t: t,
+          onClear: hasFilters ? _clearFilters : null,
+          trending: hasFilters
+              ? (appState.markets.toList()
+                  ..sort((a, b) => b.volume24hr.compareTo(a.volume24hr)))
+                  .take(3)
+                  .toList()
+              : const [],
+        ),
       ),
     );
 
@@ -736,10 +745,11 @@ class _BuyBtn extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.t, this.onClear});
+  const _EmptyState({required this.t, this.onClear, this.trending = const []});
 
   final VoidCallback? onClear;
   final PulsThemeColors t;
+  final List<Market> trending;
 
   @override
   Widget build(BuildContext context) {
@@ -777,6 +787,45 @@ class _EmptyState extends StatelessWidget {
               label: const Text('Clear search & filters',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             ),
+          ],
+          if (trending.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text('Trending now',
+                style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            const SizedBox(height: 12),
+            ...trending.take(3).map((m) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => MarketDetailScreen(marketId: m.id)),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: t.surfaceRaised,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: t.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          m.question,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${(m.yesPrice * 100).toStringAsFixed(0)}¢',
+                        style: TextStyle(color: t.yes, fontSize: 13, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )),
           ],
         ],
       ),
