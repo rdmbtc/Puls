@@ -138,6 +138,8 @@ class _Navbar extends StatelessWidget {
           ),
           const Spacer(),
           if (!isMobile) ...[
+            _NavLink('Docs', 'https://docs.pulsmarket.tech'),
+            const SizedBox(width: 8),
             _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
             const SizedBox(width: 8),
             _NavLink('Android', kAndroidApkUrl),
@@ -1370,6 +1372,8 @@ class _FooterSection extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            _FooterLink('Docs', 'https://docs.pulsmarket.tech'),
+                            const SizedBox(width: 20),
                             _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
                             const SizedBox(width: 20),
                             _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
@@ -1403,6 +1407,8 @@ class _FooterSection extends StatelessWidget {
                           style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                         const Spacer(),
+                        _FooterLink('Docs', 'https://docs.pulsmarket.tech'),
+                        const SizedBox(width: 20),
                         _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
                         const SizedBox(width: 20),
                         _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
