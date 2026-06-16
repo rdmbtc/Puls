@@ -13,6 +13,8 @@ import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import '../wallet/wallet_service.dart';
+import '../agent/agent_screen.dart' show agentSubTabRequest;
+import 'promo_carousel.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -98,6 +100,8 @@ class _WebHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const _HomePromoCarousel(),
+              const SizedBox(height: 24),
               _FeaturedHeroBanner(market: featuredMarket, t: t),
               const SizedBox(height: 28),
               Row(
@@ -165,6 +169,8 @@ class _WebHomeScreen extends StatelessWidget {
           child: size.width < 900
               ? Column(
                   children: [
+                    const _HomePromoCarousel(),
+                    const SizedBox(height: 20),
                     _FeaturedHeroBanner(market: featuredMarket, t: t),
                     const SizedBox(height: 16),
                     const _HumansVsAgentsCard(),
@@ -899,5 +905,55 @@ class _ScorePill extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+
+/// Home promo carousel — HD banner slides (text overlaid in-app, not baked into
+/// the image) for referral, World Cup, social, and the paid-alpha narrative.
+/// Tapping a slide deep-links into the relevant tab.
+class _HomePromoCarousel extends StatelessWidget {
+  const _HomePromoCarousel();
+
+  @override
+  Widget build(BuildContext context) {
+    final nav = ShellNavScope.maybeOf(context);
+    final slides = <PromoSlide>[
+      PromoSlide(
+        imageAsset: 'assets/promo/refer.png',
+        title: 'Refer a friend',
+        subtitle: 'Invite friends and climb the leaderboard together · testnet',
+        cta: 'Invite →',
+        onTap: () => nav?.goToTab(PulsTab.leaderboard),
+      ),
+      PromoSlide(
+        imageAsset: 'assets/promo/worldcup.png',
+        title: 'World Cup 2026',
+        subtitle: 'Make your call on the hottest predictions',
+        cta: 'Predict now →',
+        onTap: () => nav?.goToTab(PulsTab.discover),
+      ),
+      PromoSlide(
+        imageAsset: 'assets/promo/alpha.png',
+        title: 'Paid alpha',
+        subtitle: 'Read top forecasts for \$0.001 — paid straight to the creator',
+        cta: 'Explore Alpha →',
+        onTap: () {
+          agentSubTabRequest.value = 2; // Alpha sub-tab
+          nav?.goToTab(PulsTab.agent);
+        },
+      ),
+      PromoSlide(
+        imageAsset: 'assets/promo/follow_x.png',
+        title: "We're on X",
+        subtitle: "Don't miss the alpha — follow @rdmnad",
+        cta: 'Follow →',
+        onTap: () => launchUrl(
+          Uri.parse('https://x.com/rdmnad'),
+          mode: LaunchMode.externalApplication,
+        ),
+      ),
+    ];
+    return PromoCarousel(slides: slides, height: 170);
   }
 }
