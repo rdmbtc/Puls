@@ -320,6 +320,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     children: [
                       GlassCard(child: profileInfo),
                       const SizedBox(height: 20),
+                      _CopyTraderCard(leaderUserId: widget.userId, leaderName: name),
                       statsGrid,
                     ],
                   ),
@@ -347,6 +348,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: GlassCard(child: profileInfo),
           ),
           const SizedBox(height: 16),
+          FadeInUp(
+            delay: const Duration(milliseconds: 40),
+            duration: const Duration(milliseconds: 350),
+            child: _CopyTraderCard(leaderUserId: widget.userId, leaderName: name),
+          ),
           FadeInUp(
             delay: const Duration(milliseconds: 60),
             duration: const Duration(milliseconds: 350),
@@ -391,6 +397,267 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Copy this trader" card — lets the signed-in user mirror a leader's trades
+/// with a per-trade spend cap. Backend: /api/copy/* (puls_backend). Hidden when
+/// viewing your own profile or when signed out.
+class _CopyTraderCard extends StatefulWidget {
+  const _CopyTraderCard({required this.leaderUserId, required this.leaderName});
+
+  final String leaderUserId;
+  final String leaderName;
+
+  @override
+  State<_CopyTraderCard> createState() => _CopyTraderCardState();
+}
+
+class _CopyTraderCardState extends State<_CopyTraderCard> {
+  bool _loading = true;
+  bool _busy = false;
+  bool _following = false;
+  bool _live = false;
+  double _maxPerTrade = 1.0;
+  bool _loaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) return;
+    _loaded = true;
+    _load();
+  }
+
+  bool get _isSelfOrGuest {
+    final wallet = WalletServiceScope.of(context);
+    final me = wallet.state.userId;
+    return me == null || me == widget.leaderUserId;
+  }
+
+  Future<void> _load() async {
+    if (_isSelfOrGuest) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final wallet = WalletServiceScope.of(context);
+      final data = await wallet.getCopyStatus(widget.leaderUserId);
+      if (!mounted) return;
+      setState(() {
+        _following = data['following'] == true;
+        _live = data['live'] == true;
+        final cap = data['maxPerTradeUsdc'];
+        if (cap is num && cap > 0) _maxPerTrade = cap.toDouble();
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Future<void> _startCopying(PulsThemeColors t) async {
+    final cap = await _pickSpendCap(t);
+    if (cap == null) return;
+    setState(() => _busy = true);
+    try {
+      await WalletServiceScope.of(context).copyFollow(widget.leaderUserId, cap);
+      if (!mounted) return;
+      setState(() {
+        _following = true;
+        _maxPerTrade = cap;
+        _busy = false;
+      });
+      _snack(_live
+          ? 'Now copying ${widget.leaderName} • \$${cap.toStringAsFixed(2)}/trade'
+          : 'Copy set • \$${cap.toStringAsFixed(2)}/trade (mirroring activates at launch)');
+    } catch (e) {
+      if (mounted) setState(() => _busy = false);
+      _snack(e.toString().replaceAll('Exception:', '').trim());
+    }
+  }
+
+  Future<void> _stopCopying() async {
+    setState(() => _busy = true);
+    try {
+      await WalletServiceScope.of(context).copyUnfollow(widget.leaderUserId);
+      if (!mounted) return;
+      setState(() {
+        _following = false;
+        _busy = false;
+      });
+      _snack('Stopped copying ${widget.leaderName}');
+    } catch (e) {
+      if (mounted) setState(() => _busy = false);
+      _snack(e.toString().replaceAll('Exception:', '').trim());
+    }
+  }
+
+  Future<double?> _pickSpendCap(PulsThemeColors t) {
+    double temp = _maxPerTrade.clamp(0.1, 10.0).toDouble();
+    return showModalBottomSheet<double>(
+      context: context,
+      backgroundColor: t.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: t.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Copy ${widget.leaderName}',
+                      style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Each time this trader opens a position, we mirror it onto your wallet — up to your per-trade cap.',
+                    style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('MAX PER TRADE',
+                          style: TextStyle(
+                              color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      Text('\$${temp.toStringAsFixed(2)}',
+                          style: TextStyle(color: t.brand, fontSize: 16, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                  Slider(
+                    value: temp,
+                    min: 0.1,
+                    max: 10.0,
+                    divisions: 99,
+                    activeColor: t.brand,
+                    label: '\$${temp.toStringAsFixed(2)}',
+                    onChanged: (v) => setSheet(() => temp = v),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(double.parse(temp.toStringAsFixed(2))),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: t.brand,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Start copying',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    if (_isSelfOrGuest) return const SizedBox.shrink();
+    if (_loading) return const SizedBox.shrink();
+
+    final Widget content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(_following ? Icons.repeat_rounded : Icons.content_copy_rounded,
+                color: t.brand, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _following ? 'Copying this trader' : 'Copy this trader',
+                style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900),
+              ),
+            ),
+            if (_following)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('\$${_maxPerTrade.toStringAsFixed(2)}/trade',
+                    style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _following
+              ? 'Their trades are mirrored to your wallet (capped per trade). You pay a small per-trade creator fee to the trader.'
+              : 'Auto-mirror this trader\'s positions to your wallet, with a spend cap you control.',
+          style: TextStyle(color: t.textSubtle, fontSize: 12.5, height: 1.4),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: _following
+              ? OutlinedButton.icon(
+                  onPressed: _busy ? null : _stopCopying,
+                  icon: _busy
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.stop_circle_outlined, size: 18),
+                  label: const Text('Stop copying'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: t.text,
+                    side: BorderSide(color: t.border),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                )
+              : ElevatedButton.icon(
+                  onPressed: _busy ? null : () => _startCopying(t),
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.content_copy_rounded, size: 18, color: Colors.white),
+                  label: const Text('Copy this trader',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: t.brand,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassCard(child: content),
     );
   }
 }
