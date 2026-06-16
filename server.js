@@ -12,6 +12,7 @@ import { x402Paywall, x402Info } from './lib/x402.js';
 import { registerCopyTrade } from './lib/copytrade.js';
 import { registerAlpha } from './lib/alpha.js';
 import { registerTips } from './lib/tips.js';
+import { registerComments } from './lib/comments.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -2470,6 +2471,19 @@ registerTips(app, {
   authenticateUser,
   requireVerifiedUser,
   strictLimiter,
+});
+
+// ── Comments (community layer, F1) ───────────────────────────────────────────
+// Signed-in users comment on markets/profiles/events/alpha, reply (one level)
+// and like, with an in-app notification to the author on reply/like. Stored in
+// Supabase; writes throttled + verified-only; soft-delete. Moves no funds, so
+// it's ON by default (optional COMMENTS_ENABLED kill-switch).
+registerComments(app, {
+  supabase,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  createNotification,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
