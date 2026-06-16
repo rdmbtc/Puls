@@ -1293,7 +1293,12 @@ app.get('/api/markets', async (req, res) => {
       // A real-world event can finish before Polymarket flips `closed` (e.g. a
       // sports match that just ended). Don't let users trade those: if the event
       // has ended (or our on-chain market is resolved) force acceptingOrders off.
-      const eventEnded = j.ended === true || j.finishedTimestamp != null || resolved === true;
+      // Polymarket also leaves some markets `active:true` past their endDate until
+      // UMA resolves them — treat a passed deadline as ended too, so the feed stays
+      // consistent with the /api/trade/buy deadline guard and the on-chain market.
+      const deadlineMs = j.endDate ? Date.parse(j.endDate) : NaN;
+      const deadlinePassed = Number.isFinite(deadlineMs) && deadlineMs < Date.now();
+      const eventEnded = j.ended === true || j.finishedTimestamp != null || resolved === true || deadlinePassed;
 
       return {
         ...j,
