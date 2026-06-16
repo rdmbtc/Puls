@@ -13,6 +13,7 @@ import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
+import '../support/support_screen.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -428,6 +429,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
                         ),
+                        _Row(
+                          icon: Icons.support_agent_rounded,
+                          title: 'Support',
+                          subtitle: 'Open a ticket — we reply within a day',
+                          t: t,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SupportScreen()),
+                          ),
+                          trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
+                        ),
                       ],
                     ),
                   ],
@@ -579,6 +590,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mode: LaunchMode.externalApplication,
                   ),
                   trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
+                ),
+                _Row(
+                  icon: Icons.support_agent_rounded,
+                  title: 'Support',
+                  subtitle: 'Open a ticket — we reply within a day',
+                  t: t,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SupportScreen()),
+                  ),
+                  trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
                 ),
               ],
             ),
