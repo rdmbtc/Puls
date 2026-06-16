@@ -589,6 +589,26 @@ class WalletService extends ChangeNotifier {
     return _post('/api/alpha/$id/unlock', {'userId': _state.userId!}, timeout: const Duration(seconds: 30));
   }
 
+  /// One-tap tip to a forecaster — a small real USDC nanopayment.
+  /// Recipient defaults to the house creator payout; pass [toUserId] to tip a
+  /// specific user, or [toAddress] for an explicit address.
+  /// Returns { ok, live?, receipt? }.
+  Future<Map<String, dynamic>> tipCreator({
+    required double amountUsdc,
+    String? toUserId,
+    String? toAddress,
+    String? context,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/tips', {
+      'userId': _state.userId!,
+      'amountUsdc': amountUsdc,
+      if (toUserId != null) 'toUserId': toUserId,
+      if (toAddress != null) 'toAddress': toAddress,
+      if (context != null) 'context': context,
+    }, timeout: const Duration(seconds: 30));
+  }
+
   Future<void> updateProfile({
     required String displayName,
     required String bio,
