@@ -548,6 +548,47 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  // ── Alpha paid-analysis ─────────────────────────────────────────────────
+
+  /// List premium forecasts. Teaser only; annotates which the user unlocked.
+  /// Returns { signals: [...], live: bool, seller }.
+  Future<Map<String, dynamic>> getAlphaList() async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final uri = Uri.parse('$backendUrl/api/alpha/list').replace(queryParameters: {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Failed to load alpha');
+    return data;
+  }
+
+  /// Full thesis for one signal (only if unlocked). Returns { locked, signal }.
+  /// 402 (locked) is returned as data, not thrown.
+  Future<Map<String, dynamic>> getAlphaSignal(String id) async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final uri = Uri.parse('$backendUrl/api/alpha/$id').replace(queryParameters: {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  /// Unlock a signal — pays the creator a per-read USDC micro-fee.
+  /// Returns { ok, live?, alreadyUnlocked?, signal, receipt? }.
+  Future<Map<String, dynamic>> unlockAlpha(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/alpha/$id/unlock', {'userId': _state.userId!}, timeout: const Duration(seconds: 30));
+  }
+
   Future<void> updateProfile({
     required String displayName,
     required String bio,

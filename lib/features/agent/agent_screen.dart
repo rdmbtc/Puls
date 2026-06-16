@@ -16,6 +16,7 @@ import '../onboarding/help_button.dart';
 import 'pulse_feed.dart';
 import 'economy_feed.dart';
 import 'x402_payments.dart';
+import '../alpha/alpha_screen.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text, {this.txId, this.contract});
@@ -282,7 +283,7 @@ class _AgentScreenState extends State<AgentScreen> {
       ),
       body: SafeArea(
         child: DefaultTabController(
-          length: 4,
+          length: 5,
           child: Column(
             children: [
               TabBar(
@@ -295,6 +296,7 @@ class _AgentScreenState extends State<AgentScreen> {
                 tabs: const [
                   Tab(text: 'Pulse · House Agent'),
                   Tab(text: 'My Agent'),
+                  Tab(text: 'Alpha'),
                   Tab(text: 'Earnings'),
                   Tab(text: 'Economy'),
                 ],
@@ -304,6 +306,7 @@ class _AgentScreenState extends State<AgentScreen> {
                   children: [
                     const WebLayout(maxWidth: 720, child: PulseFeed()),
                     WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
+                    const WebLayout(maxWidth: 720, child: AlphaScreen()),
                     const WebLayout(maxWidth: 720, child: X402Payments()),
                     const WebLayout(maxWidth: 720, child: EconomyFeed()),
                   ],
