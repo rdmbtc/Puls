@@ -88,8 +88,17 @@ create table if not exists alpha_unlocks (
   signal_id text not null,
   amount_usdc numeric not null default 0,
   tx_id text,
+  -- 'pending' = payment submitted / reserved; 'confirmed' = access granted.
+  -- We reserve a 'pending' row BEFORE the on-chain transfer and flip it to
+  -- 'confirmed' after, so a retry never double-charges (exactly-once unlock).
+  status text not null default 'confirmed',
+  confirmed_at timestamptz,
   created_at timestamptz default now(),
   unique (user_id, signal_id)
 );
 
 create index if not exists alpha_unlocks_user_idx on alpha_unlocks(user_id);
+
+-- Idempotent upgrade for deployments created before the exactly-once columns.
+alter table alpha_unlocks add column if not exists status text not null default 'confirmed';
+alter table alpha_unlocks add column if not exists confirmed_at timestamptz;
