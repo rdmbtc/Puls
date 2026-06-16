@@ -943,10 +943,10 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Center(
+                Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 600),
-                    child: Padding(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: const Padding(
                       padding: EdgeInsets.fromLTRB(0, 4, 0, 10),
                       child: _AlphaFeedTeaser(),
                     ),
