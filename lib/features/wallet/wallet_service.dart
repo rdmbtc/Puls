@@ -509,6 +509,45 @@ class WalletService extends ChangeNotifier {
     return data;
   }
 
+  // ── Copy-trade ────────────────────────────────────────────────────────────
+
+  /// Whether the signed-in user is currently copying [leaderUserId].
+  /// Returns { following: bool, maxPerTradeUsdc: num?, live: bool }.
+  Future<Map<String, dynamic>> getCopyStatus(String leaderUserId) async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final uri = Uri.parse('$backendUrl/api/copy/status').replace(queryParameters: {
+      if (_state.userId != null) 'userId': _state.userId!,
+      'leaderUserId': leaderUserId,
+    });
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Failed to load copy status');
+    return data;
+  }
+
+  /// Start copying [leaderUserId] with a per-trade USDC spend cap.
+  Future<void> copyFollow(String leaderUserId, double maxPerTradeUsdc) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    await _post('/api/copy/follow', {
+      'userId': _state.userId!,
+      'leaderUserId': leaderUserId,
+      'maxPerTradeUsdc': maxPerTradeUsdc,
+    });
+  }
+
+  /// Stop copying [leaderUserId].
+  Future<void> copyUnfollow(String leaderUserId) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    await _post('/api/copy/unfollow', {
+      'userId': _state.userId!,
+      'leaderUserId': leaderUserId,
+    });
+  }
+
   Future<void> updateProfile({
     required String displayName,
     required String bio,
