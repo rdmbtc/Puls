@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
@@ -87,7 +86,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Color _statusColor(String? status, PulsThemeColors t) {
     switch (status) {
-      case 'open': return t.amber;
+      case 'open': return PulsColors.amber;
       case 'answered': return t.yes;
       case 'closed': return t.textMuted;
       default: return t.textMuted;
