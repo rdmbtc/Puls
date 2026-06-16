@@ -6,6 +6,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
+import '../comments/comment_thread.dart';
 import 'profile_screen.dart' show GlassCard;
 
 String _profileDisplayName(Map<String, dynamic>? profile, String userId) {
@@ -341,7 +342,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 const SizedBox(width: 24),
                 Expanded(
                   flex: 6,
-                  child: tradeHistory,
+                  child: Column(
+                    children: [
+                      tradeHistory,
+                      const SizedBox(height: 24),
+                      CommentThread(targetType: 'profile', targetId: widget.userId),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -376,6 +383,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             delay: const Duration(milliseconds: 120),
             duration: const Duration(milliseconds: 350),
             child: tradeHistory,
+          ),
+          const SizedBox(height: 24),
+          FadeInUp(
+            delay: const Duration(milliseconds: 140),
+            duration: const Duration(milliseconds: 350),
+            child: CommentThread(targetType: 'profile', targetId: widget.userId),
           ),
         ],
       ),
