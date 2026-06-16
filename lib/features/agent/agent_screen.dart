@@ -26,6 +26,12 @@ class _Msg {
   final String? contract;
 }
 
+/// Lets other tabs deep-link into one of the Agent screen's sub-tabs.
+/// Index map: 0 Pulse · 1 My Agent · 2 Alpha · 3 Earnings · 4 Economy.
+/// Set the value, then switch to PulsTab.agent — the live AgentScreen picks it
+/// up and animates to the requested sub-tab.
+final ValueNotifier<int> agentSubTabRequest = ValueNotifier<int>(0);
+
 class AgentScreen extends StatefulWidget {
   const AgentScreen({super.key});
 
@@ -33,7 +39,10 @@ class AgentScreen extends StatefulWidget {
   State<AgentScreen> createState() => _AgentScreenState();
 }
 
-class _AgentScreenState extends State<AgentScreen> {
+class _AgentScreenState extends State<AgentScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController =
+      TabController(length: 5, vsync: this);
   final _client = http.Client();
   final _input = TextEditingController();
   final _budget = TextEditingController(text: '5');
@@ -50,6 +59,21 @@ class _AgentScreenState extends State<AgentScreen> {
   String _strategy = 'NONE';
 
   String? get _userId => WalletServiceScope.of(context).state.userId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Honor a deep-link request that was set before this screen mounted.
+    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 5) {
+      _tabController.index = agentSubTabRequest.value;
+    }
+    agentSubTabRequest.addListener(_onSubTabRequest);
+  }
+
+  void _onSubTabRequest() {
+    final i = agentSubTabRequest.value;
+    if (mounted && i >= 0 && i < 5) _tabController.animateTo(i);
+  }
 
   @override
   void didChangeDependencies() {
@@ -110,6 +134,8 @@ class _AgentScreenState extends State<AgentScreen> {
 
   @override
   void dispose() {
+    agentSubTabRequest.removeListener(_onSubTabRequest);
+    _tabController.dispose();
     _client.close();
     _input.dispose();
     _budget.dispose();
@@ -282,11 +308,10 @@ class _AgentScreenState extends State<AgentScreen> {
         actions: const [HelpAction(tab: PulsTab.agent)],
       ),
       body: SafeArea(
-        child: DefaultTabController(
-          length: 5,
-          child: Column(
+        child: Column(
             children: [
               TabBar(
+                controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.center,
                 labelColor: t.brand,
@@ -303,6 +328,7 @@ class _AgentScreenState extends State<AgentScreen> {
               ),
               Expanded(
                 child: TabBarView(
+                  controller: _tabController,
                   children: [
                     const WebLayout(maxWidth: 720, child: PulseFeed()),
                     WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
@@ -314,7 +340,6 @@ class _AgentScreenState extends State<AgentScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
