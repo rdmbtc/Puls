@@ -15,6 +15,7 @@ import 'share_market_sheet.dart';
 import 'advanced_charts.dart';
 import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
+import '../comments/comment_thread.dart';
 
 class MarketDetailScreen extends StatefulWidget {
   const MarketDetailScreen({required this.marketId, super.key});
@@ -118,6 +119,10 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           value: _fmtDate(market.deadline),
           t: t,
         ),
+
+        // ── Discussion / comments ────────────────────────────────────────
+        const SizedBox(height: 24),
+        CommentThread(targetType: 'market', targetId: market.id),
       ],
     );
 
