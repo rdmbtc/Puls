@@ -520,7 +520,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Win Rate ${winRate.toStringAsFixed(1)}%',
+                                winRate == 0 ? 'Win Rate —' : 'Win Rate ${winRate.toStringAsFixed(1)}%',
                                 style: TextStyle(
                                   color: t.textMuted,
                                   fontSize: 9,
@@ -762,7 +762,11 @@ class _TraderRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$tradesCount Trades · Win Rate ${winRate.toStringAsFixed(1)}%',
+                  tradesCount == 0
+                      ? 'No trades yet'
+                      : winRate == 0
+                          ? '$tradesCount Trades · Win Rate —'
+                          : '$tradesCount Trades · Win Rate ${winRate.toStringAsFixed(1)}%',
                   style: TextStyle(
                     color: t.textMuted,
                     fontSize: 11,

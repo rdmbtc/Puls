@@ -234,7 +234,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: _StatCard(
                 label: 'WIN RATE',
-                value: '${winRateVal.toStringAsFixed(1)}%',
+                value: winRateVal == 0 ? '—' : '${winRateVal.toStringAsFixed(1)}%',
                 valueColor: t.text,
                 icon: Icons.emoji_events_rounded,
                 t: t,
