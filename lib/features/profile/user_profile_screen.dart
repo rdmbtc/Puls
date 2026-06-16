@@ -8,6 +8,19 @@ import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import 'profile_screen.dart' show GlassCard;
 
+String _profileDisplayName(Map<String, dynamic>? profile, String userId) {
+  final name = profile?['display_name'] as String?;
+  if (name != null && name.isNotEmpty && name != 'Puls Trader') return name;
+  if (userId.startsWith('eth_') && userId.length > 10) {
+    final addr = userId.replaceFirst('eth_', '');
+    if (addr.length > 10) return '${addr.substring(0, 6)}…${addr.substring(addr.length - 4)}';
+  }
+  if (userId.startsWith('0x') && userId.length > 10) {
+    return '${userId.substring(0, 6)}…${userId.substring(userId.length - 4)}';
+  }
+  return 'Trader';
+}
+
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key, required this.userId});
 
@@ -101,7 +114,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildContent(PulsThemeColors t, bool isDesktop) {
-    final name = _profile?['display_name'] ?? 'Puls Trader';
+    final name = _profileDisplayName(_profile, widget.userId);
     final bio = _profile?['bio'] ?? 'Trading prediction markets on Arc Testnet.';
     final avatarUrl = _profile?['avatar_url'] as String?;
 

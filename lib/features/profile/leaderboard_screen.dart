@@ -9,6 +9,16 @@ import '../onboarding/help_button.dart';
 import 'user_profile_screen.dart';
 import 'profile_screen.dart' show GlassCard;
 
+String _displayName(dynamic trader) {
+  final name = trader['displayName'] as String?;
+  if (name != null && name.isNotEmpty && name != 'Puls Trader') return name;
+  final uid = trader['userId'] as String? ?? '';
+  if (uid.startsWith('0x') && uid.length > 10) {
+    return '${uid.substring(0, 6)}…${uid.substring(uid.length - 4)}';
+  }
+  return 'Trader';
+}
+
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -443,7 +453,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     ),
                                     child: PulsAvatar(
                                       url: trader['avatarUrl'] as String?,
-                                      name: trader['displayName'] as String? ?? 'Puls Trader',
+                                      name: _displayName(trader),
                                       size: isFirst ? 59 : 49,
                                     ),
                                   ),
@@ -477,7 +487,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      trader['displayName'] ?? 'Puls Trader',
+                                      _displayName(trader),
                                       textAlign: TextAlign.center,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -679,7 +689,7 @@ class _TraderRow extends StatelessWidget {
           // Avatar
           PulsAvatar(
             url: trader['avatarUrl'] as String?,
-            name: trader['displayName'] as String? ?? 'Puls Trader',
+            name: _displayName(trader),
             size: 40,
           ),
           const SizedBox(width: 14),
@@ -692,7 +702,7 @@ class _TraderRow extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        trader['displayName'] ?? 'Puls Trader',
+                        _displayName(trader),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
