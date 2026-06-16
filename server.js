@@ -9,6 +9,7 @@ import { createPublicClient, createWalletClient, http, decodeEventLog, keccak256
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 import { x402Paywall, x402Info } from './lib/x402.js';
+import { registerCopyTrade } from './lib/copytrade.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -1582,6 +1583,19 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, 
       state: 'INITIATED',
     });
 
+    // Copy-trade: mirror this BUY onto the leader's followers (fire-and-forget;
+    // gated by COPY_TRADE_ENABLED, never blocks or fails the leader's own trade).
+    copyTrade
+      .mirrorBuyToFollowers(userId, {
+        slug,
+        deadline,
+        side,
+        usdcAmount: amount,
+        question,
+        entryPrice: req.body.entryPrice,
+      })
+      .catch((err) => console.error('[copy] mirror dispatch error:', err.message));
+
     res.json({ txId, state: txRes.data.state, side, balance: info.usdcBalance });
   } catch (e) {
     console.error('trade buy error:', e.message);
@@ -2347,6 +2361,9 @@ app.get('/api/x402/payments', async (req, res) => {
     const payments = rows.map((r) => ({
       id: r.id,
       endpoint: r.endpoint,
+      // Label the receipt without depending on a possibly-unmigrated column:
+      // copy-trade creator fees write endpoint='copy_fee'; everything else is a paywall read.
+      paymentType: r.endpoint === 'copy_fee' ? 'copy_fee' : 'paywall',
       payer: r.payer || null,
       payerShort: short(r.payer),
       payTo: r.pay_to || seller || null,
@@ -2377,6 +2394,25 @@ app.get('/api/x402/payments', async (req, res) => {
     console.error('[x402/payments] error:', e.message);
     res.status(500).json({ error: 'x402 payments feed failed' });
   }
+});
+
+// ── Copy-trade creator layer (T1) ────────────────────────────────────────────
+// Followers mirror a leader's BUYs (scaled to a per-trade cap) and pay the leader
+// a per-event creator micro-fee. Live mirroring is gated by env COPY_TRADE_ENABLED.
+const copyTrade = registerCopyTrade(app, {
+  supabase,
+  circle,
+  USDC,
+  publicClient,
+  getWalletId,
+  getWalletInfo,
+  getOrDeployMarket,
+  isApproved,
+  saveTrade,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  clampPrice,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));

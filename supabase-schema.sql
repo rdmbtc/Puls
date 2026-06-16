@@ -57,3 +57,22 @@ create table if not exists x402_payments (
 
 create index if not exists x402_payments_created_at_idx on x402_payments(created_at desc);
 create index if not exists x402_payments_pay_to_idx on x402_payments(pay_to);
+
+-- ── Copy-trade creator layer (T1) ────────────────────────────────────────────
+-- A follower opts in to copy a leader's BUYs (scaled to a per-trade cap). Each
+-- mirrored trade pays the leader a per-event creator micro-fee (recorded in
+-- x402_payments with endpoint='copy_fee'). Live mirroring is gated server-side
+-- by env COPY_TRADE_ENABLED.
+create table if not exists copy_follows (
+  id uuid default gen_random_uuid() primary key,
+  follower_user_id text not null,
+  leader_user_id text not null,
+  max_per_trade_usdc numeric not null default 1,
+  active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (follower_user_id, leader_user_id)
+);
+
+create index if not exists copy_follows_leader_idx on copy_follows(leader_user_id);
+create index if not exists copy_follows_follower_idx on copy_follows(follower_user_id);
