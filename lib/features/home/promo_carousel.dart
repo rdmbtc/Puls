@@ -10,6 +10,7 @@ class PromoSlide {
     this.onTap,
     this.gradient,
     this.backgroundColor,
+    this.imageAsset,
   });
 
   final String title;
@@ -18,6 +19,10 @@ class PromoSlide {
   final VoidCallback? onTap;
   final Gradient? gradient;
   final Color? backgroundColor;
+
+  /// Optional background image (e.g. an HD promo banner). Text is rendered on
+  /// top of a dark scrim for legibility, so banners can ship without baked-in text.
+  final String? imageAsset;
 }
 
 class PromoCarousel extends StatefulWidget {
@@ -108,56 +113,86 @@ class _PromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = slide.backgroundColor ?? t.brand;
+    final hasImage = slide.imageAsset != null;
     return GestureDetector(
       onTap: slide.onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: slide.gradient ??
-              LinearGradient(
-                colors: [bg, bg.withValues(alpha: 0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+          gradient: hasImage
+              ? null
+              : (slide.gradient ??
+                  LinearGradient(
+                    colors: [bg, bg.withValues(alpha: 0.7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )),
           borderRadius: BorderRadius.circular(20),
         ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Text(
-              slide.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              slide.subtitle,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                slide.cta,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+            // HD banner image (no baked-in text) + dark scrim for legibility.
+            if (hasImage) ...[
+              Image.asset(slide.imageAsset!, fit: BoxFit.cover),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.72),
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
                 ),
+              ),
+            ],
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    slide.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    slide.subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      slide.cta,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
