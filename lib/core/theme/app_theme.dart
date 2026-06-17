@@ -38,6 +38,9 @@ class PulsColors {
   // Font families
   static const fontDisplay = 'Playfair Display';
   static const fontSans = 'DM Sans';
+
+  // Tabular figures for numbers — applied to price/win-rate/amount text
+  static const tabularFigures = [FontFeature.tabularFigures()];
 }
 
 // ── Theme extension ───────────────────────────────────────────────────────────
@@ -272,23 +275,28 @@ class PulsTheme {
         titleMedium: TextStyle(
           fontFamily: bodyFont,
           color: t.text, fontSize: 15, fontWeight: FontWeight.w600,
+          fontFeatures: PulsColors.tabularFigures,
         ),
         bodyLarge: TextStyle(
           fontFamily: bodyFont,
           color: t.text, fontSize: 15, height: 1.6,
+          fontFeatures: PulsColors.tabularFigures,
         ),
         bodyMedium: TextStyle(
           fontFamily: bodyFont,
           color: t.textMuted, fontSize: 13, height: 1.5,
+          fontFeatures: PulsColors.tabularFigures,
         ),
         labelLarge: TextStyle(
           fontFamily: bodyFont,
           color: t.text, fontSize: 14, fontWeight: FontWeight.w600,
+          fontFeatures: PulsColors.tabularFigures,
         ),
         labelSmall: TextStyle(
           fontFamily: bodyFont,
           color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w500,
           letterSpacing: 0.5,
+          fontFeatures: PulsColors.tabularFigures,
         ),
       ),
       // Soft shadow for cards — indigo-tinted
