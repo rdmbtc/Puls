@@ -96,33 +96,64 @@ class _WebShellState extends State<WebShell>
     final isDark = context.isDark;
     final appState = PulsStateScope.of(context);
 
-    // Theme-aware shell background — cool canvas + on-brand pink glow (logo)
-    final gradientBg = t.bg;
-    final gradientGlow = isDark
-        ? PulsColors.brandPinkDark.withValues(alpha: 0.16) // soft pink halo
-        : PulsColors.brandPink.withValues(alpha: 0.07);    // subtle pink wash
-    final gradientEnd = t.bg;
+    // Theme-aware shell background — twin brand glows (mint ◤ + pink ◥) over a
+    // calm canvas, echoing the signature pulse gradient. Subtle, premium, not washy.
+    final canvas = t.bg;
+    final mintGlow = isDark
+        ? PulsColors.brandMint.withValues(alpha: 0.14)
+        : PulsColors.brandMint.withValues(alpha: 0.10);
+    final pinkGlow = isDark
+        ? PulsColors.brandPinkDark.withValues(alpha: 0.18)
+        : PulsColors.brandPink.withValues(alpha: 0.10);
     final dotColor = isDark
-        ? Colors.white.withValues(alpha: 0.04)
-        : PulsColors.brandPink.withValues(alpha: 0.035);
+        ? Colors.white.withValues(alpha: 0.035)
+        : PulsColors.brandPink.withValues(alpha: 0.03);
 
     return ShellNavScope(
       goToTab: _goToTab,
       child: Scaffold(
-        backgroundColor: gradientBg,
+        backgroundColor: canvas,
         body: Stack(
           children: [
-            // ── Single theme-aware background: soft pink halo over the canvas.
-            // (Pages embedded below are transparent so this is the ONLY bg —
-            //  no double-background behind the dynamic-island nav.)
+            // ── Single layered background (pages above are transparent, so this
+            //    is the ONLY background — no double-bg behind the island nav). ──
+            // Base canvas.
+            Positioned.fill(child: ColoredBox(color: canvas)),
+            // Mint glow, upper-left.
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    center: const Alignment(0, -0.6),
-                    radius: 1.4,
-                    colors: [gradientGlow, gradientEnd],
-                    stops: const [0.0, 0.7],
+                    center: const Alignment(-0.85, -0.95),
+                    radius: 1.1,
+                    colors: [mintGlow, canvas.withValues(alpha: 0.0)],
+                    stops: const [0.0, 0.55],
+                  ),
+                ),
+              ),
+            ),
+            // Pink glow, upper-right.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0.9, -0.85),
+                    radius: 1.2,
+                    colors: [pinkGlow, canvas.withValues(alpha: 0.0)],
+                    stops: const [0.0, 0.6],
+                  ),
+                ),
+              ),
+            ),
+            // Soft vertical settle so content lower down sits on calm canvas.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [canvas.withValues(alpha: 0.0), canvas],
+                    stops: const [0.45, 1.0],
                   ),
                 ),
               ),
