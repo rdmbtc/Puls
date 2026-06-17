@@ -244,7 +244,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to create ticket (${res.statusCode})')),
+            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t create ticket (${res.statusCode})')),
           );
         }
       }
@@ -404,7 +404,7 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to send (${res.statusCode})')),
+            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t send message (${res.statusCode})')),
           );
         }
       }
