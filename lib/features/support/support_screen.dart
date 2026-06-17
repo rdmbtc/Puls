@@ -23,9 +23,31 @@ class _SupportScreenState extends State<SupportScreen> {
     _fetch();
   }
 
-  Map<String, String> get _headers {
+  /// Builds auth headers from a *valid* session.
+  ///
+  /// On a cold web load `currentSession` may not be restored yet, or it may
+  /// hold an expired access token (Supabase JWTs expire ~1h and reading the
+  /// cached session does NOT refresh it). Sending that stale/absent token makes
+  /// the server's `supabase.auth.getUser()` reject the request with 401. So we
+  /// proactively refresh when the session is missing or about to expire.
+  Future<Map<String, String>> _authHeaders() async {
+    final auth = Supabase.instance.client.auth;
+    var s = auth.currentSession;
+
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final needsRefresh = s == null ||
+        (s.expiresAt != null && s.expiresAt! - nowSec < 60); // expired/<60s left
+    if (needsRefresh) {
+      try {
+        final res = await auth.refreshSession();
+        s = res.session ?? auth.currentSession;
+      } catch (_) {
+        // Refresh failed (e.g. truly signed out) — fall back to whatever we have.
+        s = auth.currentSession;
+      }
+    }
+
     final h = <String, String>{'Content-Type': 'application/json'};
-    final s = Supabase.instance.client.auth.currentSession;
     if (s != null) h['Authorization'] = 'Bearer ${s.accessToken}';
     return h;
   }
@@ -37,7 +59,7 @@ class _SupportScreenState extends State<SupportScreen> {
       // mismatches the server's expected `supabase_` id and 403s).
       final res = await http.get(
         Uri.parse('$backendUrl/api/support/tickets'),
-        headers: _headers,
+        headers: await _authHeaders(),
       );
       if (res.statusCode != 200) throw Exception('Failed');
       final data = jsonDecode(res.body);
@@ -50,25 +72,29 @@ class _SupportScreenState extends State<SupportScreen> {
     }
   }
 
-  void _newTicket() {
+  void _newTicket() async {
+    final headers = await _authHeaders();
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _NewTicketSheet(
-        headers: _headers,
+        headers: headers,
         onCreated: () { _fetch(); },
       ),
     );
   }
 
-  void _openTicket(Map<String, dynamic> ticket) {
+  void _openTicket(Map<String, dynamic> ticket) async {
+    final headers = await _authHeaders();
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _TicketDetailScreen(
           ticketId: '${ticket['id']}',
           subject: ticket['subject'] as String? ?? 'Support',
-          headers: _headers,
+          headers: headers,
         ),
       ),
     ).then((_) => _fetch());
