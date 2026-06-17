@@ -233,7 +233,7 @@ class _ParticlePainter extends CustomPainter {
 
     final points = <Offset>[];
     final colors = <Color>[];
-    final baseColor = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
+    final baseColor = isDark ? const Color(0xFFF472B6) : const Color(0xFFEC4899);
 
     for (int i = 0; i < count; i++) {
       final p = particles[i];

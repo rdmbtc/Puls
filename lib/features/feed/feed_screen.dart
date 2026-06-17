@@ -298,7 +298,7 @@ class _FeedHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Text(
-              'DEMO',
+              'Arc Testnet',
               style: TextStyle(
                 color: PulsColors.amber,
                 fontSize: 10,

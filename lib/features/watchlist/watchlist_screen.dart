@@ -175,7 +175,7 @@ class _WatchCard extends StatelessWidget {
           border: Border.all(color: t.border),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+              color: const Color(0xFFEC4899).withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

@@ -51,7 +51,7 @@ class _WebLandingPageState extends State<WebLandingPage>
 
     final dotColor = isDark
         ? Colors.white.withValues(alpha: 0.03)
-        : const Color(0xFF4F46E5).withValues(alpha: 0.03);
+        : const Color(0xFFEC4899).withValues(alpha: 0.03);
 
     return Scaffold(
       backgroundColor: t.bg,
@@ -637,7 +637,7 @@ class _FeaturesSection extends StatelessWidget {
   static const _features = [
     _Feature(
       icon: Icons.swipe_rounded,
-      color: Color(0xFF4F46E5),
+      color: Color(0xFFEC4899),
       title: 'Swipe to Trade',
       body: 'Swipe right for YES, left for NO. Buy any Polymarket prediction in under a second — no confirmation modal.',
     ),
@@ -808,7 +808,7 @@ class _HowItWorksSection extends StatelessWidget {
   const _HowItWorksSection();
 
   static const _steps = [
-    ('01', 'Sign in with Google', 'One tap. A Circle MPC wallet is created on Arc Testnet automatically. No seed phrase.', Color(0xFF4F46E5)),
+    ('01', 'Sign in with Google', 'One tap. A Circle MPC wallet is created on Arc Testnet automatically. No seed phrase.', Color(0xFF14B8A6)),
     ('02', 'Get testnet USDC', 'Visit faucet.circle.com → select Arc Testnet → paste your wallet address. Free USDC in seconds.', Color(0xFF16A34A)),
     ('03', 'Browse 100 live markets', 'Real Polymarket predictions with live odds, sparkline charts, and volume data.', Color(0xFF0EA5E9)),
     ('04', 'Swipe YES or NO', 'Swipe right for YES, left for NO. Your USDC is sent to the PulsMarket smart contract on-chain.', Color(0xFFD97706)),
@@ -991,7 +991,7 @@ class _StatsSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: t.border),
                   boxShadow: [
-                    BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.03), blurRadius: 10)
+                    BoxShadow(color: const Color(0xFFEC4899).withValues(alpha: 0.03), blurRadius: 10)
                   ],
                 ),
                 child: isMobile
@@ -1278,8 +1278,8 @@ class _AuroraPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final t = progress * 2 * math.pi;
     final blobs = isDark
-        ? const [Color(0xFF312E81), Color(0xFF1E1B4B), Color(0xFF173B33)]
-        : const [Color(0xFFDDD9FB), Color(0xFFEEF2FF), Color(0xFFDFF1E8)];
+        ? const [Color(0xFF1B2236), Color(0xFF2A1233), Color(0xFF0E2E2A)]
+        : const [Color(0xFFFCE7F3), Color(0xFFFDF2F8), Color(0xFFE6FAF6)];
     final alpha = isDark ? 0.55 : 0.75;
 
     canvas.drawRect(Offset.zero & size, Paint()..color = bg);

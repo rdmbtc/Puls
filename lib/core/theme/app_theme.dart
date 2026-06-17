@@ -2,38 +2,52 @@ import 'package:flutter/material.dart';
 
 // ── Semantic palette ──────────────────────────────────────────────────────────
 class PulsColors {
-  // Brand — vibrant indigo throughout
-  static const indigo = Color(0xFF4F46E5);
-  static const indigoLight = Color(0xFFEEF2FF);
-  static const indigoDark = Color(0xFF3730A3);
+  // ── Brand — anchored on the LOGO (neon pulse: mint → pink on dark navy) ──
+  static const brandPink = Color(0xFFEC4899);      // primary brand (light)
+  static const brandPinkDark = Color(0xFFF472B6);  // primary brand (dark)
+  static const brandMint = Color(0xFF2DD4BF);      // gradient partner / teal accent
+  static const brandWashLight = Color(0xFFFCE7F3); // pink wash (light surfaces)
+  static const brandWashDark = Color(0xFF3B0A2A);  // deep plum (dark surfaces)
 
-  // Semantic — muted editorial market colors
-  static const green = Color(0xFF2D8A56);       // forest green (YES)
-  static const greenLight = Color(0xFFF0F7F3);
-  static const red = Color(0xFFC0392B);          // terracotta (NO)
-  static const redLight = Color(0xFFFDF2F1);
-  static const amber = Color(0xFFC9A96E);        // warm gold
-  static const amberLight = Color(0xFFFAF6EE);
+  // The signature "pulse" gradient (mint → pink), straight from the logo.
+  static const pulseGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFF34E5C0), Color(0xFFF65FA9)],
+  );
 
-  // Neutrals (warm gray — editorial)
-  static const gray50 = Color(0xFFFAFAF7);
-  static const gray100 = Color(0xFFF5F4EF);
-  static const gray200 = Color(0xFFEDEDEB);
-  static const gray300 = Color(0xFFD8D8D4);
-  static const gray400 = Color(0xFF9A9A94);
-  static const gray500 = Color(0xFF5A5A5A);
-  static const gray700 = Color(0xFF3A3A3A);
-  static const gray900 = Color(0xFF1A1A1A);
+  // Back-compat aliases (old code referenced indigo*) — now brand pink.
+  static const indigo = brandPink;
+  static const indigoLight = brandWashLight;
+  static const indigoDark = Color(0xFFBE185D);
 
-  // Dark mode — neutral charcoal darks (de-slop, no indigo tint)
-  static const dark50 = Color(0xFF0D1117);       // neutral charcoal-black
-  static const dark100 = Color(0xFF161B22);       // card surface
-  static const dark200 = Color(0xFF21262D);       // raised surface / border
-  static const dark300 = Color(0xFF30363D);       // strong border
-  static const dark400 = Color(0xFF6E7681);       // subtle text
-  static const dark500 = Color(0xFF7D8694);       // muted text
-  static const dark600 = Color(0xFFAEB6C2);       // secondary text
-  static const dark900 = Color(0xFFF0F3F8);       // primary text
+  // Semantic — prediction market YES (teal/mint) / NO (red)
+  static const green = Color(0xFF14B8A6);        // teal-green (YES)
+  static const greenLight = Color(0xFFE6FAF6);
+  static const red = Color(0xFFEF4444);          // clean red (NO)
+  static const redLight = Color(0xFFFEECEC);
+  static const amber = Color(0xFFF59E0B);        // warm gold
+  static const amberLight = Color(0xFFFEF6E7);
+
+  // Neutrals (cool — shared undertone across light & dark)
+  static const gray50 = Color(0xFFFAFBFD);
+  static const gray100 = Color(0xFFF4F6FA);
+  static const gray200 = Color(0xFFE8EBF1);
+  static const gray300 = Color(0xFFD6DBE5);
+  static const gray400 = Color(0xFF9AA2B5);
+  static const gray500 = Color(0xFF56607A);
+  static const gray700 = Color(0xFF323A4D);
+  static const gray900 = Color(0xFF0E1422);
+
+  // Dark mode — deep navy (echoes the logo background)
+  static const dark50 = Color(0xFF0A0E1A);       // navy-black canvas
+  static const dark100 = Color(0xFF121829);       // card surface
+  static const dark200 = Color(0xFF1B2236);       // raised surface
+  static const dark300 = Color(0xFF303B54);       // strong border
+  static const dark400 = Color(0xFF5E6A85);       // subtle text
+  static const dark500 = Color(0xFF7C88A3);       // muted text
+  static const dark600 = Color(0xFF9AA6C0);       // secondary text
+  static const dark900 = Color(0xFFEAF0FF);       // primary text
 
   // Font families
   static const fontDisplay = 'Playfair Display';
@@ -128,40 +142,40 @@ extension PulsThemeX on BuildContext {
 
 // ── Theme builder ─────────────────────────────────────────────────────────────
 class PulsTheme {
-  // ── Light: White + Indigo ──────────────────────────────────────────────
+  // ── Light: cool white + brand pink / mint ──────────────────────────────
   static const _light = PulsThemeColors(
-    bg: Color(0xFFFAFAF7),           // warm off-white canvas
+    bg: Color(0xFFFAFBFD),            // cool off-white canvas
     surface: Color(0xFFFFFFFF),       // pure white cards
-    surfaceRaised: Color(0xFFF5F4EF), // warm elevated
-    border: Color(0xFFEDEDEB),        // warm border
-    borderStrong: Color(0xFFD8D8D4),
-    text: Color(0xFF1A1A1A),          // rich black text
-    textMuted: Color(0xFF5A5A5A),     // warm gray
-    textSubtle: Color(0xFF9A9A94),    // light warm gray
-    brand: Color(0xFF4F46E5),         // ★ vibrant indigo
-    brandSubtle: Color(0xFFEEF2FF),   // ★ light indigo wash
-    yes: Color(0xFF2D8A56),           // forest green
-    no: Color(0xFFC0392B),            // terracotta red
-    yesBg: Color(0xFFF0F7F3),         // light green wash
-    noBg: Color(0xFFFDF2F1),          // light red wash
+    surfaceRaised: Color(0xFFF4F6FA), // cool elevated
+    border: Color(0xFFE8EBF1),        // cool border
+    borderStrong: Color(0xFFD6DBE5),
+    text: Color(0xFF0E1422),          // ink (cool near-black)
+    textMuted: Color(0xFF56607A),     // cool gray
+    textSubtle: Color(0xFF9AA2B5),    // light cool gray
+    brand: Color(0xFFEC4899),         // ★ brand pink (from logo)
+    brandSubtle: Color(0xFFFCE7F3),   // ★ light pink wash
+    yes: Color(0xFF14B8A6),           // teal-green (YES, from logo mint)
+    no: Color(0xFFEF4444),            // clean red (NO)
+    yesBg: Color(0xFFE6FAF6),         // light teal wash
+    noBg: Color(0xFFFEECEC),          // light red wash
   );
 
-  // ── Dark: Black + Indigo ──────────────────────────────────────────────
+  // ── Dark: navy (logo background) + brand pink / mint ───────────────────
   static const _dark = PulsThemeColors(
-    bg: Color(0xFF0D1117),            // neutral charcoal-black (de-slop, no indigo tint)
-    surface: Color(0xFF161B22),        // neutral card
-    surfaceRaised: Color(0xFF21262D),  // neutral raised
-    border: Color(0xFF21262D),         // neutral border
-    borderStrong: Color(0xFF30363D),   // neutral strong border
-    text: Color(0xFFF0F3F8),           // neutral near-white
-    textMuted: Color(0xFFAEB6C2),      // neutral muted
-    textSubtle: Color(0xFF7D8694),     // neutral subtle
-    brand: Color(0xFF818CF8),          // ★ lighter indigo for dark
-    brandSubtle: Color(0xFF1E1B4B),    // ★ deep indigo subtle
-    yes: Color(0xFF4ADE80),            // ★ bright green for dark bg
+    bg: Color(0xFF0A0E1A),            // deep navy-black (echoes logo)
+    surface: Color(0xFF121829),        // navy card
+    surfaceRaised: Color(0xFF1B2236),  // navy raised
+    border: Color(0xFF222B40),         // navy border
+    borderStrong: Color(0xFF303B54),   // navy strong border
+    text: Color(0xFFEAF0FF),           // cool near-white
+    textMuted: Color(0xFF9AA6C0),      // cool muted
+    textSubtle: Color(0xFF5E6A85),     // cool subtle
+    brand: Color(0xFFF472B6),          // ★ brand pink (lighter for dark)
+    brandSubtle: Color(0xFF3B0A2A),    // ★ deep plum subtle
+    yes: Color(0xFF2DD4BF),            // ★ bright mint for dark bg
     no: Color(0xFFF87171),             // ★ bright red for dark bg
-    yesBg: Color(0xFF14332A),          // ★ dark green surface
-    noBg: Color(0xFF331A1A),           // ★ dark red surface
+    yesBg: Color(0xFF0E2E2A),          // ★ dark teal surface
+    noBg: Color(0xFF3B1620),           // ★ dark red surface
   );
 
   static ThemeData light() => _build(Brightness.light, _light);
@@ -241,7 +255,7 @@ class PulsTheme {
       ),
       colorScheme: ColorScheme(
         brightness: brightness,
-        primary: isLight ? const Color(0xFF4F46E5) : const Color(0xFF818CF8),
+        primary: isLight ? const Color(0xFFEC4899) : const Color(0xFFF472B6),
         onPrimary: Colors.white,
         secondary: t.brand,
         onSecondary: Colors.white,
@@ -293,8 +307,8 @@ class PulsTheme {
       ),
       // Soft shadow for cards — indigo-tinted
       shadowColor: isLight
-          ? const Color(0xFF4F46E5).withValues(alpha: 0.06)
-          : const Color(0xFF4F46E5).withValues(alpha: 0.3),
+          ? const Color(0xFF0E1422).withValues(alpha: 0.06)
+          : Colors.black.withValues(alpha: 0.4),
     );
   }
 }
@@ -307,7 +321,7 @@ BoxDecoration cardDecoration(PulsThemeColors t, {double radius = 16}) =>
       border: Border.all(color: t.border),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+          color: const Color(0xFF0E1422).withValues(alpha: 0.05),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),

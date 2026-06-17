@@ -188,7 +188,7 @@ class _X402PaymentsState extends State<X402Payments> {
                 height: 52,
                 decoration: BoxDecoration(
                   gradient:
-                      LinearGradient(colors: [t.brand, const Color(0xFF818CF8)]),
+                      LinearGradient(colors: [t.brand, PulsColors.brandMint]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(Icons.savings_rounded,
