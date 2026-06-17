@@ -290,9 +290,17 @@
       var tx = d.txHash
         ? '<a class="dtx" href="' + TX + d.txHash + '" target="_blank" rel="noopener">🔗 Trade tx on Arc <span class="txmono">' + esc(shortHash(d.txHash)) + '</span></a>'
         : '';
+      // Agent→creator nanopayment that fed this decision (x402 on Arc).
+      var alphaLine = '';
+      if (d.alphaPaid != null) {
+        alphaLine = '<div class="why alpha">💸 <b>Paid creator $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for alpha before deciding' +
+          (d.alphaCreator ? ' · <a href="' + ADDR + d.alphaCreator + '" target="_blank" rel="noopener" class="txmono">' + esc(shortAddr(d.alphaCreator)) + '</a>' : '') +
+          '</div>';
+      }
       return '<div class="dcard">' +
         '<div class="drow1">' + sidePill + amt + brain + '<span class="dwhen">' + esc(ago(d.at)) + '</span></div>' +
         '<div class="dq">' + esc(d.question || 'Prediction market') + '</div>' +
+        alphaLine +
         (d.reasoning ? '<div class="why"><b>Why:</b> ' + esc(d.reasoning) + '</div>' : '') +
         edgeBlock + tx +
         '</div>';
