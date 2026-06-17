@@ -5,6 +5,7 @@ import 'package:lottie/lottie.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/pulse_button.dart';
 import 'web_landing_page.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -120,33 +121,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   const SizedBox(height: 24),
                   // CTA
-                  SizedBox(
-                    width: double.infinity,
+                  PulseButton(
+                    label: isLast ? 'Enter Puls' : 'Continue',
                     height: 54,
-                    child: FilledButton(
-                      onPressed: () {
-                        if (!isLast) {
-                          _ctrl.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        } else {
-                          appState.completeOnboarding();
-                        }
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: t.brand,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: Text(
-                        isLast ? 'Enter Puls' : 'Continue',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    onPressed: () {
+                      if (!isLast) {
+                        _ctrl.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      } else {
+                        appState.completeOnboarding();
+                      }
+                    },
                   ),
                   if (!isLast) ...[
                     const SizedBox(height: 12),

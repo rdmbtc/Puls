@@ -11,7 +11,6 @@ import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
-import '../onboarding/onboarding_flags.dart';
 import '../onboarding/onboarding_sheet.dart';
 import 'shell_nav.dart';
 import 'web_shell.dart';
@@ -169,7 +168,8 @@ class _DynamicIslandNav extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     decoration: BoxDecoration(
-                      color: selected ? t.brand : Colors.transparent,
+                      gradient: selected ? PulsColors.pulseGradient : null,
+                      color: selected ? null : Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(

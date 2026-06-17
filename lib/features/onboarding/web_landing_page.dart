@@ -1467,7 +1467,6 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.puls;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -1483,10 +1482,10 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
               vertical: widget.small ? 10 : 16,
             ),
             decoration: BoxDecoration(
-              color: t.brand,
+              gradient: PulsColors.pulseGradient,
               borderRadius: BorderRadius.circular(12),
               boxShadow: _hovered
-                  ? [BoxShadow(color: t.brand.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 4))]
+                  ? [BoxShadow(color: PulsColors.brandPink.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 4))]
                   : [],
             ),
             child: Text(
