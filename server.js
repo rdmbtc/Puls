@@ -2174,10 +2174,19 @@ async function generateMarketInsight(slug) {
     ctx.question = data.question || slug.replace(/-/g, ' ');
   }
 
-  const sys = `You are the Puls AI Analyst, a sharp prediction-market researcher. Given a market, produce a concise analyst brief.
+  const sys = `You are the Puls AI Analyst, a sharp prediction-market researcher. Given a market AND live web research, produce a concise analyst brief grounded in the research — do NOT invent facts beyond what the question, pricing, and research support.
 Respond with STRICT JSON only, no prose, matching exactly:
-{"thesis": "<2 sentences: what this market is really about and what the current price implies>", "factors": ["<key factor 1>", "<key factor 2>", "<key factor 3>"], "lean": "YES" | "NO" | "UNCERTAIN", "confidence": "low" | "medium" | "high"}
-Rules: factors are short (max 14 words each), concrete and specific to this question. lean reflects which outcome the evidence and current pricing favor; use UNCERTAIN when genuinely unclear. Never give financial advice wording; this is analysis.`;
+{"thesis": "<2 sentences: what this market is really about and what the current price + latest information implies>", "factors": ["<key factor 1>", "<key factor 2>", "<key factor 3>"], "lean": "YES" | "NO" | "UNCERTAIN", "confidence": "low" | "medium" | "high"}
+Rules: factors are short (max 14 words each), concrete and specific to this question; prefer factors backed by the web research. lean reflects which outcome the evidence and current pricing favor; use UNCERTAIN when genuinely unclear. Never give financial advice wording; this is analysis.`;
+
+  // Live web research on the question (keyless) so the brief reflects real,
+  // current information instead of model priors. Best-effort.
+  let research = { brief: '', sources: [] };
+  try {
+    research = await researchQuestion(ctx.question, 4);
+  } catch (e) {
+    console.error(`[Insight] research failed for ${slug}:`, e.message);
+  }
 
   const user = [
     `Market question: ${ctx.question}`,
@@ -2186,6 +2195,7 @@ Rules: factors are short (max 14 words each), concrete and specific to this ques
     ctx.change24h != null ? `24h price change: ${(ctx.change24h * 100).toFixed(1)}¢` : null,
     ctx.volume != null ? `Volume: $${ctx.volume}` : null,
     ctx.endDate ? `Resolution date: ${ctx.endDate}` : null,
+    research.brief ? `\nLive web research (latest, cite these in your factors):\n${research.brief}` : null,
   ].filter(Boolean).join('\n');
 
   try {
@@ -2203,12 +2213,15 @@ Rules: factors are short (max 14 words each), concrete and specific to this ques
       factors: (Array.isArray(parsed.factors) ? parsed.factors : []).slice(0, 4).map((f) => String(f).slice(0, 160)),
       lean,
       confidence,
+      sources: (research.sources || []).slice(0, 3),
       source: 'llm',
       generatedAt: new Date().toISOString(),
     };
   } catch (e) {
     console.error(`[Insight] LLM failed for ${slug}, using quantitative fallback:`, e.message);
-    return quantInsight(slug, ctx);
+    const q = quantInsight(slug, ctx);
+    q.sources = (research.sources || []).slice(0, 3);
+    return q;
   }
 }
 
@@ -4255,15 +4268,25 @@ app.post('/api/copilot/chat', authenticateUser, strictLimiter, async (req, res) 
       return res.status(400).json({ error: 'userId and message are required' });
     }
 
+    // Pull live web research so the copilot answers from current reality, not
+    // model priors. Search the market question plus the user's message for focus.
+    let research = { brief: '', sources: [] };
+    try {
+      const q = [question, message].filter(Boolean).join(' — ').slice(0, 200);
+      research = await researchQuestion(q || question || message, 4);
+    } catch (e) {
+      console.error('[Copilot] research failed:', e.message);
+    }
+
     const sys = `You are Puls AI Trading Copilot, an expert prediction market analyst.
 You are helping the user analyze the following prediction market:
 - Question: "${question || 'Unknown Prediction'}"
 - Slug: "${slug || 'unknown-slug'}"
 - Current YES Price: ${currentYesPrice ? (parseFloat(currentYesPrice) * 100).toFixed(0) + '¢' : '50¢'}
 - Current NO Price: ${currentNoPrice ? (parseFloat(currentNoPrice) * 100).toFixed(0) + '¢' : '50¢'}
-
+${research.brief ? `\nLive web research (latest information — base your answer on this, not assumptions):\n${research.brief}\n` : ''}
 Your goals:
-1. Provide insight on market sentiment, historical context, and potential resolution.
+1. Provide insight grounded in the research above and the current pricing. If the research is thin or doesn't cover the question, say so rather than inventing facts.
 2. Suggest trading strategies (e.g. buying YES vs buying NO depending on news/odds).
 3. If they ask for a strategy, you can propose one and end with a structured action recommendation.
 4. Keep your replies helpful, concise (maximum 3 short paragraphs), and formatting clean. For bold use a SINGLE asterisk like *this* (never double **), and do not use markdown headings (#).
@@ -4275,7 +4298,7 @@ Your goals:
       { role: 'user', content: message },
     ]);
 
-    res.json({ reply: formatForApp(reply) });
+    res.json({ reply: formatForApp(reply), sources: (research.sources || []).slice(0, 3) });
   } catch (e) {
     console.error('copilot chat error:', e.message);
     res.status(500).json({ error: e.message });
