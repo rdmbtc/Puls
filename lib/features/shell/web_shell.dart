@@ -43,7 +43,7 @@ class _WebShellState extends State<WebShell>
     _NavItem(Picons.compass, 'Discover'),
     _NavItem(Picons.playCircle, 'Home'),
     _NavItem(Picons.chartBar, 'Portfolio'),
-    _NavItem(Picons.trophy, 'Leaderboard'),
+    _NavItem(Picons.star, 'Creators'),
     _NavItem(Picons.robot, 'Agent'),
     _NavItem(Picons.userCircle, 'Profile'),
   ];

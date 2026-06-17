@@ -120,7 +120,7 @@ class _DynamicIslandNav extends StatelessWidget {
   static final _items = [
     _Item(Picons.lightning, 'Feed'),
     _Item(Picons.chartBar, 'Portfolio'),
-    _Item(Picons.trophy, 'Leaderboard'),
+    _Item(Picons.star, 'Creators'),
     _Item(Picons.robot, 'Agent'),
     _Item(Picons.userCircle, 'Profile'),
   ];
