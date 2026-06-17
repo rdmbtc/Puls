@@ -227,24 +227,38 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFEC4899).withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                      color: progress > 0.1
+                          ? swipeColor.withValues(alpha: progress * 0.25)
+                          : const Color(0xFFEC4899).withValues(alpha: 0.06),
+                      blurRadius: 16 + progress * 20,
+                      offset: Offset(dragX * 0.05, 4),
                     ),
                   ],
                 ),
                 child: Stack(
                   children: [
-                    // Swipe tint overlay
+                    // Swipe color wave — rises from the bottom as you drag.
                     if (progress > 0)
                       Positioned.fill(
-                        child: AnimatedOpacity(
-                          opacity: progress * 0.22,
-                          duration: const Duration(milliseconds: 60),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: swipeColor,
-                              borderRadius: BorderRadius.circular(20),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 60),
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    swipeColor.withValues(alpha: 0.35 * progress),
+                                    swipeColor.withValues(alpha: 0.08 * progress),
+                                    Colors.transparent,
+                                  ],
+                                  stops: [0.0, progress * 0.6, progress],
+                                ),
+                              ),
                             ),
                           ),
                         ),

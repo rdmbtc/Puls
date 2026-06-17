@@ -297,7 +297,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     Icon(Icons.history_rounded, color: t.textMuted, size: 36),
                     const SizedBox(height: 12),
                     Text(
-                      'No trades completed yet',
+                      'No trades yet — this trader is just getting started.',
                       style: TextStyle(color: t.textMuted, fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -405,7 +405,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Icon(Icons.error_outline_rounded, color: t.no, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Failed to load profile',
+              'Couldn\'t load this profile. Pull to retry.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

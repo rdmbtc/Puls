@@ -58,7 +58,7 @@ class _WebHomeScreen extends StatelessWidget {
                 Icon(Icons.trending_up_rounded, size: 48, color: t.textMuted),
                 const SizedBox(height: 16),
                 Text(
-                  'No markets live yet',
+                  'Markets are warming up — check back soon.',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(color: t.text),
                 ),
                 const SizedBox(height: 8),

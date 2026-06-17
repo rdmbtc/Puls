@@ -244,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to update profile: $e')),
+                                  SnackBar(content: Text('Couldn\'t save — $e')),
                                 );
                               }
                             }
