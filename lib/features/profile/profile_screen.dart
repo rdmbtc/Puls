@@ -609,7 +609,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Profile Settings', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,

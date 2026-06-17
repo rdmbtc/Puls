@@ -31,7 +31,7 @@ class FeedScreen extends StatelessWidget {
 
     if (kIsWeb && !isMobileWeb) {
       return Scaffold(
-        backgroundColor: t.bg,
+        backgroundColor: Colors.transparent,
         body: Column(
           children: [
             _FeedHeader(t: t),
@@ -50,7 +50,7 @@ class FeedScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(

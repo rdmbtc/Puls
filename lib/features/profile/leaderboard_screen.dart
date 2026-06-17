@@ -96,7 +96,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

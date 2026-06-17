@@ -292,7 +292,7 @@ class _AgentScreenState extends State<AgentScreen>
   Widget build(BuildContext context) {
     final t = context.puls;
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
