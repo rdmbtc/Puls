@@ -193,8 +193,22 @@ class _FeedBody extends StatelessWidget {
         final markets = appState.feedMarkets;
         if (markets.isEmpty) {
           return Center(
-            child: Text('No markets available.',
-                style: TextStyle(color: t.textMuted)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.trending_up_rounded, size: 48, color: t.textSubtle),
+                const SizedBox(height: 16),
+                Text(
+                  'No markets available right now.',
+                  style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Check back soon or try the Discover tab.',
+                  style: TextStyle(color: t.textMuted, fontSize: 13),
+                ),
+              ],
+            ),
           );
         }
         return RefreshIndicator(

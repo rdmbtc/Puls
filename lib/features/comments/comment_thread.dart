@@ -105,7 +105,7 @@ class _CommentThreadState extends State<CommentThread> {
         Uri.parse('$backendUrl/api/comments?target_type=${widget.targetType}&target_id=${widget.targetId}&limit=50'),
         headers: _authHeaders,
       );
-      if (res.statusCode != 200) throw Exception('Failed to load');
+      if (res.statusCode != 200) throw Exception('Couldn\'t load comments');
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final list = (data['comments'] as List? ?? [])
           .map((c) => Comment.fromJson(c as Map<String, dynamic>))

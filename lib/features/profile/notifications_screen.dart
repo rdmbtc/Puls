@@ -106,7 +106,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: _loading
               ? Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2))
               : _error != null
-                  ? Center(child: Text('Error loading notifications: $_error', style: TextStyle(color: t.no)))
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off_rounded, color: t.textSubtle, size: 32),
+                          const SizedBox(height: 12),
+                          Text('Couldn\'t load notifications', style: TextStyle(color: t.text, fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Text('Pull to retry', style: TextStyle(color: t.textSubtle, fontSize: 12)),
+                        ],
+                      ),
+                    )
                   : _notifications.isEmpty
                       ? Center(
                           child: Column(
