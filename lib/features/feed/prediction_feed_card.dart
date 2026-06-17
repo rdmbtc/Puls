@@ -37,7 +37,7 @@ class PredictionFeedCard extends StatefulWidget {
 }
 
 class _PredictionFeedCardState extends State<PredictionFeedCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // Once per app session — not on every rebuild of the first card.
   static bool _swipeHintPlayed = false;
 
@@ -45,6 +45,10 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
   List<double> _sparkline = [];
   bool _hasTriggeredHaptic = false;
   AnimationController? _hintCtrl;
+
+  // Release animation: spring-return to centre, or fling the card off-screen.
+  AnimationController? _releaseCtrl;
+  bool _flinging = false; // true while the card is flying off after a commit
 
   @override
   void initState() {
@@ -102,23 +106,59 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
   @override
   void dispose() {
     _cancelSwipeHint();
+    _releaseCtrl?.dispose();
     _dragX.dispose();
     super.dispose();
   }
 
-  void _reset() {
-    _dragX.value = 0.0;
-    _hasTriggeredHaptic = false;
+  // Animate _dragX from its current value to [target] with a custom curve.
+  // onDone fires at the end (used to fire the trade after the card flies off).
+  void _animateDragTo(double target, {required Duration duration, required Curve curve, VoidCallback? onDone}) {
+    _releaseCtrl?.dispose();
+    final ctrl = AnimationController(vsync: this, duration: duration);
+    _releaseCtrl = ctrl;
+    final from = _dragX.value;
+    final anim = Tween<double>(begin: from, end: target)
+        .chain(CurveTween(curve: curve))
+        .animate(ctrl);
+    anim.addListener(() => _dragX.value = anim.value);
+    ctrl.addStatusListener((s) {
+      if (s == AnimationStatus.completed) onDone?.call();
+    });
+    ctrl.forward();
   }
 
+  // Spring back to centre when the swipe didn't cross the threshold.
+  void _springBack() {
+    _hasTriggeredHaptic = false;
+    _animateDragTo(0.0, duration: const Duration(milliseconds: 420), curve: Curves.elasticOut);
+  }
+
+  void _reset() {
+    _releaseCtrl?.dispose();
+    _releaseCtrl = null;
+    _dragX.value = 0.0;
+    _hasTriggeredHaptic = false;
+    _flinging = false;
+  }
+
+  // Commit: heavy haptic, fling the card off-screen in the swipe direction with
+  // inertia, THEN fire the trade callback — so the gesture feels physical.
   void _commit(MarketSide side) {
-    _reset();
-    if (side == MarketSide.yes) {
-      Haptics.impact(HapticImpactStyle.light);
-    } else {
-      Haptics.impact(HapticImpactStyle.medium);
-    }
-    widget.onChoose(side);
+    if (_flinging) return;
+    _flinging = true;
+    Haptics.impact(HapticImpactStyle.heavy);
+    final dir = side == MarketSide.yes ? 1.0 : -1.0;
+    _animateDragTo(
+      dir * 1000.0,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      onDone: () {
+        widget.onChoose(side);
+        // Parent advances the feed; reset so a reused card starts centred.
+        _reset();
+      },
+    );
   }
 
   @override
@@ -130,14 +170,19 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
       behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (_) {
         _cancelSwipeHint();
+        _releaseCtrl?.dispose();
+        _releaseCtrl = null;
+        _flinging = false;
         _dragX.value = 0.0;
       },
       onHorizontalDragUpdate: (d) {
+        if (_flinging) return;
         _dragX.value = (_dragX.value + d.delta.dx).clamp(-180.0, 180.0);
         final absDrag = _dragX.value.abs();
         if (absDrag > 82) {
           if (!_hasTriggeredHaptic) {
-            Haptics.impact(HapticImpactStyle.light);
+            // Crossed the commit threshold — a firm "you're about to trade" cue.
+            Haptics.impact(HapticImpactStyle.medium);
             _hasTriggeredHaptic = true;
           }
         } else {
@@ -147,6 +192,7 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
         }
       },
       onHorizontalDragEnd: (d) {
+        if (_flinging) return;
         final v = d.primaryVelocity ?? 0;
         final currentDrag = _dragX.value;
         if (currentDrag > 82 || v > 700) {
@@ -154,10 +200,10 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
         } else if (currentDrag < -82 || v < -700) {
           _commit(MarketSide.no);
         } else {
-          _reset();
+          _springBack();
         }
       },
-      onHorizontalDragCancel: _reset,
+      onHorizontalDragCancel: _springBack,
       child: ValueListenableBuilder<double>(
         valueListenable: _dragX,
         builder: (context, dragX, child) {
@@ -168,7 +214,8 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
           return Transform.translate(
             offset: Offset(dragX, 0),
             child: Transform.rotate(
-              angle: dragX / 2400,
+              angle: (dragX / 180) * 0.18, // tilt up to ~10° at full drag
+              alignment: Alignment.bottomCenter,
               child: Container(
                 decoration: BoxDecoration(
                   color: t.surfaceRaised,
@@ -202,47 +249,31 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                           ),
                         ),
                       ),
-                    // Floating YES/NO indicator stamp
-                    if (progress > 0.1)
-                      Positioned.fill(
-                        child: Center(
-                          child: Transform.scale(
-                            scale: 0.6 + progress * 0.4,
-                            child: Opacity(
-                              opacity: ((progress - 0.1) / 0.9).clamp(0.0, 1.0),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: swipeColor.withValues(alpha: 0.95),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.25),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 5),
-                                    )
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      side == MarketSide.yes ? Icons.check_circle_outline_rounded : Icons.cancel_outlined,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      side == MarketSide.yes ? 'YES' : 'NO',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                  ],
+                    // Tinder-style angled YES/NO stamp — YES pins to the top-left
+                    // and tilts left; NO pins to the top-right and tilts right.
+                    if (progress > 0.05)
+                      Positioned(
+                        top: 22,
+                        left: side == MarketSide.yes ? 20 : null,
+                        right: side == MarketSide.no ? 20 : null,
+                        child: Opacity(
+                          opacity: ((progress - 0.05) / 0.45).clamp(0.0, 1.0),
+                          child: Transform.rotate(
+                            angle: side == MarketSide.yes ? -0.32 : 0.32,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: swipeColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: swipeColor, width: 4),
+                              ),
+                              child: Text(
+                                side == MarketSide.yes ? 'YES' : 'NO',
+                                style: TextStyle(
+                                  color: swipeColor,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.0,
                                 ),
                               ),
                             ),

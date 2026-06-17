@@ -1309,7 +1309,6 @@ class _FooterSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = PulsStateScope.of(context);
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
     final isMobile = w < 600;
@@ -1322,46 +1321,6 @@ class _FooterSection extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 960),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isMobile ? 24 : 52),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [t.brand, t.brand.withValues(alpha: 0.8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: t.brand.withValues(alpha: 0.3),
-                      blurRadius: 30,
-                      offset: const Offset(0, 8),
-                    )
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Ready to predict?',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: isMobile ? 24 : 40, fontWeight: FontWeight.w900, letterSpacing: -1),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Sign in with Google. Get a wallet. Trade in 60 seconds.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: isMobile ? 13 : 16, height: 1.6),
-                    ),
-                    SizedBox(height: isMobile ? 20 : 32),
-                    _WhiteButton(
-                      label: 'Launch Puls →',
-                      onTap: appState.completeOnboarding,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: isMobile ? 40 : 60),
               isMobile
                   ? Column(
                       children: [
@@ -1584,50 +1543,6 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
               color: _hovered ? t.text : t.textMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WhiteButton extends StatefulWidget {
-  const _WhiteButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  State<_WhiteButton> createState() => _WhiteButtonState();
-}
-
-class _WhiteButtonState extends State<_WhiteButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _hovered ? 1.03 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _hovered
-                  ? [BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.12), blurRadius: 15, offset: const Offset(0, 4))]
-                  : [],
-            ),
-            child: Text(
-              widget.label,
-              style: TextStyle(color: t.brand, fontSize: 15, fontWeight: FontWeight.w800),
             ),
           ),
         ),
