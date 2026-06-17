@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +10,7 @@ import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
@@ -18,7 +19,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
-import '../agent/agent_screen.dart' show agentSubTabRequest;
+import '../profile/leaderboard_screen.dart' show LeaderboardScreen;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -31,10 +32,11 @@ class FeedScreen extends StatelessWidget {
 
     if (kIsWeb && !isMobileWeb) {
       return Scaffold(
-        backgroundColor: t.bg,
+        backgroundColor: Colors.transparent,
         body: Column(
           children: [
             _FeedHeader(t: t),
+            _PulseLine(color: t.brand),
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -50,12 +52,13 @@ class FeedScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
             _FeedHeader(t: t),
+            _PulseLine(color: t.brand),
             Expanded(child: _FeedBody(appState: appState, t: t)),
           ],
         ),
@@ -140,24 +143,18 @@ class _FeedBody extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (appState.feedStatus) {
       case FeedStatus.loading:
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(
-                    color: t.brand, strokeWidth: 2.5),
-              ),
-              const SizedBox(height: 16),
-              Text('Loading markets…',
-                  style: TextStyle(color: t.textMuted, fontSize: 14)),
-              const SizedBox(height: 6),
-              Text('Fetching from Polymarket',
-                  style: TextStyle(color: t.textSubtle, fontSize: 12)),
-            ],
-          ),
+        // Premium skeleton feed — mirrors the real card layout so the first
+        // paint feels app-like instead of a bare spinner (matches Home/Discover).
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          children: const [
+            FeedCardSkeleton(),
+            SizedBox(height: 16),
+            FeedCardSkeleton(),
+            SizedBox(height: 16),
+            FeedCardSkeleton(),
+          ],
         );
 
       case FeedStatus.error:
@@ -313,6 +310,91 @@ class _FeedHeader extends StatelessWidget {
   }
 }
 
+class _PulseLine extends StatefulWidget {
+  const _PulseLine({required this.color});
+  final Color color;
+
+  @override
+  State<_PulseLine> createState() => _PulseLineState();
+}
+
+class _PulseLineState extends State<_PulseLine>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return CustomPaint(
+          size: const Size(double.infinity, 3),
+          painter: _PulseLinePainter(
+            progress: _ctrl.value,
+            color: widget.color,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PulseLinePainter extends CustomPainter {
+  _PulseLinePainter({required this.progress, required this.color});
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    final w = size.width;
+    final mid = size.height / 2;
+
+    for (double x = 0; x < w; x += 1) {
+      final t = (x / w + progress) % 1.0;
+      final y = mid + math.sin(t * math.pi * 4) * 0.8 * math.sin(t * math.pi);
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Glow
+    paint.color = color.withValues(alpha: 0.2);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawPath(path, paint);
+
+    // Main line
+    paint.color = color.withValues(alpha: 0.5);
+    paint.maskFilter = null;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PulseLinePainter old) =>
+      old.progress != progress || old.color != color;
+}
 
 class _TopToast extends StatefulWidget {
   const _TopToast({
@@ -512,7 +594,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
         _connectWebSocket();
       }
     });
-    _reconnectDelaySeconds = min(8, _reconnectDelaySeconds * 2);
+    _reconnectDelaySeconds = math.min(8, _reconnectDelaySeconds * 2);
   }
 
   void _startFallbackPolling() {
@@ -649,7 +731,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final markets = widget.appState.feedMarkets;
     if (markets.isEmpty) return;
 
-    final random = Random();
+    final random = math.Random();
     final market = markets[random.nextInt(markets.length)];
     final usernames = ['solana_maxi', '0x12a9…cd45', 'crypto_ninja', 'betting_dave', 'pulse_master', '0x7e51…33b9', 'whale_watcher', 'trade_lord'];
     final user = usernames[random.nextInt(usernames.length)];
@@ -1169,8 +1251,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 }
 
 /// A slim banner at the top of the Feed that surfaces the latest paid "alpha"
-/// forecast. Tapping it deep-links into the Agent → Alpha sub-tab so users meet
-/// the creator-economy paywall earlier in the flow. Renders nothing until a
+/// forecast. Tapping it deep-links into the Creators hub → Alpha segment so
+/// users meet the creator-economy paywall earlier. Renders nothing until a
 /// signal is available, so it never blocks the feed.
 class _AlphaFeedTeaser extends StatefulWidget {
   const _AlphaFeedTeaser();
@@ -1210,10 +1292,10 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
   }
 
   void _openAlpha() {
-    // 2 = Alpha sub-tab inside the Agent screen.
-    agentSubTabRequest.value = 2;
+    // Alpha now lives in the Creators hub (Leaderboard tab) as a segment.
+    LeaderboardScreen.pendingSegment = 'alpha';
     final nav = ShellNavScope.maybeOf(context);
-    nav?.goToTab(PulsTab.agent);
+    nav?.goToTab(PulsTab.leaderboard);
   }
 
   @override

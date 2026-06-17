@@ -7,6 +7,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import '../comments/comment_thread.dart';
+import '../alpha/alpha_actions.dart';
+import '../payments/payment_receipt.dart';
+import '../payments/payment_receipt_sheet.dart';
+import 'creator_earnings_card.dart';
+import 'signals_section.dart';
+import 'erc8004_badge.dart';
 import 'profile_screen.dart' show GlassCard;
 
 String _profileDisplayName(Map<String, dynamic>? profile, String userId) {
@@ -37,11 +43,64 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   dynamic _profile;
   dynamic _stats;
   List<dynamic> _trades = [];
+  String _segment = 'track'; // 'signals' | 'track' | 'discussion'
+  final GlobalKey _copyKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _fetchProfile();
+  }
+
+  void _scrollToCopy() {
+    final ctx = _copyKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  // One-tap tip to a creator from their profile — fires after a 5s Undo window,
+  // then settles and shows the unified receipt sheet.
+  void _tipCreator(String handle) {
+    final wallet = WalletServiceScope.of(context);
+    if (wallet.state.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to tip creators.')),
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    final tip = DeferredTip(
+      delay: const Duration(seconds: 5),
+      onFire: () async {
+        try {
+          final res = await wallet.tipCreator(
+            amountUsdc: 0.05,
+            toUserId: widget.userId,
+            context: 'profile',
+          );
+          if (!mounted) return;
+          await PaymentReceiptSheet.show(
+            context,
+            PaymentReceipt.fromResponse(res, amountUsd: 0.05, creatorHandle: handle),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          messenger.showSnackBar(
+            SnackBar(content: Text(e.toString().replaceAll('Exception:', '').trim())),
+          );
+        }
+      },
+    )..start();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        content: Text('Tipping \$0.05 to $handle'),
+        action: SnackBarAction(label: 'Undo', onPressed: tip.cancel),
+      ),
+    );
   }
 
   Future<void> _fetchProfile() async {
@@ -111,6 +170,60 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: SafeArea(
         child: isDesktop ? WebLayout(maxWidth: 1000, child: body) : body,
       ),
+      bottomNavigationBar: _buildStickyActions(t),
+    );
+  }
+
+  /// Sticky Copy · Tip bar shown when viewing another creator's profile.
+  Widget? _buildStickyActions(PulsThemeColors t) {
+    if (_isLoading || _error != null) return null;
+    final currentUserId = WalletServiceScope.of(context).state.userId;
+    if (currentUserId != null && currentUserId == widget.userId) return null;
+
+    final name = _profileDisplayName(_profile, widget.userId);
+    final tipHandle =
+        name.startsWith('@') ? name : '@${name.replaceAll(' ', '').toLowerCase()}';
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          color: t.surfaceRaised,
+          border: Border(top: BorderSide(color: t.border)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _scrollToCopy,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: t.border),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: Icon(Icons.content_copy_rounded, size: 17, color: t.text),
+                label: Text('Copy',
+                    style: TextStyle(color: t.text, fontWeight: FontWeight.w800)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => _tipCreator(tipHandle),
+                style: FilledButton.styleFrom(
+                  backgroundColor: t.brand,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.volunteer_activism_rounded, size: 17, color: Colors.white),
+                label: const Text('Tip \$0.05',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -118,6 +231,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final name = _profileDisplayName(_profile, widget.userId);
     final bio = _profile?['bio'] ?? 'Trading prediction markets on Arc Testnet.';
     final avatarUrl = _profile?['avatar_url'] as String?;
+
+    // Creator-economy enrichments (all graceful — backend may not send them yet).
+    final isAgent = _profile?['isAgent'] == true || _profile?['is_agent'] == true;
+    final reputation = _parseInt(_profile?['reputation'] ?? _profile?['erc8004Reputation']);
+    final earningsRaw =
+        _profile?['creatorEarningsUsd'] ?? _stats?['earningsUsd'] ?? _stats?['creator_earnings_usd'];
+    final earningsUsd = earningsRaw == null ? null : _parseFloat(earningsRaw);
+    final sparkRaw = (_stats?['earningsSpark'] ?? _stats?['earnings_spark']) as List?;
+    final spark = sparkRaw?.map(_parseFloat).toList() ?? const <double>[];
+
+    final currentUserId = WalletServiceScope.of(context).state.userId;
+    final isSelf = currentUserId != null && currentUserId == widget.userId;
 
     // Determine user address if it's eth_
     String? address;
@@ -210,6 +335,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           bio,
           style: TextStyle(color: t.textSubtle, fontSize: 14, height: 1.4),
         ),
+        if (isAgent) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Erc8004Badge(
+              isAgent: true,
+              reputation: reputation > 0 ? reputation : null,
+            ),
+          ),
+        ],
       ],
     );
 
@@ -318,6 +453,78 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ],
     );
 
+    // ── Creator-hub segments: Signals · Track record · Discussion ──────────
+    Widget segButton(String value, String label) {
+      final sel = _segment == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            if (_segment != value) setState(() => _segment = value);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: sel ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: sel ? t.brand : Colors.transparent,
+                width: sel ? 1.2 : 1,
+              ),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: sel ? t.brand : t.textSubtle,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget segBar = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: t.border),
+      ),
+      child: Row(
+        children: [
+          segButton('signals', 'Signals'),
+          const SizedBox(width: 4),
+          segButton('track', 'Track record'),
+          const SizedBox(width: 4),
+          segButton('discussion', 'Discussion'),
+        ],
+      ),
+    );
+
+    Widget segmentBody;
+    switch (_segment) {
+      case 'signals':
+        segmentBody = SignalsSection(creatorUserId: widget.userId, isOwner: isSelf);
+        break;
+      case 'discussion':
+        segmentBody = CommentThread(targetType: 'profile', targetId: widget.userId);
+        break;
+      default:
+        segmentBody = Column(
+          children: [statsGrid, const SizedBox(height: 24), tradeHistory],
+        );
+    }
+
+    final earningsCard = CreatorEarningsCard(earningsUsd: earningsUsd, spark: spark);
+    final copyCard = KeyedSubtree(
+      key: _copyKey,
+      child: _CopyTraderCard(leaderUserId: widget.userId, leaderName: name),
+    );
+
     if (isDesktop) {
       return RefreshIndicator(
         onRefresh: _fetchProfile,
@@ -334,8 +541,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     children: [
                       GlassCard(child: profileInfo),
                       const SizedBox(height: 20),
-                      _CopyTraderCard(leaderUserId: widget.userId, leaderName: name),
-                      statsGrid,
+                      earningsCard,
+                      const SizedBox(height: 16),
+                      if (!isSelf) copyCard,
                     ],
                   ),
                 ),
@@ -344,9 +552,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   flex: 6,
                   child: Column(
                     children: [
-                      tradeHistory,
-                      const SizedBox(height: 24),
-                      CommentThread(targetType: 'profile', targetId: widget.userId),
+                      segBar,
+                      const SizedBox(height: 16),
+                      segmentBody,
                     ],
                   ),
                 ),
@@ -371,24 +579,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           FadeInUp(
             delay: const Duration(milliseconds: 40),
             duration: const Duration(milliseconds: 350),
-            child: _CopyTraderCard(leaderUserId: widget.userId, leaderName: name),
+            child: earningsCard,
           ),
+          if (!isSelf) ...[
+            const SizedBox(height: 16),
+            FadeInUp(
+              delay: const Duration(milliseconds: 60),
+              duration: const Duration(milliseconds: 350),
+              child: copyCard,
+            ),
+          ],
+          const SizedBox(height: 16),
           FadeInUp(
-            delay: const Duration(milliseconds: 60),
+            delay: const Duration(milliseconds: 80),
             duration: const Duration(milliseconds: 350),
-            child: statsGrid,
+            child: segBar,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           FadeInUp(
             delay: const Duration(milliseconds: 120),
             duration: const Duration(milliseconds: 350),
-            child: tradeHistory,
-          ),
-          const SizedBox(height: 24),
-          FadeInUp(
-            delay: const Duration(milliseconds: 140),
-            duration: const Duration(milliseconds: 350),
-            child: CommentThread(targetType: 'profile', targetId: widget.userId),
+            child: segmentBody,
           ),
         ],
       ),

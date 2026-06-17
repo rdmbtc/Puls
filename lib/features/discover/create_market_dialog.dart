@@ -107,7 +107,7 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
         setState(() {
           _error = e.toString().contains('Insufficient')
               ? e.toString().replaceFirst('Exception: ', '')
-              : 'Failed to deploy market: $e';
+              : 'Market deployment failed: $e';
           _submitting = false;
         });
       }

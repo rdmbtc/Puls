@@ -43,7 +43,7 @@ class _WebShellState extends State<WebShell>
     _NavItem(Picons.compass, 'Discover'),
     _NavItem(Picons.playCircle, 'Home'),
     _NavItem(Picons.chartBar, 'Portfolio'),
-    _NavItem(Picons.trophy, 'Leaderboard'),
+    _NavItem(Picons.star, 'Creators'),
     _NavItem(Picons.robot, 'Agent'),
     _NavItem(Picons.userCircle, 'Profile'),
   ];
@@ -96,19 +96,15 @@ class _WebShellState extends State<WebShell>
     final isDark = context.isDark;
     final appState = PulsStateScope.of(context);
 
-    // Theme-aware gradient
-    final gradientBg = isDark
-        ? const Color(0xFF0C0A1A)
-        : const Color(0xFFFAFAF7);
+    // Theme-aware shell background — cool canvas + on-brand pink glow (logo)
+    final gradientBg = t.bg;
     final gradientGlow = isDark
-        ? const Color(0x40312E81)
-        : const Color(0x1C4F46E5);
-    final gradientEnd = isDark
-        ? const Color(0xFF0C0A1A)
-        : const Color(0xFFFAFAF7);
+        ? PulsColors.brandPinkDark.withValues(alpha: 0.16) // soft pink halo
+        : PulsColors.brandPink.withValues(alpha: 0.07);    // subtle pink wash
+    final gradientEnd = t.bg;
     final dotColor = isDark
-        ? const Color(0x0AFFFFFF)
-        : const Color(0x0A4F46E5);
+        ? Colors.white.withValues(alpha: 0.04)
+        : PulsColors.brandPink.withValues(alpha: 0.035);
 
     return ShellNavScope(
       goToTab: _goToTab,
@@ -116,7 +112,9 @@ class _WebShellState extends State<WebShell>
         backgroundColor: gradientBg,
         body: Stack(
           children: [
-            // ── Theme-aware gradient ───────────────────────────────────────
+            // ── Single theme-aware background: soft pink halo over the canvas.
+            // (Pages embedded below are transparent so this is the ONLY bg —
+            //  no double-background behind the dynamic-island nav.)
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -129,7 +127,6 @@ class _WebShellState extends State<WebShell>
                 ),
               ),
             ),
-            // ── Dot grid ───────────────────────────────────────────────────
             Positioned.fill(
               child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
             ),
@@ -152,6 +149,9 @@ class _WebShellState extends State<WebShell>
                         begin: const Offset(0.02, 0),
                         end: Offset.zero,
                       ).animate(_fadeAnim),
+                      // Embedded pages set backgroundColor: Colors.transparent
+                      // so the shell gradient above is the single background
+                      // (fixes the double-background behind the island nav).
                       child: IndexedStack(index: _index, children: _pages),
                     ),
                   ),

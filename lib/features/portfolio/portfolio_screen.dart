@@ -223,7 +223,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Failed to cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text('Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
       setState(() { _loading = false; });
@@ -586,7 +586,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     }
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Portfolio', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,

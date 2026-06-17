@@ -5,8 +5,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/agent_badge.dart';
+import '../alpha/alpha_screen.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
+import 'creators_segment_bar.dart';
 import 'user_profile_screen.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -21,7 +23,15 @@ String _displayName(dynamic trader) {
 }
 
 class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({super.key});
+  const LeaderboardScreen({super.key, this.initialSegment = 'ranking'});
+
+  /// Which Creators segment to open on first build: `ranking`, `alpha`, or
+  /// `people`.
+  final String initialSegment;
+
+  /// One-shot segment override consumed on the next build. Legacy Alpha entry
+  /// points (feed teaser, home promo) set this before switching to this tab.
+  static String? pendingSegment;
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
@@ -30,6 +40,7 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String _sortBy = 'pnl'; // 'pnl' or 'volume'
   String _type = 'all'; // 'all' | 'humans' | 'agents'
+  String _segment = 'ranking'; // 'ranking' | 'alpha' | 'people'
   bool _isLoading = true;
   String? _error;
   List<dynamic> _traders = [];
@@ -37,7 +48,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   void initState() {
     super.initState();
+    _segment = LeaderboardScreen.pendingSegment ?? widget.initialSegment;
+    LeaderboardScreen.pendingSegment = null;
+    if (_segment == 'people') _type = 'humans';
     _fetchLeaderboard();
+  }
+
+  void _selectSegment(String value) {
+    if (_segment == value) return;
+    setState(() {
+      _segment = value;
+      if (value == 'ranking') _type = 'all';
+      if (value == 'people' && _type == 'all') _type = 'humans';
+    });
+    if (value != 'alpha') _fetchLeaderboard();
   }
 
   Future<void> _fetchLeaderboard() async {
@@ -72,14 +96,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Leaderboard',
+              'Creators',
               style: TextStyle(
                 color: t.text,
                 fontWeight: FontWeight.w900,
@@ -87,11 +111,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
             Text(
-              _isLoading
-                  ? 'Crunching the numbers…'
-                  : _type == 'agents'
-                      ? '${_traders.length} AI agents · ERC-8004 on Arc'
-                      : '${_traders.length} ${_type == 'humans' ? 'humans' : 'traders'} · live on Arc Testnet',
+              _segment == 'alpha'
+                  ? 'Premium analysis · paid per read on Arc'
+                  : _isLoading
+                      ? 'Crunching the numbers…'
+                      : _type == 'agents'
+                          ? '${_traders.length} AI agents · ERC-8004 on Arc'
+                          : '${_traders.length} ${_type == 'humans' ? 'humans' : 'traders'} · live on Arc Testnet',
               style: TextStyle(
                 color: t.textMuted,
                 fontSize: 11,
@@ -115,23 +141,40 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Sort Toggles
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: _buildSortToggles(t),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: _buildTypePills(t),
+              child: CreatorsSegmentBar(
+                selected: _segment,
+                onChanged: _selectSegment,
+              ),
             ),
             Expanded(
-              child: _isLoading
-                  ? _buildLoadingSkeleton()
-                  : _error != null
-                      ? _buildErrorView(t)
-                      : _traders.isEmpty
-                          ? _buildEmptyView(t)
-                          : _buildContent(t, isDark),
+              child: _segment == 'alpha'
+                  ? const AlphaScreen()
+                  : Column(
+                      children: [
+                        if (_segment == 'ranking')
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                            child: _buildSortToggles(t),
+                          ),
+                        if (_segment == 'people')
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                            child: _buildTypePills(t),
+                          ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: _isLoading
+                              ? _buildLoadingSkeleton()
+                              : _error != null
+                                  ? _buildErrorView(t)
+                                  : _traders.isEmpty
+                                      ? _buildEmptyView(t)
+                                      : _buildContent(t, isDark),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -502,7 +545,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   if (trader['isAgent'] == true) ...[
                                     const SizedBox(width: 3),
                                     const Icon(Icons.smart_toy_rounded,
-                                        size: 11, color: Color(0xFF8B5CF6)),
+                                        size: 11, color: AgentBadge.agentColor),
                                   ],
                                 ],
                               ),

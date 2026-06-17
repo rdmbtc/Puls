@@ -17,6 +17,7 @@
       --border: #E8EBF1; --brand: #EC4899; --brand-soft: #FCE7F3; --agent: #14B8A6;
       --agent-soft: #E6FAF6; --good: #16A34A; --bad: #EF4444; --amber: #B45309;
       --amber-soft: #FDF3E3; --shadow: rgba(20,18,45,.06);
+      --skel: #EDF0F5; --shimmer: rgba(255,255,255,.65);
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -24,8 +25,17 @@
         --border: #283149; --brand: #F472B6; --brand-soft: #3B0A2A; --agent: #2DD4BF;
         --agent-soft: #102A2A; --good: #4ADE80; --bad: #F87171; --amber: #FBBF24;
         --amber-soft: #2A2008; --shadow: rgba(0,0,0,.4);
+        --skel: #1B2236; --shimmer: rgba(255,255,255,.06);
       }
     }
+    .sk { position: relative; overflow: hidden; background: var(--skel); border-radius: 7px; }
+    .sk::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
     * { box-sizing: border-box; }
     body {
       margin: 0; background: var(--bg); color: var(--text);
@@ -151,7 +161,20 @@
     </header>
 
     <div class="idcard" id="idcard">
-      <div class="skeleton">Loading the agent…</div>
+      <div class="idtop">
+        <div class="sk" style="width:52px;height:52px;border-radius:14px"></div>
+        <div style="flex:1;min-width:120px">
+          <div class="sk" style="height:19px;width:46%"></div>
+          <div class="sk" style="height:11px;width:64%;margin-top:8px"></div>
+        </div>
+        <div class="sk" style="height:13px;width:70px"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="sk" style="height:10px;width:60%"></div><div class="sk" style="height:17px;width:75%;margin-top:8px"></div></div>
+        <div class="stat"><div class="sk" style="height:10px;width:55%"></div><div class="sk" style="height:17px;width:65%;margin-top:8px"></div></div>
+        <div class="stat"><div class="sk" style="height:10px;width:62%"></div><div class="sk" style="height:17px;width:70%;margin-top:8px"></div></div>
+        <div class="stat"><div class="sk" style="height:10px;width:50%"></div><div class="sk" style="height:17px;width:60%;margin-top:8px"></div></div>
+      </div>
     </div>
 
     <div class="sectionhdr">
@@ -159,7 +182,18 @@
       <span class="meta" id="feedMeta"><span class="live-dot"></span>auto-refreshing</span>
     </div>
     <div class="feed" id="feed">
-      <div class="skeleton">Loading the agent's autonomous decisions…</div>
+      <div class="dcard show">
+        <div class="drow1"><div class="sk" style="height:18px;width:52px"></div><div class="sk" style="height:18px;width:62px"></div><div class="sk" style="height:14px;width:44px;margin-left:auto"></div></div>
+        <div class="sk" style="height:16px;width:78%;margin-top:11px"></div>
+        <div class="sk" style="height:40px;width:100%;margin-top:11px;border-radius:10px"></div>
+        <div class="sk" style="height:28px;width:150px;margin-top:12px;border-radius:9px"></div>
+      </div>
+      <div class="dcard show">
+        <div class="drow1"><div class="sk" style="height:18px;width:52px"></div><div class="sk" style="height:18px;width:62px"></div><div class="sk" style="height:14px;width:44px;margin-left:auto"></div></div>
+        <div class="sk" style="height:16px;width:66%;margin-top:11px"></div>
+        <div class="sk" style="height:40px;width:100%;margin-top:11px;border-radius:10px"></div>
+        <div class="sk" style="height:28px;width:150px;margin-top:12px;border-radius:9px"></div>
+      </div>
     </div>
 
     <div class="notice">

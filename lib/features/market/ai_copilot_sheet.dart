@@ -105,7 +105,7 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
       });
     } catch (e) {
       setState(() {
-        _msgs.add(CopilotMsg(false, '⚠️ Failed to connect to copilot backend: ${e.toString().replaceAll('Exception: ', '')}'));
+        _msgs.add(CopilotMsg(false, 'Copilot couldn\'t connect. Try again in a moment.'));
       });
     } finally {
       if (mounted) setState(() => _busy = false);

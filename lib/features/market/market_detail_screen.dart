@@ -15,7 +15,7 @@ import 'share_market_sheet.dart';
 import 'advanced_charts.dart';
 import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
-import '../comments/comment_thread.dart';
+import 'market_detail_tabs.dart';
 
 class MarketDetailScreen extends StatefulWidget {
   const MarketDetailScreen({required this.marketId, super.key});
@@ -120,9 +120,13 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           t: t,
         ),
 
-        // ── Discussion / comments ────────────────────────────────────────
+        // ── Discussion / comments / activity ────────────────────────────
         const SizedBox(height: 24),
-        CommentThread(targetType: 'market', targetId: market.id),
+        MarketDetailTabs(
+          marketId: market.id,
+          contractAddress: market.contractAddress,
+          question: market.question,
+        ),
       ],
     );
 

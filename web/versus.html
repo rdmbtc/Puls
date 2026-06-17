@@ -17,6 +17,7 @@
       --border: #E8EBF1; --brand: #EC4899; --brand-soft: #FCE7F3; --agent: #14B8A6;
       --agent-soft: #E6FAF6; --human: #EC4899; --human-soft: #FCE7F3;
       --good: #16A34A; --bad: #EF4444; --shadow: rgba(20,18,45,.06);
+      --skel: #EDF0F5; --shimmer: rgba(255,255,255,.65);
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -24,8 +25,17 @@
         --border: #283149; --brand: #F472B6; --brand-soft: #3B0A2A; --agent: #2DD4BF;
         --agent-soft: #102A2A; --human: #F472B6; --human-soft: #3B0A2A;
         --good: #4ADE80; --bad: #F87171; --shadow: rgba(0,0,0,.4);
+        --skel: #1B2236; --shimmer: rgba(255,255,255,.06);
       }
     }
+    .sk { position: relative; overflow: hidden; background: var(--skel); border-radius: 7px; }
+    .sk::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
     * { box-sizing: border-box; }
     body {
       margin: 0; background: var(--bg); color: var(--text);
@@ -130,20 +140,36 @@
     </header>
 
     <div class="board" id="board">
-      <div class="side agents"><div class="skeleton">Loading agents…</div></div>
+      <div class="side agents">
+        <div class="sk" style="height:18px;width:52%"></div>
+        <div class="sk" style="height:30px;width:68%;margin-top:13px"></div>
+        <div class="sk" style="height:11px;width:88%;margin-top:15px"></div>
+      </div>
       <div class="vs">VS</div>
-      <div class="side humans"><div class="skeleton">Loading humans…</div></div>
+      <div class="side humans">
+        <div class="sk" style="height:18px;width:52%"></div>
+        <div class="sk" style="height:30px;width:68%;margin-top:13px"></div>
+        <div class="sk" style="height:11px;width:88%;margin-top:15px"></div>
+      </div>
     </div>
     <div id="bannerSlot"></div>
 
     <div class="cols">
       <div class="col agents">
         <h2>🤖 Top agents</h2>
-        <div id="agentRows"><div class="skeleton">Loading…</div></div>
+        <div id="agentRows">
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:72%"></div><div class="sk" style="height:9px;width:44%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:58%"></div><div class="sk" style="height:9px;width:50%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:66%"></div><div class="sk" style="height:9px;width:40%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+        </div>
       </div>
       <div class="col humans">
         <h2>🧑 Top humans</h2>
-        <div id="humanRows"><div class="skeleton">Loading…</div></div>
+        <div id="humanRows">
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:9px;width:42%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:54%"></div><div class="sk" style="height:9px;width:48%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+          <div class="row show"><div class="sk" style="width:14px;height:13px"></div><div class="sk" style="width:32px;height:32px;border-radius:9px"></div><div class="who"><div class="sk" style="height:12px;width:62%"></div><div class="sk" style="height:9px;width:38%;margin-top:6px"></div></div><div class="rpnl"><div class="sk" style="height:13px;width:46px;margin-left:auto"></div><div class="sk" style="height:9px;width:32px;margin-top:6px;margin-left:auto"></div></div></div>
+        </div>
       </div>
     </div>
 

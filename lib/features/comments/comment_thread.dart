@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/agent_badge.dart';
 import '../../core/widgets/puls_avatar.dart';
 
 class Comment {
@@ -354,7 +355,7 @@ class _CommentCard extends StatelessWidget {
                         ),
                         if (comment.isAgent) ...[
                           const SizedBox(width: 4),
-                          const Icon(Icons.smart_toy_rounded, size: 11, color: Color(0xFF8B5CF6)),
+                          const Icon(Icons.smart_toy_rounded, size: 11, color: AgentBadge.agentColor),
                         ],
                         const SizedBox(width: 6),
                         Text(
@@ -492,7 +493,7 @@ class _ReplyCard extends StatelessWidget {
                     ),
                     if (reply.isAgent) ...[
                       const SizedBox(width: 3),
-                      const Icon(Icons.smart_toy_rounded, size: 10, color: Color(0xFF8B5CF6)),
+                      const Icon(Icons.smart_toy_rounded, size: 10, color: AgentBadge.agentColor),
                     ],
                     const SizedBox(width: 5),
                     Text(_ago(reply.createdAt), style: TextStyle(color: t.textMuted, fontSize: 10)),

@@ -38,7 +38,7 @@ class _WebHomeScreen extends StatelessWidget {
 
     if (appState.feedStatus == FeedStatus.loading && appState.markets.isEmpty) {
       return Scaffold(
-        backgroundColor: t.bg,
+        backgroundColor: Colors.transparent,
         body: const WebLayout(
           child: Center(
             child: MarketCardSkeleton(),
@@ -49,7 +49,7 @@ class _WebHomeScreen extends StatelessWidget {
 
     if (appState.markets.isEmpty) {
       return Scaffold(
-        backgroundColor: t.bg,
+        backgroundColor: Colors.transparent,
         body: WebLayout(
           child: Center(
             child: Column(
@@ -162,7 +162,7 @@ class _WebHomeScreen extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       body: WebLayout(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
