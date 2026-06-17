@@ -188,22 +188,22 @@ class _TopNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        // Show labels inside the island only when there is room for them.
-        final showLabels = c.maxWidth >= 1120;
+        // Labels only on wide screens (7 labelled pills are ~880px wide and
+        // must clear the brand + right controls without overlapping).
+        final showLabels = c.maxWidth >= 1300;
+        // Compact: collapse brand text + wallet detail on small laptops.
+        final compact = c.maxWidth < 780;
 
+        // Row layout (brand · island · controls) so elements can never
+        // overlap — the island stays centred between flexible spacers.
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: SizedBox(
             height: 56,
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
               children: [
-                // Left: brand wordmark
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _Brand(t: t),
-                ),
-                // Center: the dynamic island
+                _Brand(t: t, compact: compact),
+                const Spacer(),
                 _Island(
                   index: index,
                   items: items,
@@ -212,14 +212,12 @@ class _TopNav extends StatelessWidget {
                   showLabels: showLabels,
                   onTap: onTap,
                 ),
-                // Right: controls (wallet · theme · network)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _RightControls(
-                    t: t,
-                    isDark: isDark,
-                    onToggleTheme: onToggleTheme,
-                  ),
+                const Spacer(),
+                _RightControls(
+                  t: t,
+                  isDark: isDark,
+                  compact: compact,
+                  onToggleTheme: onToggleTheme,
                 ),
               ],
             ),
@@ -231,8 +229,9 @@ class _TopNav extends StatelessWidget {
 }
 
 class _Brand extends StatelessWidget {
-  const _Brand({required this.t});
+  const _Brand({required this.t, this.compact = false});
   final PulsThemeColors t;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -249,17 +248,19 @@ class _Brand extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Image.asset('assets/logo.png', fit: BoxFit.cover),
         ),
-        const SizedBox(width: 10),
-        Text(
-          'Puls',
-          style: TextStyle(
-            fontFamily: PulsColors.fontDisplay,
-            color: t.text,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
+        if (!compact) ...[
+          const SizedBox(width: 10),
+          Text(
+            'Puls',
+            style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
+              color: t.text,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -424,10 +425,12 @@ class _RightControls extends StatelessWidget {
   const _RightControls({
     required this.t,
     required this.isDark,
+    required this.compact,
     required this.onToggleTheme,
   });
   final PulsThemeColors t;
   final bool isDark;
+  final bool compact;
   final VoidCallback onToggleTheme;
 
   @override
@@ -435,7 +438,7 @@ class _RightControls extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _WalletChip(t: t),
+        _WalletChip(t: t, compact: compact),
         const SizedBox(width: 8),
         _ThemeToggle(t: t, isDark: isDark, onToggle: onToggleTheme),
       ],
@@ -444,8 +447,9 @@ class _RightControls extends StatelessWidget {
 }
 
 class _WalletChip extends StatelessWidget {
-  const _WalletChip({required this.t});
+  const _WalletChip({required this.t, this.compact = false});
   final PulsThemeColors t;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -479,18 +483,20 @@ class _WalletChip extends StatelessWidget {
             decoration: BoxDecoration(color: t.yes, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
-          Text(
-            shortAddress,
-            style: TextStyle(
-              color: t.text,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          if (!compact) ...[
+            Text(
+              shortAddress,
+              style: TextStyle(
+                color: t.text,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(width: 1, height: 14, color: t.border),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+            Container(width: 1, height: 14, color: t.border),
+            const SizedBox(width: 8),
+          ],
           Text(
             '\$$usdc',
             style: TextStyle(
