@@ -116,6 +116,61 @@ class MarketCardSkeleton extends StatelessWidget {
   }
 }
 
+/// Skeleton mirroring the [PredictionFeedCard] layout used in the main Feed.
+/// Full-width; meant to be stacked in a ListView while markets load.
+class FeedCardSkeleton extends StatelessWidget {
+  const FeedCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Container(
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.border),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Tag pills + bookmark
+          Row(
+            children: [
+              Skeleton(width: 64, height: 22, radius: 6),
+              SizedBox(width: 8),
+              Skeleton(width: 52, height: 22, radius: 6),
+              Spacer(),
+              Skeleton(width: 20, height: 20, radius: 6),
+            ],
+          ),
+          SizedBox(height: 14),
+          // Question (two lines)
+          Skeleton(height: 18, radius: 6),
+          SizedBox(height: 8),
+          Skeleton(height: 18, width: 220, radius: 6),
+          SizedBox(height: 14),
+          // Topic image
+          Skeleton(height: 130, radius: 12),
+          SizedBox(height: 14),
+          // Odds bar
+          Skeleton(height: 10, radius: 6),
+          SizedBox(height: 16),
+          // YES / NO buttons
+          Row(
+            children: [
+              Expanded(child: Skeleton(height: 52, radius: 14)),
+              SizedBox(width: 10),
+              Expanded(child: Skeleton(height: 52, radius: 14)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Compact skeleton matching the Discover/Home market-card layout.
 /// Expects a bounded height (grid cell or a SizedBox wrapper in lists).
 class DiscoverCardSkeleton extends StatelessWidget {
