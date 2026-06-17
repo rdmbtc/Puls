@@ -402,7 +402,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
 
     return Scaffold(
-      backgroundColor: t.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: kIsWeb ? WebLayout(child: scrollView) : scrollView,

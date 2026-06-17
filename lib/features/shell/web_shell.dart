@@ -112,7 +112,9 @@ class _WebShellState extends State<WebShell>
         backgroundColor: gradientBg,
         body: Stack(
           children: [
-            // ── Theme-aware gradient ───────────────────────────────────────
+            // ── Single theme-aware background: soft pink halo over the canvas.
+            // (Pages embedded below are transparent so this is the ONLY bg —
+            //  no double-background behind the dynamic-island nav.)
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -125,7 +127,6 @@ class _WebShellState extends State<WebShell>
                 ),
               ),
             ),
-            // ── Dot grid ───────────────────────────────────────────────────
             Positioned.fill(
               child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
             ),
@@ -148,6 +149,9 @@ class _WebShellState extends State<WebShell>
                         begin: const Offset(0.02, 0),
                         end: Offset.zero,
                       ).animate(_fadeAnim),
+                      // Embedded pages set backgroundColor: Colors.transparent
+                      // so the shell gradient above is the single background
+                      // (fixes the double-background behind the island nav).
                       child: IndexedStack(index: _index, children: _pages),
                     ),
                   ),
