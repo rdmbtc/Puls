@@ -25,15 +25,15 @@ class PulsColors {
   static const gray700 = Color(0xFF3A3A3A);
   static const gray900 = Color(0xFF1A1A1A);
 
-  // Dark mode — indigo-tinted darks
-  static const dark50 = Color(0xFF0C0A1A);       // deep indigo-black
-  static const dark100 = Color(0xFF131127);       // card surface
-  static const dark200 = Color(0xFF1E1B3A);       // raised surface / border
-  static const dark300 = Color(0xFF2E2A52);       // strong border
-  static const dark400 = Color(0xFF52527A);       // subtle text
-  static const dark500 = Color(0xFF8181AA);       // muted text
-  static const dark600 = Color(0xFFB0B0CC);       // secondary text
-  static const dark900 = Color(0xFFF5F5FF);       // primary text (slight indigo tint)
+  // Dark mode — neutral charcoal darks (de-slop, no indigo tint)
+  static const dark50 = Color(0xFF0D1117);       // neutral charcoal-black
+  static const dark100 = Color(0xFF161B22);       // card surface
+  static const dark200 = Color(0xFF21262D);       // raised surface / border
+  static const dark300 = Color(0xFF30363D);       // strong border
+  static const dark400 = Color(0xFF6E7681);       // subtle text
+  static const dark500 = Color(0xFF7D8694);       // muted text
+  static const dark600 = Color(0xFFAEB6C2);       // secondary text
+  static const dark900 = Color(0xFFF0F3F8);       // primary text
 
   // Font families
   static const fontDisplay = 'Playfair Display';
@@ -148,14 +148,14 @@ class PulsTheme {
 
   // ── Dark: Black + Indigo ──────────────────────────────────────────────
   static const _dark = PulsThemeColors(
-    bg: Color(0xFF0C0A1A),            // ★ deep indigo-black
-    surface: Color(0xFF131127),        // ★ indigo-tinted card
-    surfaceRaised: Color(0xFF1E1B3A),  // ★ indigo-tinted raised
-    border: Color(0xFF1E1B3A),         // ★ indigo-tinted border
-    borderStrong: Color(0xFF2E2A52),   // ★ stronger indigo border
-    text: Color(0xFFF5F5FF),           // ★ slight indigo-tinted white
-    textMuted: Color(0xFFB0B0CC),      // ★ indigo-tinted muted
-    textSubtle: Color(0xFF8181AA),     // ★ indigo-tinted subtle
+    bg: Color(0xFF0D1117),            // neutral charcoal-black (de-slop, no indigo tint)
+    surface: Color(0xFF161B22),        // neutral card
+    surfaceRaised: Color(0xFF21262D),  // neutral raised
+    border: Color(0xFF21262D),         // neutral border
+    borderStrong: Color(0xFF30363D),   // neutral strong border
+    text: Color(0xFFF0F3F8),           // neutral near-white
+    textMuted: Color(0xFFAEB6C2),      // neutral muted
+    textSubtle: Color(0xFF7D8694),     // neutral subtle
     brand: Color(0xFF818CF8),          // ★ lighter indigo for dark
     brandSubtle: Color(0xFF1E1B4B),    // ★ deep indigo subtle
     yes: Color(0xFF4ADE80),            // ★ bright green for dark bg
