@@ -1235,16 +1235,11 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
+            // Single uniform brand wash — was a left→right gradient that read
+            // as two separate backgrounds (pink left / white right).
+            color: t.brandSubtle,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: t.brand.withValues(alpha: 0.35)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                t.brand.withValues(alpha: 0.14),
-                t.surfaceRaised,
-              ],
-            ),
           ),
           child: Row(
             children: [
