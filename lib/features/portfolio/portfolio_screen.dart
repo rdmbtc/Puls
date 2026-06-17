@@ -787,7 +787,7 @@ class _HeroCard extends StatelessWidget {
                         ),
                       ),
                     ] else ...[
-                      Text('No completed trades',
+                      Text('Place your first trade to see P&L',
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
                     ],
                   ],
