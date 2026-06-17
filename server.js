@@ -5225,6 +5225,64 @@ async function ensureHouseAgentWallet() {
   return { walletId, address: info.address, balance };
 }
 
+// Pay a creator for alpha (agent→creator nanopayment) BEFORE deciding.
+// This is the heart of our Agentic narrative: the autonomous agent spends real
+// USDC to buy a forecaster's signal, then reasons over it — value too small to
+// move before now moves agent→creator on Arc. Uses the agent's own Circle SCA
+// wallet (gasless) to transfer the per-read fee to the creator (X402_SELLER_ADDRESS,
+// the same payTo behind the /api/alpha/sample x402 paywall). Best-effort: if it
+// can't pay (no creator address / transfer fails) the agent still trades, just
+// without the signal-cost economics. Returns { cost, creator, txId, signal } | null.
+const HOUSE_AGENT_ALPHA_PRICE = parseFloat(process.env.HOUSE_AGENT_ALPHA_PRICE || '0.001') || 0.001;
+async function houseAgentPayForAlpha(agentWalletId, agentAddress) {
+  const creator = (process.env.X402_SELLER_ADDRESS || '').trim();
+  if (!creator) return null; // no creator configured → skip the paid-alpha step
+  // Don't pay yourself.
+  if (creator.toLowerCase() === String(agentAddress).toLowerCase()) return null;
+
+  // The alpha the agent is buying (same content the paid /api/alpha/sample serves).
+  const signal = {
+    market: 'Will BTC close above $100k by 2026-12-31?',
+    stance: 'YES',
+    confidence: 0.62,
+    edge_bps: 480,
+    horizon: 'Q4 2026',
+    thesis:
+      'Spot ETF inflows + post-halving supply squeeze outweigh near-term macro drag; '
+      + 'order-flow on Puls skews YES while implied prob lags fundamentals.',
+  };
+
+  try {
+    const amountMicro = Math.round(HOUSE_AGENT_ALPHA_PRICE * 1_000_000).toString();
+    const txRes = await circle.createContractExecutionTransaction({
+      walletId: agentWalletId,
+      contractAddress: USDC,
+      abiFunctionSignature: 'transfer(address,uint256)',
+      abiParameters: [creator, amountMicro],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+    });
+    const txId = txRes.data?.id || null;
+
+    // Receipt → Earnings/x402 feed (endpoint='agent_alpha' so it's distinct from
+    // human alpha_unlock). This is a verifiable agent→creator nanopayment.
+    supabase.from('x402_payments').insert({
+      endpoint: 'agent_alpha',
+      payer: agentAddress || null,
+      pay_to: creator,
+      amount_usdc: HOUSE_AGENT_ALPHA_PRICE.toString(),
+      network: 'eip155:5042002',
+      gateway_tx: txId,
+      raw: { kind: 'agent_alpha', agent: HOUSE_AGENT_USER, signal: { market: signal.market, edge_bps: signal.edge_bps } },
+    }).then(({ error }) => { if (error) console.warn('[Pulse] alpha receipt insert failed:', error.message); });
+
+    console.log(`[Pulse] paid creator ${HOUSE_AGENT_ALPHA_PRICE} USDC for alpha → ${creator} (tx ${txId})`);
+    return { cost: HOUSE_AGENT_ALPHA_PRICE, creator, txId, signal };
+  } catch (e) {
+    console.error('[Pulse] pay-for-alpha failed (continuing without it):', e.message);
+    return null;
+  }
+}
+
 // Research: compare Polymarket consensus to our on-chain LMSR prices and
 // return scored candidates (positive edge = that side is cheap on Arc).
 async function houseAgentResearch() {
@@ -5287,20 +5345,23 @@ async function houseAgentResearch() {
 
 // Decide: LLM picks among the top candidates and explains itself; if the LLM
 // is unavailable the agent falls back to deterministic value reasoning.
-async function houseAgentDecide(candidates, balance) {
+async function houseAgentDecide(candidates, balance, alpha = null) {
   const top = candidates.slice(0, 5);
   if (top.length === 0 || top[0].edge < 0.02) return null;
   const amount = Math.min(HOUSE_AGENT_MAX_TRADE, Math.max(0.1, Math.floor((balance - 0.1) * 10) / 10));
   if (amount < 0.1) return null;
 
   try {
-    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc. Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices and why the edge exists>"}`;
-    const user = top.map((c, i) =>
+    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc. ${alpha ? 'You also just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (provided below) — weigh it in your reasoning. ' : ''}Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices and why the edge exists>"}`;
+    const candidateText = top.map((c, i) =>
       `${i + 1}. ${c.question}\n   slug: ${c.slug} | Polymarket YES: ${(c.pmYes * 100).toFixed(0)}¢ | Arc on-chain YES: ${(c.onChainYes * 100).toFixed(0)}¢ | cheap side on Arc: ${c.side} (edge ${(c.edge * 100).toFixed(1)}¢)`
     ).join('\n');
+    const alphaText = alpha
+      ? `\n\nPaid alpha signal (you spent ${alpha.cost} USDC on this):\n${JSON.stringify(alpha.signal, null, 2)}`
+      : '';
     const raw = await llmComplete([
       { role: 'system', content: sys },
-      { role: 'user', content: user },
+      { role: 'user', content: candidateText + alphaText },
     ]);
     const parsed = parseLlmJson(raw);
     const chosen = top.find(c => c.slug === parsed.slug) || top[0];
@@ -5342,8 +5403,13 @@ async function houseAgentTick() {
       return;
     }
 
+    // Pay a creator for alpha BEFORE deciding (agent→creator nanopayment on Arc).
+    // The purchased signal becomes extra context for the LLM, and its cost is
+    // netted out of the decision economics. Best-effort — never blocks trading.
+    const alpha = await houseAgentPayForAlpha(agent.walletId, agent.address);
+
     const candidates = await houseAgentResearch();
-    const decision = await houseAgentDecide(candidates, agent.balance);
+    const decision = await houseAgentDecide(candidates, agent.balance, alpha);
     if (!decision) {
       console.log('[Pulse] no opportunity above threshold this cycle');
       return;
@@ -5375,6 +5441,10 @@ async function houseAgentTick() {
         edge: decision.edge,
         txHash: result.txHash,
         contractAddress: decision.contractAddress,
+        // Agent→creator nanopayment that fed this decision (if any).
+        alphaPaid: alpha ? alpha.cost : null,
+        alphaCreator: alpha ? alpha.creator : null,
+        alphaTxId: alpha ? alpha.txId : null,
       }),
     });
     if (insErr) console.error('[Pulse] decision publish error:', insErr.message);
