@@ -16,6 +16,7 @@ import { registerComments } from './lib/comments.js';
 import { registerSupport } from './lib/support.js';
 import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
+import { researchQuestion } from './lib/agent_research.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -5345,28 +5346,33 @@ async function houseAgentResearch() {
 
 // Decide: LLM picks among the top candidates and explains itself; if the LLM
 // is unavailable the agent falls back to deterministic value reasoning.
-async function houseAgentDecide(candidates, balance, alpha = null) {
+async function houseAgentDecide(candidates, balance, alpha = null, research = null) {
   const top = candidates.slice(0, 5);
   if (top.length === 0 || top[0].edge < 0.02) return null;
   const amount = Math.min(HOUSE_AGENT_MAX_TRADE, Math.max(0.1, Math.floor((balance - 0.1) * 10) / 10));
   if (amount < 0.1) return null;
 
+  const sources = research && research.sources ? research.sources : [];
+
   try {
-    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc. ${alpha ? 'You also just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (provided below) — weigh it in your reasoning. ' : ''}Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices and why the edge exists>"}`;
+    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc.${alpha ? ' You just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (below) — weigh it.' : ''}${research && research.brief ? ' You also researched the open web (live news/sentiment below) — use it to sanity-check the edge.' : ''} Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices, the web finding if relevant, and why the edge exists>"}`;
     const candidateText = top.map((c, i) =>
       `${i + 1}. ${c.question}\n   slug: ${c.slug} | Polymarket YES: ${(c.pmYes * 100).toFixed(0)}¢ | Arc on-chain YES: ${(c.onChainYes * 100).toFixed(0)}¢ | cheap side on Arc: ${c.side} (edge ${(c.edge * 100).toFixed(1)}¢)`
     ).join('\n');
     const alphaText = alpha
       ? `\n\nPaid alpha signal (you spent ${alpha.cost} USDC on this):\n${JSON.stringify(alpha.signal, null, 2)}`
       : '';
+    const researchText = research && research.brief
+      ? `\n\nLive web research on "${top[0].question}":\n${research.brief}`
+      : '';
     const raw = await llmComplete([
       { role: 'system', content: sys },
-      { role: 'user', content: candidateText + alphaText },
+      { role: 'user', content: candidateText + alphaText + researchText },
     ]);
     const parsed = parseLlmJson(raw);
     const chosen = top.find(c => c.slug === parsed.slug) || top[0];
     const side = ['YES', 'NO'].includes(parsed.side) ? parsed.side : chosen.side;
-    return { ...chosen, side, amount, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm' };
+    return { ...chosen, side, amount, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm', sources };
   } catch (e) {
     const c = top[0];
     const cheapPrice = c.side === 'YES' ? c.onChainYes : 1 - c.onChainYes;
@@ -5376,6 +5382,7 @@ async function houseAgentDecide(candidates, balance, alpha = null) {
       amount,
       reasoning: `${c.side} trades at ${(cheapPrice * 100).toFixed(0)}¢ on Arc while Polymarket consensus implies ${(consensus * 100).toFixed(0)}¢ — a ${(c.edge * 100).toFixed(1)}¢ edge. Buying ${c.side} captures the convergence as on-chain pricing tracks consensus.`,
       brain: 'quant',
+      sources,
     };
   }
 }
@@ -5409,7 +5416,25 @@ async function houseAgentTick() {
     const alpha = await houseAgentPayForAlpha(agent.walletId, agent.address);
 
     const candidates = await houseAgentResearch();
-    const decision = await houseAgentDecide(candidates, agent.balance, alpha);
+    if (candidates.length === 0 || candidates[0].edge < 0.02) {
+      console.log('[Pulse] no opportunity above threshold this cycle');
+      return;
+    }
+
+    // Research the open web on the top candidate's question (keyless Jina+DDG).
+    // This gives the agent real-world context (news/sentiment) to reason over —
+    // not just the on-chain price gap. Best-effort: never blocks the decision.
+    let research = { brief: '', sources: [] };
+    try {
+      research = await researchQuestion(candidates[0].question, 4);
+      if (research.sources.length) {
+        console.log(`[Pulse] researched "${candidates[0].question}" → ${research.sources.length} sources (${research.sources.map(s => s.source).join(', ')})`);
+      }
+    } catch (e) {
+      console.warn('[Pulse] research failed (continuing):', e.message);
+    }
+
+    const decision = await houseAgentDecide(candidates, agent.balance, alpha, research);
     if (!decision) {
       console.log('[Pulse] no opportunity above threshold this cycle');
       return;
@@ -5445,6 +5470,8 @@ async function houseAgentTick() {
         alphaPaid: alpha ? alpha.cost : null,
         alphaCreator: alpha ? alpha.creator : null,
         alphaTxId: alpha ? alpha.txId : null,
+        // Open-web research the agent read before deciding (keyless Jina+DDG).
+        sources: (decision.sources || []).slice(0, 3),
       }),
     });
     if (insErr) console.error('[Pulse] decision publish error:', insErr.message);
