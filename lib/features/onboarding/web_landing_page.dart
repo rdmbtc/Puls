@@ -1012,12 +1012,19 @@ class _StatsSection extends StatelessWidget {
                                   style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w700),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              const _VerifiedBadge(),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
                             factoryAddress,
-                            style: TextStyle(color: t.textSubtle, fontSize: 10, fontFamily: 'monospace'),
+                            style: TextStyle(
+                              color: t.textSubtle,
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 12),
@@ -1049,14 +1056,28 @@ class _StatsSection extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'LMSRMarketFactory.sol — Arc Testnet',
-                                  style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        'LMSRMarketFactory.sol — Arc Testnet',
+                                        style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const _VerifiedBadge(),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   factoryAddress,
-                                  style: TextStyle(color: t.textSubtle, fontSize: 12, fontFamily: 'monospace'),
+                                  style: TextStyle(
+                                    color: t.textSubtle,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                               ],
                             ),
@@ -1107,6 +1128,7 @@ class _StatsSection extends StatelessWidget {
                       fontSize: isMobile ? 22 : 36,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
@@ -1328,17 +1350,15 @@ class _FooterSection extends StatelessWidget {
                           style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 20,
+                          runSpacing: 10,
                           children: [
                             _FooterLink('Docs', 'https://docs.pulsmarket.tech'),
-                            const SizedBox(width: 20),
                             _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
-                            const SizedBox(width: 20),
                             _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
-                            const SizedBox(width: 20),
                             _FooterLink('Faucet', 'https://faucet.circle.com'),
-                        _FooterLink('Android app', kAndroidApkUrl),
                             _FooterLink('Android app', kAndroidApkUrl),
                           ],
                         ),
@@ -1378,6 +1398,34 @@ class _FooterSection extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VerifiedBadge extends StatelessWidget {
+  const _VerifiedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF16A34A);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: green.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.verified_rounded, size: 12, color: green),
+          SizedBox(width: 4),
+          Text(
+            'Verified on Arc',
+            style: TextStyle(color: green, fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
