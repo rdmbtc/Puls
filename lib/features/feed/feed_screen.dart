@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -395,6 +395,8 @@ class _PulseLinePainter extends CustomPainter {
   bool shouldRepaint(covariant _PulseLinePainter old) =>
       old.progress != progress || old.color != color;
 }
+
+class _TopToast extends StatefulWidget {
   const _TopToast({
     required this.message,
     required this.t,
@@ -592,7 +594,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
         _connectWebSocket();
       }
     });
-    _reconnectDelaySeconds = min(8, _reconnectDelaySeconds * 2);
+    _reconnectDelaySeconds = math.min(8, _reconnectDelaySeconds * 2);
   }
 
   void _startFallbackPolling() {
@@ -729,7 +731,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final markets = widget.appState.feedMarkets;
     if (markets.isEmpty) return;
 
-    final random = Random();
+    final random = math.Random();
     final market = markets[random.nextInt(markets.length)];
     final usernames = ['solana_maxi', '0x12a9…cd45', 'crypto_ninja', 'betting_dave', 'pulse_master', '0x7e51…33b9', 'whale_watcher', 'trade_lord'];
     final user = usernames[random.nextInt(usernames.length)];
