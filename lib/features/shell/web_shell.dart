@@ -96,19 +96,15 @@ class _WebShellState extends State<WebShell>
     final isDark = context.isDark;
     final appState = PulsStateScope.of(context);
 
-    // Theme-aware gradient
-    final gradientBg = isDark
-        ? const Color(0xFF0C0A1A)
-        : const Color(0xFFFAFAF7);
+    // Theme-aware shell background — cool canvas + on-brand pink glow (logo)
+    final gradientBg = t.bg;
     final gradientGlow = isDark
-        ? const Color(0x40312E81)
-        : const Color(0x1C4F46E5);
-    final gradientEnd = isDark
-        ? const Color(0xFF0C0A1A)
-        : const Color(0xFFFAFAF7);
+        ? PulsColors.brandPinkDark.withValues(alpha: 0.16) // soft pink halo
+        : PulsColors.brandPink.withValues(alpha: 0.07);    // subtle pink wash
+    final gradientEnd = t.bg;
     final dotColor = isDark
-        ? const Color(0x0AFFFFFF)
-        : const Color(0x0A4F46E5);
+        ? Colors.white.withValues(alpha: 0.04)
+        : PulsColors.brandPink.withValues(alpha: 0.035);
 
     return ShellNavScope(
       goToTab: _goToTab,

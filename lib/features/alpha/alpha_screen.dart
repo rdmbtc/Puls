@@ -558,7 +558,7 @@ class _ShimmerUnlockButtonState extends State<_ShimmerUnlockButton>
               colors: [
                 t.brand,
                 t.brand.withValues(alpha: 0.85),
-                const Color(0xFF818CF8),
+                PulsColors.brandMint, // pulse highlight (logo mint), was indigo
                 t.brand.withValues(alpha: 0.85),
                 t.brand,
               ],

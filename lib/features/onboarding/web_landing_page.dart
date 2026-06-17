@@ -667,7 +667,7 @@ class _FeaturesSection extends StatelessWidget {
     ),
     _Feature(
       icon: Icons.play_circle_rounded,
-      color: Color(0xFF8B5CF6),
+      color: Color(0xFF0EA5A0),
       title: 'TikTok-style Feed',
       body: 'Vertical video feed with prediction pills. Swipe through content and lock in your prediction without leaving.',
     ),
