@@ -676,7 +676,7 @@ class _GlassCardState extends State<GlassCard> {
         gradient: widget.gradient,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: _isHovered ? 0.08 : 0.03),
+            color: const Color(0xFFEC4899).withValues(alpha: _isHovered ? 0.08 : 0.03),
             blurRadius: _isHovered ? 20 : 12,
             offset: const Offset(0, 4),
           ),
@@ -820,7 +820,7 @@ class _ProfileCard extends StatelessWidget {
             padding: const EdgeInsets.all(2.5),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [t.brand, const Color(0xFF818CF8), t.brand.withValues(alpha: 0.3)],
+                colors: [t.brand, PulsColors.brandMint, t.brand.withValues(alpha: 0.3)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1076,7 +1076,7 @@ class _WalletCard extends StatelessWidget {
                   width: 48, height: 48,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [t.brand, const Color(0xFF818CF8)],
+                      colors: [t.brand, PulsColors.brandMint],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -1187,7 +1187,7 @@ class _WalletCard extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [t.brand, const Color(0xFF818CF8)],
+                    colors: [t.brand, PulsColors.brandMint],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

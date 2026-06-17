@@ -86,8 +86,8 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isUp
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E1B4B)]
-                      : [const Color(0xFF0F172A), const Color(0xFF451A03)],
+                      ? [const Color(0xFF0A0E1A), const Color(0xFF1B2236)]
+                      : [const Color(0xFF0A0E1A), const Color(0xFF2A1233)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

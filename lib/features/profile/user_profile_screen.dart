@@ -135,7 +135,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [t.brand, const Color(0xFF818CF8), t.brand.withValues(alpha: 0.3)],
+                  colors: [t.brand, PulsColors.brandMint, t.brand.withValues(alpha: 0.3)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

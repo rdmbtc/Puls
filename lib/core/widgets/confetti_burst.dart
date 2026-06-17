@@ -20,7 +20,7 @@ class _ConfettiBurstState extends State<ConfettiBurst>
   bool _fired = false;
 
   static const _palette = [
-    Color(0xFF4F46E5), // indigo
+    Color(0xFF2DD4BF), // mint
     Color(0xFF10B981), // green
     Color(0xFFF59E0B), // amber
     Color(0xFF0EA5E9), // sky
