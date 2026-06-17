@@ -71,7 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'trade':
         return t.yes;
       case 'resolution':
-        return Colors.purpleAccent;
+        return t.brand; // on-brand pink (was off-brand purple)
       case 'limit_order':
         return PulsColors.amber;
       default:

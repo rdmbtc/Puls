@@ -12,7 +12,7 @@ class UIShowcase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0A1A),
+      backgroundColor: PulsColors.dark50, // cool navy (was indigo-tinted)
       appBar: AppBar(
         title: const Text('UI Showcase', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
         backgroundColor: Colors.transparent,

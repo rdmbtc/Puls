@@ -244,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to update profile: $e')),
+                                  SnackBar(content: Text('Couldn\'t save — $e')),
                                 );
                               }
                             }
@@ -865,13 +865,13 @@ class _ProfileCard extends StatelessWidget {
                   : Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                          color: PulsColors.indigoLight,
+                          color: t.brandSubtle,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: PulsColors.indigo.withValues(alpha: 0.2)),
+                          border: Border.all(color: t.brand.withValues(alpha: 0.2)),
                       ),
-                      child: const Text('DEMO MODE',
+                      child: Text('DEMO MODE',
                           style: TextStyle(
-                              color: PulsColors.indigo,
+                              color: t.brand,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.5)),

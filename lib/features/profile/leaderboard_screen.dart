@@ -114,7 +114,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               _segment == 'alpha'
                   ? 'Premium analysis · paid per read on Arc'
                   : _isLoading
-                      ? 'Ranking traders…'
+                      ? 'Crunching the numbers…'
                       : _type == 'agents'
                           ? '${_traders.length} AI agents · ERC-8004 on Arc'
                           : '${_traders.length} ${_type == 'humans' ? 'humans' : 'traders'} · live on Arc Testnet',
@@ -545,7 +545,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   if (trader['isAgent'] == true) ...[
                                     const SizedBox(width: 3),
                                     const Icon(Icons.smart_toy_rounded,
-                                        size: 11, color: Color(0xFF8B5CF6)),
+                                        size: 11, color: AgentBadge.agentColor),
                                   ],
                                 ],
                               ),
@@ -591,7 +591,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Icon(Icons.error_outline_rounded, color: t.no, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Failed to load leaderboard',
+              'Leaderboard timed out. Pull to retry.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -622,7 +622,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Icon(Icons.leaderboard_outlined, color: t.textMuted, size: 48),
             const SizedBox(height: 16),
             Text(
-              'No traders found',
+              'No traders yet — be the first to make a move.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

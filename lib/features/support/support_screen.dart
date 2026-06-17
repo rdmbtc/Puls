@@ -116,7 +116,7 @@ class _SupportScreenState extends State<SupportScreen> {
       body: _loading
           ? Center(child: CircularProgressIndicator(color: t.brand))
           : _error != null
-              ? Center(child: Text('Failed to load tickets', style: TextStyle(color: t.textMuted)))
+              ? Center(child: Text('Couldn\'t load tickets. Pull to retry.', style: TextStyle(color: t.textMuted)))
               : RefreshIndicator(
                   color: t.brand,
                   onRefresh: _fetch,
@@ -244,14 +244,14 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to create ticket (${res.statusCode})')),
+            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t create ticket (${res.statusCode})')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Network error — please try again')),
+          SnackBar(content: Text('Something went wrong — try again.')),
         );
       }
     }
@@ -404,14 +404,14 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to send (${res.statusCode})')),
+            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t send message (${res.statusCode})')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Network error — please try again')),
+          const SnackBar(content: Text('Something went wrong — try again.')),
         );
       }
     }

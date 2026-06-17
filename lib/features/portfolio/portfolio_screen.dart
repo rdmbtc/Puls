@@ -223,7 +223,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Failed to cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text('Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
       setState(() { _loading = false; });
@@ -444,7 +444,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                           : _positions.isEmpty
                               ? _Empty(
                                   icon: Icons.bar_chart_rounded,
-                                  message: 'No positions yet',
+                                  message: 'No positions yet — swipe on a market to start.',
                                   sub: 'Buy YES or NO on any prediction to get started.',
                                   t: t,
                                 )
@@ -552,7 +552,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: _Empty(
                       icon: Icons.bar_chart_rounded,
-                      message: 'No positions yet',
+                      message: 'No positions yet — swipe on a market to start.',
                       sub: 'Buy YES or NO on any prediction to get started.',
                       t: t,
                       imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
