@@ -279,7 +279,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: t.border),
                     ),
-                    child: Text(isInitialLoading ? 'loading…' : '${markets.length} found',
+                    child: Text(isInitialLoading ? 'Searching…' : '${markets.length} found',
                         style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                 ],
@@ -764,7 +764,7 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(Icons.search_off_rounded, color: t.textSubtle, size: 40),
           const SizedBox(height: 16),
-          Text('No prediction markets found',
+          Text('Nothing matches — try a different search or clear filters.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('Try searching for another keyword or selection.',

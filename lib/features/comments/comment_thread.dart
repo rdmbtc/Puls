@@ -199,7 +199,7 @@ class _CommentThreadState extends State<CommentThread> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
-              'No comments yet — be the first to share your take.',
+              'No comments yet — drop your take below.',
               style: TextStyle(color: t.textMuted, fontSize: 13),
             ),
           ),

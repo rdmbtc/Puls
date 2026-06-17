@@ -145,7 +145,7 @@ class _EconomyFeedState extends State<EconomyFeed> {
                 border: Border.all(color: t.border),
               ),
               child: Text(
-                'No on-chain activity yet — the first verifiable transfer will appear here shortly.',
+                'On-chain transfers will show up here once they land. Sit tight.',
                 style: TextStyle(color: t.textMuted, fontSize: 14),
               ),
             )

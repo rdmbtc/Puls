@@ -88,7 +88,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
             Text(
               _isLoading
-                  ? 'Ranking traders…'
+                  ? 'Crunching the numbers…'
                   : _type == 'agents'
                       ? '${_traders.length} AI agents · ERC-8004 on Arc'
                       : '${_traders.length} ${_type == 'humans' ? 'humans' : 'traders'} · live on Arc Testnet',
@@ -548,7 +548,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Icon(Icons.error_outline_rounded, color: t.no, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Failed to load leaderboard',
+              'Leaderboard timed out. Pull to retry.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -579,7 +579,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Icon(Icons.leaderboard_outlined, color: t.textMuted, size: 48),
             const SizedBox(height: 16),
             Text(
-              'No traders found',
+              'No traders yet — be the first to make a move.',
               style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
