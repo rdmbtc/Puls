@@ -5167,6 +5167,19 @@ const HOUSE_AGENT_MAX_TRADE = 0.5; // USDC per decision
 let houseAgentFundedThisRun = false;
 let houseAgentBusy = false;
 
+// ── Sage: a SECOND autonomous agent that is a creator, not a trader ──────────
+// Sage publishes premium Signals (on-chain attested via SignalRegistry) and
+// gets PAID by other agents who buy them. This makes Pulse→Sage a true
+// agent-to-agent value transfer on Arc (RFB 3): one AI pays another AI for
+// alpha, settled in USDC, with on-chain provenance for the content.
+const SIGNAL_REGISTRY_ADDRESS = (process.env.SIGNAL_REGISTRY_ADDRESS || '').trim();
+const SAGE_AGENT = (process.env.SAGE_AGENT || 'true') === 'true';
+const SAGE_AGENT_USER = 'agent_sage';
+const SAGE_AGENT_KEY = `agent_${SAGE_AGENT_USER}`;
+let sageSignalId = null;       // creator_signals.id of Sage's live signal
+let sageOnchainTx = null;      // attestation tx
+let sageEnsured = false;
+
 async function ensureHouseAgentWallet() {
   let walletId = await getWalletId(HOUSE_AGENT_KEY);
   if (!walletId) {
@@ -5249,6 +5262,146 @@ async function ensureHouseAgentWallet() {
   return { walletId, address: info.address, balance };
 }
 
+// Ensure Sage (the creator-agent) exists: its own Circle wallet + ERC-8004
+// identity + ONE live, on-chain-attested Signal in creator_signals that other
+// agents can buy. Idempotent; runs once per process. Returns Sage's address +
+// the live signal id, or null if unavailable.
+async function ensureSageAgent() {
+  if (!SAGE_AGENT) return null;
+  try {
+    // 1) Wallet
+    let walletId = await getWalletId(SAGE_AGENT_KEY);
+    if (!walletId) {
+      const setId = await ensureWalletSet();
+      const createRes = await circle.createWallets({
+        accountType: WALLET_ACCOUNT_TYPE, blockchains: ['ARC-TESTNET'], count: 1, walletSetId: setId,
+      });
+      walletId = createRes.data.wallets[0].id;
+      await saveWallet(SAGE_AGENT_KEY, walletId);
+      console.log(`[Sage] created creator-agent wallet`);
+    }
+    const info = await getWalletInfo(walletId);
+
+    // One-time bootstrap funding so Sage can pay gas-as-USDC for ERC-8004
+    // registration (it then earns more as agents buy its signals).
+    if (!sageEnsured && (parseFloat(info.usdcBalance) || 0) < 0.3 && walletClient && adminAccount) {
+      try {
+        const treasury = await getTreasuryUsdcBalance();
+        if (treasury != null && treasury >= 2) {
+          await walletClient.writeContract({
+            address: USDC,
+            abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
+              inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }], outputs: [{ type: 'bool' }] }],
+            functionName: 'transfer',
+            args: [info.address, 1_000_000n], // 1 USDC bootstrap
+          });
+          await new Promise(r => setTimeout(r, 3000));
+          console.log('[Sage] bootstrap-funded 1 USDC from treasury');
+        }
+      } catch (e) { console.error('[Sage] funding error:', e.message); }
+    }
+    const bal = parseFloat((await getWalletInfo(walletId)).usdcBalance) || 0;
+    await supabase.from('profiles').upsert({
+      user_id: SAGE_AGENT_USER,
+      display_name: 'Sage 🔮',
+      bio: 'Autonomous forecaster agent. Publishes premium Signals attested on-chain; earns USDC when other agents buy its alpha.',
+      avatar_url: 'https://api.dicebear.com/7.x/bottts/png?size=128&seed=sage',
+    }, { onConflict: 'user_id' });
+
+    // 2) ERC-8004 identity (best-effort; needs a little USDC for gas-as-USDC).
+    if (!registeredAgents.has(SAGE_AGENT_KEY)) {
+      const existing = await resolveAgentTokenId(SAGE_AGENT_KEY, info.address);
+      if (existing) {
+        registeredAgents.add(SAGE_AGENT_KEY);
+      } else if ((parseFloat(info.usdcBalance) || 0) >= 0.2 || bal >= 0.2) {
+        try {
+          await circle.createContractExecutionTransaction({
+            walletId, contractAddress: IDENTITY_REGISTRY,
+            abiFunctionSignature: 'register(string)', abiParameters: [AGENT_METADATA_URI],
+            fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+          });
+          await new Promise(r => setTimeout(r, 4000));
+          const id = await resolveAgentTokenId(SAGE_AGENT_KEY, info.address);
+          if (id) { registeredAgents.add(SAGE_AGENT_KEY); console.log(`[Sage] ERC-8004 identity ${id}`); }
+        } catch (e) { console.error('[Sage] ERC-8004 register error:', e.message); }
+      }
+    }
+
+    // 3) Ensure ONE published, on-chain-attested signal exists.
+    if (!sageSignalId) {
+      const { data: existing } = await supabase
+        .from('creator_signals')
+        .select('id, onchain_tx, status')
+        .eq('creator_user_id', SAGE_AGENT_USER)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        sageSignalId = existing.id;
+        sageOnchainTx = existing.onchain_tx;
+      } else {
+        // Create + publish a fresh signal (with on-chain attestation).
+        const signalBody = {
+          creator_user_id: SAGE_AGENT_USER,
+          title: 'BTC holds above $100k into year-end',
+          market_question: 'Will BTC close above $100k by 2026-12-31?',
+          stance: 'YES',
+          confidence: 0.62,
+          edge_bps: 480,
+          horizon: 'Q4 2026',
+          teaser: 'ETF inflows + post-halving supply squeeze vs. macro drag — order-flow skews YES while implied prob lags.',
+          thesis:
+            'Spot ETF net inflows and the post-halving supply squeeze outweigh near-term macro drag. '
+            + 'On-chain order-flow on Puls skews YES while the implied probability still lags fundamentals — '
+            + 'a convergence trade as pricing catches up. Invalidation: a sustained risk-off macro shock or an ETF outflow streak.',
+          price_usdc: 0.001,
+          status: 'published',
+          published_at: new Date().toISOString(),
+        };
+
+        const { data: created, error: cErr } = await supabase
+          .from('creator_signals').insert(signalBody).select('*').single();
+        if (cErr) throw cErr;
+        sageSignalId = created.id;
+
+        // On-chain attestation to SignalRegistry, signed by the ADMIN wallet
+        // (records creator + content hash + price + timestamp). Best-effort.
+        if (SIGNAL_REGISTRY_ADDRESS && walletClient && publicClient) {
+          try {
+            const onchainSignalId = keccak256(toHex(created.id));
+            const canonical = [created.title, created.market_question, created.stance,
+              String(created.confidence), String(created.edge_bps), created.horizon, created.thesis].join('\n--\n');
+            const contentHash = keccak256(toHex(canonical));
+            const priceMicro = BigInt(Math.round(Number(created.price_usdc) * 1_000_000));
+            sageOnchainTx = await walletClient.writeContract({
+              address: SIGNAL_REGISTRY_ADDRESS,
+              abi: [{ name: 'publish', type: 'function', stateMutability: 'nonpayable',
+                inputs: [{ name: 'signalId', type: 'bytes32' }, { name: 'contentHash', type: 'bytes32' }, { name: 'priceUsdc', type: 'uint256' }],
+                outputs: [] }],
+              functionName: 'publish',
+              args: [onchainSignalId, contentHash, priceMicro],
+            });
+            await supabase.from('creator_signals').update({
+              onchain_signal_id: onchainSignalId, content_hash: contentHash, onchain_tx: sageOnchainTx,
+            }).eq('id', created.id);
+            console.log(`[Sage] published on-chain-attested signal ${created.id} (tx ${sageOnchainTx})`);
+          } catch (e) {
+            console.error('[Sage] on-chain attest failed (signal still live off-chain):', e.shortMessage || e.message);
+          }
+        }
+      }
+    }
+
+    sageEnsured = true;
+    return { walletId, address: info.address, signalId: sageSignalId, onchainTx: sageOnchainTx };
+  } catch (e) {
+    console.error('[Sage] ensure failed:', e.message);
+    return null;
+  }
+}
+
 // Pay a creator for alpha (agent→creator nanopayment) BEFORE deciding.
 // This is the heart of our Agentic narrative: the autonomous agent spends real
 // USDC to buy a forecaster's signal, then reasons over it — value too small to
@@ -5259,25 +5412,57 @@ async function ensureHouseAgentWallet() {
 // without the signal-cost economics. Returns { cost, creator, txId, signal } | null.
 const HOUSE_AGENT_ALPHA_PRICE = parseFloat(process.env.HOUSE_AGENT_ALPHA_PRICE || '0.001') || 0.001;
 async function houseAgentPayForAlpha(agentWalletId, agentAddress) {
-  const creator = (process.env.X402_SELLER_ADDRESS || '').trim();
-  if (!creator) return null; // no creator configured → skip the paid-alpha step
-  // Don't pay yourself.
-  if (creator.toLowerCase() === String(agentAddress).toLowerCase()) return null;
-
-  // The alpha the agent is buying (same content the paid /api/alpha/sample serves).
-  const signal = {
-    market: 'Will BTC close above $100k by 2026-12-31?',
-    stance: 'YES',
-    confidence: 0.62,
-    edge_bps: 480,
-    horizon: 'Q4 2026',
-    thesis:
-      'Spot ETF inflows + post-halving supply squeeze outweigh near-term macro drag; '
-      + 'order-flow on Puls skews YES while implied prob lags fundamentals.',
-  };
+  // Prefer agent-to-agent: buy Sage's on-chain-attested Signal and pay Sage's
+  // own wallet. Fall back to the static creator address if Sage isn't ready.
+  let creator = null;
+  let signal = null;
+  let signalId = null;
+  let onchainTx = null;
+  let counterparty = 'creator';
 
   try {
-    const amountMicro = Math.round(HOUSE_AGENT_ALPHA_PRICE * 1_000_000).toString();
+    const sage = sageEnsured ? { walletId: await getWalletId(SAGE_AGENT_KEY), signalId: sageSignalId, onchainTx: sageOnchainTx } : await ensureSageAgent();
+    if (sage && sage.signalId) {
+      const sageWalletId = sage.walletId || await getWalletId(SAGE_AGENT_KEY);
+      const sageInfo = sageWalletId ? await getWalletInfo(sageWalletId) : null;
+      if (sageInfo?.address && sageInfo.address.toLowerCase() !== String(agentAddress).toLowerCase()) {
+        const { data: row } = await supabase
+          .from('creator_signals')
+          .select('title, market_question, stance, confidence, edge_bps, horizon, thesis, price_usdc')
+          .eq('id', sage.signalId).maybeSingle();
+        if (row) {
+          creator = sageInfo.address;
+          signalId = sage.signalId;
+          onchainTx = sage.onchainTx;
+          counterparty = 'agent_sage';
+          signal = {
+            market: row.market_question, stance: row.stance, confidence: row.confidence,
+            edge_bps: row.edge_bps, horizon: row.horizon, thesis: row.thesis,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Pulse] agent-to-agent setup failed, falling back:', e.message);
+  }
+
+  // Fallback: static creator address behind the x402 paywall.
+  if (!creator) {
+    const seller = (process.env.X402_SELLER_ADDRESS || '').trim();
+    if (!seller || seller.toLowerCase() === String(agentAddress).toLowerCase()) return null;
+    creator = seller;
+    signal = {
+      market: 'Will BTC close above $100k by 2026-12-31?',
+      stance: 'YES', confidence: 0.62, edge_bps: 480, horizon: 'Q4 2026',
+      thesis: 'Spot ETF inflows + post-halving supply squeeze outweigh near-term macro drag; '
+        + 'order-flow on Puls skews YES while implied prob lags fundamentals.',
+    };
+  }
+
+  const price = signal && signal.price_usdc ? Number(signal.price_usdc) : HOUSE_AGENT_ALPHA_PRICE;
+
+  try {
+    const amountMicro = Math.round(price * 1_000_000).toString();
     const txRes = await circle.createContractExecutionTransaction({
       walletId: agentWalletId,
       contractAddress: USDC,
@@ -5287,20 +5472,35 @@ async function houseAgentPayForAlpha(agentWalletId, agentAddress) {
     });
     const txId = txRes.data?.id || null;
 
-    // Receipt → Earnings/x402 feed (endpoint='agent_alpha' so it's distinct from
-    // human alpha_unlock). This is a verifiable agent→creator nanopayment.
+    // If this was an agent-to-agent buy of a published Signal, record the unlock
+    // so it counts as a real signal sale (analytics + exactly-once).
+    if (counterparty === 'agent_sage' && signalId) {
+      supabase.from('signal_unlocks').insert({
+        user_id: HOUSE_AGENT_USER, signal_id: signalId, status: 'confirmed',
+        amount_usdc: price, tx_id: txId, confirmed_at: new Date().toISOString(),
+      }).then(({ error }) => { if (error && !String(error.message).includes('duplicate')) console.warn('[Pulse] signal_unlock insert:', error.message); });
+      supabase.from('creator_signals').select('unlocks_count, revenue_usdc').eq('id', signalId).maybeSingle()
+        .then(({ data }) => {
+          if (data) supabase.from('creator_signals').update({
+            unlocks_count: (data.unlocks_count ?? 0) + 1,
+            revenue_usdc: Number(data.revenue_usdc ?? 0) + price,
+          }).eq('id', signalId).then(() => {});
+        });
+    }
+
+    // Receipt → Earnings/x402 feed.
     supabase.from('x402_payments').insert({
-      endpoint: 'agent_alpha',
+      endpoint: counterparty === 'agent_sage' ? 'agent_to_agent' : 'agent_alpha',
       payer: agentAddress || null,
       pay_to: creator,
-      amount_usdc: HOUSE_AGENT_ALPHA_PRICE.toString(),
+      amount_usdc: price.toString(),
       network: 'eip155:5042002',
       gateway_tx: txId,
-      raw: { kind: 'agent_alpha', agent: HOUSE_AGENT_USER, signal: { market: signal.market, edge_bps: signal.edge_bps } },
+      raw: { kind: counterparty === 'agent_sage' ? 'agent_to_agent' : 'agent_alpha', agent: HOUSE_AGENT_USER, counterparty, signalId, onchainTx, signal: { market: signal.market, edge_bps: signal.edge_bps } },
     }).then(({ error }) => { if (error) console.warn('[Pulse] alpha receipt insert failed:', error.message); });
 
-    console.log(`[Pulse] paid creator ${HOUSE_AGENT_ALPHA_PRICE} USDC for alpha → ${creator} (tx ${txId})`);
-    return { cost: HOUSE_AGENT_ALPHA_PRICE, creator, txId, signal };
+    console.log(`[Pulse] bought alpha from ${counterparty} — ${price} USDC → ${creator} (tx ${txId})`);
+    return { cost: price, creator, txId, signal, counterparty, signalId, onchainTx };
   } catch (e) {
     console.error('[Pulse] pay-for-alpha failed (continuing without it):', e.message);
     return null;
@@ -5493,6 +5693,10 @@ async function houseAgentTick() {
         alphaPaid: alpha ? alpha.cost : null,
         alphaCreator: alpha ? alpha.creator : null,
         alphaTxId: alpha ? alpha.txId : null,
+        // Agent-to-agent: when Pulse bought another agent's on-chain-attested signal.
+        alphaCounterparty: alpha ? (alpha.counterparty || null) : null,
+        alphaSignalId: alpha ? (alpha.signalId || null) : null,
+        alphaOnchainTx: alpha ? (alpha.onchainTx || null) : null,
         // Open-web research the agent read before deciding (keyless Jina+DDG).
         sources: (decision.sources || []).slice(0, 3),
       }),
@@ -5538,7 +5742,36 @@ app.get('/api/agents/house', async (req, res) => {
       try { return { ...JSON.parse(r.message), at: r.created_at }; }
       catch { return null; }
     }).filter(Boolean);
-    const data = { agent, decisions };
+
+    // Sage — the creator-agent Pulse buys signals from (agent-to-agent).
+    let sage = null;
+    try {
+      const sageWalletId = await getWalletId(SAGE_AGENT_KEY);
+      if (sageWalletId) {
+        const sInfo = await getWalletInfo(sageWalletId);
+        const { data: sig } = await supabase
+          .from('creator_signals')
+          .select('id, title, onchain_tx, unlocks_count, revenue_usdc')
+          .eq('creator_user_id', SAGE_AGENT_USER).eq('status', 'published')
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        sage = {
+          name: 'Sage',
+          role: 'creator-agent',
+          address: sInfo.address,
+          balance: parseFloat(sInfo.usdcBalance) || 0,
+          erc8004Id: agentTokenIds.get(SAGE_AGENT_KEY) ?? null,
+          enabled: SAGE_AGENT,
+          signal: sig ? {
+            id: sig.id, title: sig.title,
+            unlocks: sig.unlocks_count ?? 0,
+            revenueUsdc: Number(sig.revenue_usdc ?? 0),
+            onchain: sig.onchain_tx ? { tx: sig.onchain_tx, explorer: `https://testnet.arcscan.app/tx/${sig.onchain_tx}` } : null,
+          } : null,
+        };
+      }
+    } catch (e) { console.warn('[agents/house] sage lookup failed:', e.message); }
+
+    const data = { agent, sage, decisions };
     houseAgentCache = { data, ts: Date.now() };
     res.json(data);
   } catch (e) {
@@ -5700,6 +5933,12 @@ app.get('/api/economy/feed', generalLimiter, async (req, res) => {
     res.status(500).json({ error: 'economy feed failed' });
   }
 });
+
+if (SAGE_AGENT) {
+  // Bring Sage (creator-agent) online first, so Pulse can buy its on-chain
+  // attested signal on the very first cycle (agent-to-agent value transfer).
+  setTimeout(() => { ensureSageAgent().catch((e) => console.error('[Sage] boot error:', e.message)); }, 20 * 1000);
+}
 
 if (HOUSE_AGENT) {
   setTimeout(houseAgentTick, 45 * 1000); // first cycle shortly after boot
