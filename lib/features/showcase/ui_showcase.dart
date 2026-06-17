@@ -224,7 +224,7 @@ class _SwipeTradeShowcaseState extends State<_SwipeTradeShowcase>
                 top: 0, bottom: 0,
                 child: Center(
                   child: Opacity(
-                    opacity: (!isYes ? intensity : 0).clamp(0.0, 1.0),
+                    opacity: (!isYes ? intensity : 0.0).clamp(0.0, 1.0),
                     child: const Text('NO', style: TextStyle(
                       color: Color(0xFFC0392B), fontSize: 28, fontWeight: FontWeight.w900)),
                   ),
@@ -236,7 +236,7 @@ class _SwipeTradeShowcaseState extends State<_SwipeTradeShowcase>
                 top: 0, bottom: 0,
                 child: Center(
                   child: Opacity(
-                    opacity: (isYes ? intensity : 0).clamp(0.0, 1.0),
+                    opacity: (isYes ? intensity : 0.0).clamp(0.0, 1.0),
                     child: const Text('YES', style: TextStyle(
                       color: Color(0xFF2D8A56), fontSize: 28, fontWeight: FontWeight.w900)),
                   ),
