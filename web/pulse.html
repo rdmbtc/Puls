@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse — the autonomous house agent | Puls</title>
+  <meta name="description" content="Pulse is an autonomous AI agent that trades prediction markets on Puls 24/7 — researching mispricings, deciding with an LLM or quant brain, and settling every trade on Arc Testnet. Watch its live decisions, reasoning, and on-chain proof.">
+  <link rel="canonical" href="https://pulsmarket.tech/pulse">
+  <meta property="og:title" content="Pulse — the autonomous house agent">
+  <meta property="og:description" content="An AI agent that researches, decides, and trades prediction markets 24/7. Live reasoning + on-chain proof on Arc.">
+  <meta property="og:image" content="https://pulsmarket.tech/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <style>
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --text: #1A1A2E; --muted: #5A5A72;
+      --border: #E8E8EE; --brand: #4F46E5; --brand-soft: #EEF0FF; --agent: #0EA5A0;
+      --agent-soft: #E6F7F6; --good: #16A34A; --bad: #DC2626; --amber: #B45309;
+      --amber-soft: #FDF3E3; --shadow: rgba(20,18,45,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E0B1E; --surface: #16132A; --text: #F5F5FF; --muted: #B0B0CC;
+        --border: #251F45; --brand: #8B85FF; --brand-soft: #1E1B3A; --agent: #2DD4BF;
+        --agent-soft: #102A2A; --good: #4ADE80; --bad: #F87171; --amber: #FBBF24;
+        --amber-soft: #2A2008; --shadow: rgba(0,0,0,.4);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 44px 20px 80px; }
+    .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--brand); }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .6px;
+      text-transform: uppercase; color: var(--agent); background: var(--agent-soft);
+      border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; margin: 14px 0 0;
+    }
+    h1 { font-size: 31px; font-weight: 800; letter-spacing: -0.8px; margin: 12px 0 6px; }
+    .sub { color: var(--muted); font-size: 15.5px; margin-bottom: 4px; }
+    .live-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #22C55E; margin-right: 6px; vertical-align: middle; animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); }
+      70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+
+    /* identity card */
+    .idcard {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+      padding: 20px; box-shadow: 0 4px 16px var(--shadow); margin: 24px 0 0;
+    }
+    .idtop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .avatar {
+      width: 52px; height: 52px; border-radius: 14px; flex: none;
+      background: linear-gradient(135deg, var(--brand), var(--agent));
+      display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+    .idname { font-size: 21px; font-weight: 800; letter-spacing: -.4px; }
+    .idmeta { font-size: 13px; color: var(--muted); }
+    .statusline { margin-left: auto; text-align: right; font-size: 13px; }
+    .statusline .on { color: var(--good); font-weight: 700; }
+    .stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px;
+    }
+    @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px;
+    }
+    .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+    .stat .v { font-size: 19px; font-weight: 800; letter-spacing: -.3px; margin-top: 2px; }
+    .stat .v small { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .addr {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; font-size: 12.5px;
+      font-weight: 600; color: var(--brand); text-decoration: none; font-family: ui-monospace, Menlo, monospace;
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 9px; padding: 5px 10px;
+    }
+    .addr:hover { text-decoration: underline; }
+
+    .sectionhdr { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 4px; }
+    .sectionhdr h2 { font-size: 18px; font-weight: 800; letter-spacing: -.3px; margin: 0; }
+    .sectionhdr .meta { font-size: 12.5px; color: var(--muted); }
+
+    .feed { margin-top: 12px; }
+    .dcard {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 15px;
+      padding: 15px 16px; box-shadow: 0 2px 10px var(--shadow); margin-bottom: 12px;
+      opacity: 0; transform: translateY(8px); transition: opacity .4s ease, transform .4s ease;
+    }
+    .dcard.show { opacity: 1; transform: translateY(0); }
+    .drow1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pill { display: inline-block; font-size: 12px; font-weight: 800; border-radius: 7px; padding: 2px 9px; }
+    .pill.yes { background: var(--agent-soft); color: var(--agent); }
+    .pill.no { background: #FDECEC; color: var(--bad); }
+    @media (prefers-color-scheme: dark) { .pill.no { background: #2A1518; } }
+    .pill.amt { background: var(--brand-soft); color: var(--brand); }
+    .brain { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+      border-radius: 6px; padding: 2px 8px; border: 1px solid var(--border); }
+    .brain.llm { background: var(--brand-soft); color: var(--brand); }
+    .brain.quant { background: var(--amber-soft); color: var(--amber); }
+    .dwhen { margin-left: auto; font-size: 12px; color: var(--muted); }
+    .dq { font-size: 16px; font-weight: 700; letter-spacing: -.2px; margin: 9px 0 2px; }
+    .why {
+      font-size: 14px; color: var(--text); background: var(--bg);
+      border-left: 3px solid var(--agent); border-radius: 0 10px 10px 0; padding: 9px 12px; margin: 9px 0 0;
+    }
+    .why b { color: var(--agent); font-weight: 800; }
+    .edgewrap { margin-top: 11px; }
+    .edgelabels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+    .edgelabels b { color: var(--text); font-weight: 700; }
+    .bars { display: flex; gap: 8px; }
+    .barcol { flex: 1; }
+    .barcol .cap { font-size: 10.5px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .4px; }
+    .bar { height: 8px; border-radius: 6px; background: var(--border); overflow: hidden; }
+    .bar > i { display: block; height: 100%; }
+    .bar.pm > i { background: var(--muted); }
+    .bar.arc > i { background: var(--agent); }
+    .dtx {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 11px;
+      font-size: 12.5px; font-weight: 700; color: var(--brand); text-decoration: none;
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 9px; padding: 5px 10px;
+    }
+    .dtx:hover { text-decoration: underline; }
+    .txmono { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+
+    .notice {
+      background: var(--brand-soft); border: 1px solid var(--border); border-radius: 14px;
+      padding: 13px 16px; font-size: 13px; color: var(--text); margin: 24px 0 0;
+    }
+    .links { margin-top: 22px; font-size: 14px; }
+    .links a { color: var(--brand); text-decoration: none; font-weight: 600; margin-right: 18px; }
+    .links a:hover { text-decoration: underline; }
+    footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
+    .skeleton { color: var(--muted); font-size: 14px; padding: 8px 0; }
+    .err { color: var(--bad); font-size: 13.5px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="wordmark">Puls</div>
+      <span class="badge">● Autonomous · runs 24/7 · decides, not automates</span>
+      <h1>Pulse — the autonomous house agent</h1>
+      <div class="sub">Pulse researches prediction markets, finds mispricings between Polymarket consensus and on-chain odds, decides with an <b>LLM or quant brain</b>, and settles every trade on <b>Arc Testnet</b> — on its own, around the clock. Below is its live decision log.</div>
+    </header>
+
+    <div class="idcard" id="idcard">
+      <div class="skeleton">Loading the agent…</div>
+    </div>
+
+    <div class="sectionhdr">
+      <h2>Live decision log</h2>
+      <span class="meta" id="feedMeta"><span class="live-dot"></span>auto-refreshing</span>
+    </div>
+    <div class="feed" id="feed">
+      <div class="skeleton">Loading the agent's autonomous decisions…</div>
+    </div>
+
+    <div class="notice">
+      Every decision is published by the agent the moment it acts — the reasoning, the edge it saw, and the
+      <b>on-chain trade hash, verifiable on the Arc explorer</b>. Pulse holds its own gasless Circle wallet and an
+      <b>ERC-8004 on-chain agent identity</b> with a growing reputation score. This is a real autonomous agent, not a mock.
+      Puls runs on Arc Testnet: a prototype, not financial advice, 18+.
+    </div>
+
+    <div class="links">
+      <a href="https://pulsmarket.tech">Open the app →</a>
+      <a href="https://pulsmarket.tech/agent">Decision Trace</a>
+      <a href="https://pulsmarket.tech/stats">Live traction</a>
+      <a href="https://docs.pulsmarket.tech">Docs</a>
+      <a href="https://testnet.arcscan.app" target="_blank" rel="noopener">Arc explorer</a>
+    </div>
+
+    <footer>
+      Puls · pulsmarket.tech · the forecast economy on the Circle stack (gasless SCA wallets, Gateway x402 nanopayments, ERC-8004 agent identity) settled on Arc.
+    </footer>
+  </div>
+
+  <script>
+    var API = 'https://84-22-148-57.sslip.io';
+    var TX = 'https://testnet.arcscan.app/tx/';
+    var ADDR = 'https://testnet.arcscan.app/address/';
+    var nf = new Intl.NumberFormat('en-US');
+    var REFRESH_MS = 30000;
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function shortHash(h) { return h && h.length > 14 ? h.slice(0, 8) + '…' + h.slice(-6) : (h || ''); }
+    function shortAddr(a) { return a && a.length > 12 ? a.slice(0, 6) + '…' + a.slice(-4) : (a || '—'); }
+    function pct(n) { return (Math.round(Number(n) * 1000) / 10); }
+    function ago(iso) {
+      var d = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (isNaN(d)) return '';
+      if (d < 60) return Math.max(1, Math.round(d)) + 's ago';
+      if (d < 3600) return Math.round(d / 60) + 'm ago';
+      if (d < 86400) return Math.round(d / 3600) + 'h ago';
+      return Math.round(d / 86400) + 'd ago';
+    }
+
+    function renderAgent(a, decisions) {
+      var ic = document.getElementById('idcard');
+      if (!a) { ic.innerHTML = '<div class="err">Agent is offline right now. Check back shortly.</div>'; return; }
+      var last = decisions && decisions[0] ? decisions[0].at : null;
+      var nextIn = '';
+      if (last && a.intervalMinutes) {
+        var mins = a.intervalMinutes - (Date.now() - new Date(last).getTime()) / 60000;
+        nextIn = mins > 0 ? ('next cycle in ~' + Math.ceil(mins) + 'm') : 'cycle due now';
+      }
+      ic.innerHTML =
+        '<div class="idtop">' +
+          '<div class="avatar">🤖</div>' +
+          '<div>' +
+            '<div class="idname">' + esc(a.name || 'Pulse') + '</div>' +
+            '<div class="idmeta">Autonomous prediction-market trader · every ' + (a.intervalMinutes || 10) + ' min</div>' +
+          '</div>' +
+          '<div class="statusline">' +
+            (a.enabled ? '<div class="on"><span class="live-dot"></span>LIVE · 24/7</div>' : '<div>paused</div>') +
+            (nextIn ? '<div class="idmeta">' + esc(nextIn) + '</div>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="stats">' +
+          '<div class="stat"><div class="k">USDC balance</div><div class="v">$' + (Number(a.balance || 0).toFixed(2)) + '</div></div>' +
+          '<div class="stat"><div class="k">ERC-8004 ID</div><div class="v">#' + esc(a.erc8004Id || '—') + '</div></div>' +
+          '<div class="stat"><div class="k">Reputation</div><div class="v">' + nf.format(a.reputation || 0) + ' <small>events</small></div></div>' +
+          '<div class="stat"><div class="k">Cadence</div><div class="v">' + (a.intervalMinutes || 10) + '<small> min</small></div></div>' +
+        '</div>' +
+        (a.address ? '<a class="addr" href="' + ADDR + a.address + '" target="_blank" rel="noopener">🔗 ' + esc(a.address) + '</a>' : '');
+    }
+
+    function decisionHTML(d) {
+      var side = (d.side || '').toUpperCase();
+      var sidePill = '<span class="pill ' + (side === 'YES' ? 'yes' : 'no') + '">' + (side || '—') + '</span>';
+      var amt = '<span class="pill amt">$' + Number(d.amount || 0).toFixed(2) + '</span>';
+      var brain = d.brain === 'quant'
+        ? '<span class="brain quant">⚙ Quant</span>'
+        : '<span class="brain llm">🧠 LLM</span>';
+      var edgeBlock = '';
+      if (d.pmYes != null && d.onChainYes != null) {
+        var pm = Math.max(0, Math.min(1, Number(d.pmYes)));
+        var arc = Math.max(0, Math.min(1, Number(d.onChainYes)));
+        edgeBlock =
+          '<div class="edgewrap">' +
+            '<div class="edgelabels"><span>YES price gap</span><span>edge <b>' + pct(d.edge) + '%</b></span></div>' +
+            '<div class="bars">' +
+              '<div class="barcol"><div class="cap">Polymarket ' + pct(pm) + '¢</div><div class="bar pm"><i style="width:' + (pm * 100) + '%"></i></div></div>' +
+              '<div class="barcol"><div class="cap">Arc on-chain ' + pct(arc) + '¢</div><div class="bar arc"><i style="width:' + (arc * 100) + '%"></i></div></div>' +
+            '</div>' +
+          '</div>';
+      }
+      var tx = d.txHash
+        ? '<a class="dtx" href="' + TX + d.txHash + '" target="_blank" rel="noopener">🔗 Trade tx on Arc <span class="txmono">' + esc(shortHash(d.txHash)) + '</span></a>'
+        : '';
+      return '<div class="dcard">' +
+        '<div class="drow1">' + sidePill + amt + brain + '<span class="dwhen">' + esc(ago(d.at)) + '</span></div>' +
+        '<div class="dq">' + esc(d.question || 'Prediction market') + '</div>' +
+        (d.reasoning ? '<div class="why"><b>Why:</b> ' + esc(d.reasoning) + '</div>' : '') +
+        edgeBlock + tx +
+        '</div>';
+    }
+
+    function renderFeed(decisions) {
+      var feed = document.getElementById('feed');
+      if (!decisions || !decisions.length) {
+        feed.innerHTML = '<div class="skeleton">No published decisions yet — the agent will act on its next cycle.</div>';
+        return;
+      }
+      feed.innerHTML = decisions.map(decisionHTML).join('');
+      var cards = feed.querySelectorAll('.dcard');
+      for (var i = 0; i < cards.length; i++) {
+        (function (el, idx) { setTimeout(function () { el.classList.add('show'); }, idx * 90); })(cards[i], i);
+      }
+      document.getElementById('feedMeta').innerHTML =
+        '<span class="live-dot"></span>' + decisions.length + ' decisions · auto-refreshing';
+    }
+
+    function load() {
+      fetch(API + '/api/agents/house', { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          renderAgent(data.agent, data.decisions || []);
+          renderFeed(data.decisions || []);
+        })
+        .catch(function (e) {
+          document.getElementById('feed').innerHTML =
+            '<div class="err">Could not reach the agent right now (' + e.message + '). Retrying…</div>';
+        });
+    }
+
+    load();
+    setInterval(load, REFRESH_MS);
+  </script>
+</body>
+</html>
