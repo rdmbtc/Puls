@@ -168,7 +168,8 @@ class _DynamicIslandNav extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     decoration: BoxDecoration(
-                      color: selected ? t.brand : Colors.transparent,
+                      gradient: selected ? PulsColors.pulseGradient : null,
+                      color: selected ? null : Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
