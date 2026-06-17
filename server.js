@@ -15,6 +15,7 @@ import { registerTips } from './lib/tips.js';
 import { registerComments } from './lib/comments.js';
 import { registerSupport } from './lib/support.js';
 import { registerReferrals } from './lib/referrals.js';
+import { registerCreatorSignals } from './lib/creator_signals.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -2552,6 +2553,28 @@ registerReferrals(app, {
   requireVerifiedUser,
   strictLimiter,
   createNotification,
+});
+
+// ── Creator Signals (premium forecasts, on-chain attested, x402 per-read) ─────
+// The full creator-economy content layer: creators draft → publish (writes an
+// on-chain attestation to the SignalRegistry on Arc) → readers pay a per-read
+// USDC nanopayment to unlock the thesis (real SCA transfer to the creator,
+// receipt endpoint='signal_unlock'). Per-signal analytics (views/unlocks/rev).
+// Live payments gated by SIGNALS_PAID_ENABLED; on-chain attest needs
+// SIGNAL_REGISTRY_ADDRESS + admin wallet (best-effort, degrades gracefully).
+registerCreatorSignals(app, {
+  supabase,
+  circle,
+  USDC,
+  getWalletId,
+  getWalletInfo,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  walletClient,
+  publicClient,
+  keccak256,
+  toHex,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
