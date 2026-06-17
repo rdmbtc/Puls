@@ -9,6 +9,7 @@
     { "source": "/disclaimer", "destination": "/disclaimer.html" },
     { "source": "/about", "destination": "/about.html" },
     { "source": "/stats", "destination": "/stats.html" },
+    { "source": "/agent", "destination": "/agent.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
