@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/agent_badge.dart';
 import '../../data/models/market.dart';
 
 /// "How this market resolves" — resolution transparency panel.
@@ -125,8 +126,18 @@ class _ResolutionPanelState extends State<ResolutionPanel> {
           ],
           if (contractAddress != null && contractAddress.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _link(t, 'View market contract on Arcscan',
-                'https://testnet.arcscan.app/address/$contractAddress'),
+            Row(
+              children: [
+                const VerifiedOnArc(),
+                const Spacer(),
+                Flexible(
+                  child: OnchainAddress(
+                    value: contractAddress,
+                    label: 'Contract',
+                  ),
+                ),
+              ],
+            ),
           ],
           if (isUma && oracle?['oracleExplorerUrl'] != null) ...[
             const SizedBox(height: 6),
