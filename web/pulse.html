@@ -304,8 +304,16 @@
       // Agent→creator nanopayment that fed this decision (x402 on Arc).
       var alphaLine = '';
       if (d.alphaPaid != null) {
-        alphaLine = '<div class="why alpha">💸 <b>Paid creator $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for alpha before deciding' +
+        var a2a = d.alphaCounterparty === 'agent_sage';
+        var label = a2a
+          ? '🤝 <b>Paid agent Sage 🔮 $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for an on-chain-attested signal'
+          : '💸 <b>Paid creator $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for alpha before deciding';
+        var attest = (a2a && d.alphaOnchainTx)
+          ? ' · <a href="' + TX + d.alphaOnchainTx + '" target="_blank" rel="noopener" class="txmono">attestation ↗</a>'
+          : '';
+        alphaLine = '<div class="why alpha">' + label +
           (d.alphaCreator ? ' · <a href="' + ADDR + d.alphaCreator + '" target="_blank" rel="noopener" class="txmono">' + esc(shortAddr(d.alphaCreator)) + '</a>' : '') +
+          attest +
           '</div>';
       }
       // Open-web research the agent read before deciding.
