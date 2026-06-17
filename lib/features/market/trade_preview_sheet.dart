@@ -165,7 +165,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             color: _isBuy ? t.surfaceRaised : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: _isBuy 
-                                ? [BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.05), blurRadius: 2)] 
+                                ? [BoxShadow(color: const Color(0xFFEC4899).withValues(alpha: 0.05), blurRadius: 2)] 
                                 : null,
                           ),
                           child: Center(
@@ -194,7 +194,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             color: !_isBuy ? t.surfaceRaised : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: !_isBuy 
-                                ? [BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.05), blurRadius: 2)] 
+                                ? [BoxShadow(color: const Color(0xFFEC4899).withValues(alpha: 0.05), blurRadius: 2)] 
                                 : null,
                           ),
                           child: Center(

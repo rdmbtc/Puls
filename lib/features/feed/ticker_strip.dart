@@ -102,7 +102,7 @@ class _WebTickerStripState extends State<WebTickerStrip>
                   const SizedBox(width: 8),
                   Text('YES ${(yesPrice * 100).toStringAsFixed(0)}¢',
                       style: const TextStyle(
-                        color: Color(0xFF818CF8),
+                        color: PulsColors.brandMint,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       )),

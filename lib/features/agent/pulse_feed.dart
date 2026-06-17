@@ -171,7 +171,7 @@ class _PulseFeedState extends State<PulseFeed> {
                 height: 52,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                      colors: [t.brand, const Color(0xFF818CF8)]),
+                      colors: [t.brand, PulsColors.brandMint]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(Icons.bolt_rounded,

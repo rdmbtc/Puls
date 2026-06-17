@@ -129,11 +129,11 @@ class _DynamicIslandNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isDark
-        ? const Color(0xFF131127)
+        ? const Color(0xFF0E1322)
         : const Color(0xFFFFFFFF);
     final shadow = isDark
-        ? const Color(0xFF4F46E5).withValues(alpha: 0.3)
-        : const Color(0xFF4F46E5).withValues(alpha: 0.08);
+        ? const Color(0xFFEC4899).withValues(alpha: 0.3)
+        : const Color(0xFFEC4899).withValues(alpha: 0.08);
 
     return SafeArea(
       child: Padding(

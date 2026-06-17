@@ -359,7 +359,7 @@ class _AgentScreenState extends State<AgentScreen>
                 height: 84,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [t.brand, const Color(0xFF818CF8)],
+                    colors: [t.brand, PulsColors.brandMint],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

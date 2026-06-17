@@ -980,7 +980,7 @@ class _PositionCardState extends State<_PositionCard> {
         border: Border.all(color: t.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.04),
+            color: const Color(0xFFEC4899).withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
