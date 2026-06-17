@@ -297,9 +297,18 @@
           (d.alphaCreator ? ' · <a href="' + ADDR + d.alphaCreator + '" target="_blank" rel="noopener" class="txmono">' + esc(shortAddr(d.alphaCreator)) + '</a>' : '') +
           '</div>';
       }
+      // Open-web research the agent read before deciding.
+      var researchLine = '';
+      if (d.sources && d.sources.length) {
+        var links = d.sources.slice(0, 3).map(function (s) {
+          return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
+        }).join(' · ');
+        researchLine = '<div class="why research">🔍 <b>Researched the web</b> before deciding · ' + links + '</div>';
+      }
       return '<div class="dcard">' +
         '<div class="drow1">' + sidePill + amt + brain + '<span class="dwhen">' + esc(ago(d.at)) + '</span></div>' +
         '<div class="dq">' + esc(d.question || 'Prediction market') + '</div>' +
+        researchLine +
         alphaLine +
         (d.reasoning ? '<div class="why"><b>Why:</b> ' + esc(d.reasoning) + '</div>' : '') +
         edgeBlock + tx +
