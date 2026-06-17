@@ -589,6 +589,90 @@ class WalletService extends ChangeNotifier {
     return _post('/api/alpha/$id/unlock', {'userId': _state.userId!}, timeout: const Duration(seconds: 30));
   }
 
+  // ── Creator Signals (full creator-economy content layer) ─────────────────
+
+  /// List signals. Pass [creatorUserId] for a creator's signals (your own =
+  /// drafts + analytics + thesis; others = published teasers). Returns the raw
+  /// { signals: [...], live } map.
+  Future<Map<String, dynamic>> getSignals({String? creatorUserId}) async {
+    return _get('/api/signals', {
+      if (_state.userId != null) 'userId': _state.userId!,
+      if (creatorUserId != null) 'creatorUserId': creatorUserId,
+    });
+  }
+
+  /// One signal. 402 (locked) is returned as data, not thrown.
+  Future<Map<String, dynamic>> getSignal(String id) async {
+    final headers = <String, String>{};
+    final session = _supabase.auth.currentSession;
+    if (session != null) headers['Authorization'] = 'Bearer ${session.accessToken}';
+    final uri = Uri.parse('$_backendUrl/api/signals/$id').replace(queryParameters: {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+    final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  /// Create a draft signal. Returns { ok, signal }.
+  Future<Map<String, dynamic>> createSignal({
+    required String title,
+    required String thesis,
+    String? marketQuestion,
+    String stance = 'YES',
+    double confidence = 0.6,
+    int edgeBps = 0,
+    String? horizon,
+    String? teaser,
+    double priceUsdc = 0.001,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/signals', {
+      'userId': _state.userId!,
+      'title': title,
+      'thesis': thesis,
+      if (marketQuestion != null) 'marketQuestion': marketQuestion,
+      'stance': stance,
+      'confidence': confidence,
+      'edgeBps': edgeBps,
+      if (horizon != null) 'horizon': horizon,
+      if (teaser != null) 'teaser': teaser,
+      'priceUsdc': priceUsdc,
+    });
+  }
+
+  /// Edit a draft signal. Pass only the fields to change. Returns { ok, signal }.
+  Future<Map<String, dynamic>> updateSignal(String id, Map<String, dynamic> patch) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _patch('/api/signals/$id', {'userId': _state.userId!, ...patch});
+  }
+
+  /// Publish a draft — writes the on-chain attestation. Returns { ok, attested, signal }.
+  Future<Map<String, dynamic>> publishSignal(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/signals/$id/publish', {'userId': _state.userId!}, timeout: const Duration(seconds: 30));
+  }
+
+  /// Archive (withdraw) a signal. Returns { ok, signal }.
+  Future<Map<String, dynamic>> archiveSignal(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/signals/$id/archive', {'userId': _state.userId!});
+  }
+
+  /// Unlock a signal — pays the creator a per-read USDC micro-fee.
+  /// Returns { ok, live?, alreadyUnlocked?, signal, receipt? }.
+  Future<Map<String, dynamic>> unlockSignal(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/signals/$id/unlock', {'userId': _state.userId!}, timeout: const Duration(seconds: 30));
+  }
+
+  /// Owner-only per-signal analytics. Returns { analytics, onchain }.
+  Future<Map<String, dynamic>> getSignalAnalytics(String id) async {
+    return _get('/api/signals/$id/analytics', {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+  }
+
+
   /// One-tap tip to a forecaster — a small real USDC nanopayment.
   /// Recipient defaults to the house creator payout; pass [toUserId] to tip a
   /// specific user, or [toAddress] for an explicit address.
@@ -774,6 +858,22 @@ class WalletService extends ChangeNotifier {
       headers['Authorization'] = 'Bearer ${session.accessToken}';
     }
     final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
+    return data;
+  }
+
+  Future<Map<String, dynamic>> _patch(String path, Map<String, dynamic> body, {Duration? timeout}) async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+    final res = await _client.patch(
+      Uri.parse('$_backendUrl$path'),
+      headers: headers,
+      body: jsonEncode(body),
+    ).timeout(timeout ?? const Duration(seconds: 15));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
     return data;

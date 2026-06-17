@@ -11,6 +11,7 @@ import '../alpha/alpha_actions.dart';
 import '../payments/payment_receipt.dart';
 import '../payments/payment_receipt_sheet.dart';
 import 'creator_earnings_card.dart';
+import 'signals_section.dart';
 import 'erc8004_badge.dart';
 import 'profile_screen.dart' show GlassCard;
 
@@ -504,32 +505,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
 
-    Widget signalsPlaceholder = Container(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.border),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.auto_awesome_rounded, color: t.textMuted, size: 32),
-          const SizedBox(height: 12),
-          Text('No published signals yet',
-              style: TextStyle(color: t.textMuted, fontSize: 13, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text('Premium forecasts from this creator will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: t.textSubtle, fontSize: 12)),
-        ],
-      ),
-    );
-
     Widget segmentBody;
     switch (_segment) {
       case 'signals':
-        segmentBody = signalsPlaceholder;
+        segmentBody = SignalsSection(creatorUserId: widget.userId, isOwner: isSelf);
         break;
       case 'discussion':
         segmentBody = CommentThread(targetType: 'profile', targetId: widget.userId);
