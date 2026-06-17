@@ -11,6 +11,8 @@
     { "source": "/stats", "destination": "/stats.html" },
     { "source": "/agent", "destination": "/agent.html" },
     { "source": "/pulse", "destination": "/pulse.html" },
+    { "source": "/versus", "destination": "/versus.html" },
+    { "source": "/build", "destination": "/build.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
