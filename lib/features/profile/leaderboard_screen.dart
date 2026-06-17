@@ -671,7 +671,7 @@ class _TraderRow extends StatelessWidget {
         : '\$${value.toStringAsFixed(2)}';
 
     final card = GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: rank == 1 ? 16 : 12),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: rank == 1 ? 16 : 12),
       onTap: onTap,
       child: Row(
         children: [
