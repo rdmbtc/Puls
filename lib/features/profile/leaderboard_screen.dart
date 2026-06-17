@@ -4,6 +4,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/widgets/agent_badge.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'user_profile_screen.dart';
@@ -670,27 +671,29 @@ class _TraderRow extends StatelessWidget {
         : '\$${value.toStringAsFixed(2)}';
 
     final card = GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: rank == 1 ? 16 : 12),
       onTap: onTap,
       child: Row(
         children: [
           // Rank Index
           SizedBox(
             width: 28,
-            child: Text(
-              '$rank',
-              style: TextStyle(
-                color: t.textSubtle,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            child: rank == 1
+                ? const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFBBF24), size: 20)
+                : Text(
+                    '$rank',
+                    style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
           ),
           // Avatar
           PulsAvatar(
             url: trader['avatarUrl'] as String?,
             name: _displayName(trader),
-            size: 40,
+            size: rank == 1 ? 46 : 40,
           ),
           const SizedBox(width: 14),
           // User Details
@@ -707,37 +710,33 @@ class _TraderRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: t.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                          fontSize: rank == 1 ? 16 : 14,
+                          fontWeight: rank == 1 ? FontWeight.w900 : FontWeight.bold,
                         ),
                       ),
                     ),
-                    if (trader['isAgent'] == true) ...[
+                    if (rank == 1) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.16),
+                          color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                          border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.4)),
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.smart_toy_rounded, size: 9, color: Color(0xFF8B5CF6)),
-                            SizedBox(width: 3),
-                            Text(
-                              'AI',
-                              style: TextStyle(
-                                color: Color(0xFF8B5CF6),
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
+                        child: const Text(
+                          '#1',
+                          style: TextStyle(
+                            color: Color(0xFFFBBF24),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
+                    ],
+                    if (trader['isAgent'] == true) ...[
+                      const SizedBox(width: 6),
+                      const AgentBadge(label: 'AI', compact: true),
                     ],
                     if (isMe) ...[
                       const SizedBox(width: 6),
@@ -806,15 +805,19 @@ class _TraderRow extends StatelessWidget {
       ),
     );
 
-    if (!isMe) return card;
+    if (!isMe && rank != 1) return card;
+    final borderColor = rank == 1 ? const Color(0xFFFBBF24) : t.brand;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: t.brand.withValues(alpha: 0.55), width: 1.5),
+        border: Border.all(
+          color: borderColor.withValues(alpha: rank == 1 ? 0.4 : 0.55),
+          width: rank == 1 ? 1.5 : 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: t.brand.withValues(alpha: 0.12),
-            blurRadius: 14,
+            color: borderColor.withValues(alpha: rank == 1 ? 0.15 : 0.12),
+            blurRadius: rank == 1 ? 18 : 14,
           ),
         ],
       ),
