@@ -10,6 +10,7 @@ import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
@@ -142,24 +143,18 @@ class _FeedBody extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (appState.feedStatus) {
       case FeedStatus.loading:
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(
-                    color: t.brand, strokeWidth: 2.5),
-              ),
-              const SizedBox(height: 16),
-              Text('Loading markets…',
-                  style: TextStyle(color: t.textMuted, fontSize: 14)),
-              const SizedBox(height: 6),
-              Text('Fetching from Polymarket',
-                  style: TextStyle(color: t.textSubtle, fontSize: 12)),
-            ],
-          ),
+        // Premium skeleton feed — mirrors the real card layout so the first
+        // paint feels app-like instead of a bare spinner (matches Home/Discover).
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          children: const [
+            FeedCardSkeleton(),
+            SizedBox(height: 16),
+            FeedCardSkeleton(),
+            SizedBox(height: 16),
+            FeedCardSkeleton(),
+          ],
         );
 
       case FeedStatus.error:
