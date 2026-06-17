@@ -185,3 +185,49 @@ create table if not exists referrals (
 );
 
 create index if not exists referrals_referrer_idx on referrals(referrer_user_id);
+
+-- ── Creator Signals (premium forecasts, on-chain attested, x402 per-read) ─────
+-- See migrations/2026-06-17-creator-signals.sql for the full annotated version.
+create table if not exists creator_signals (
+  id uuid default gen_random_uuid() primary key,
+  creator_user_id text not null,
+  title text not null,
+  market_question text,
+  stance text not null default 'YES',
+  confidence numeric default 0.6,
+  edge_bps integer default 0,
+  horizon text,
+  teaser text,
+  thesis text not null,
+  price_usdc numeric not null default 0.001,
+  status text not null default 'draft',
+  onchain_signal_id text,
+  content_hash text,
+  onchain_tx text,
+  published_at timestamptz,
+  views integer not null default 0,
+  unlocks_count integer not null default 0,
+  revenue_usdc numeric not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists creator_signals_creator_idx
+  on creator_signals(creator_user_id, status, updated_at desc);
+create index if not exists creator_signals_status_idx
+  on creator_signals(status, published_at desc);
+
+create table if not exists signal_unlocks (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null,
+  signal_id uuid not null references creator_signals(id) on delete cascade,
+  status text not null default 'pending',
+  amount_usdc numeric,
+  tx_id text,
+  created_at timestamptz default now(),
+  confirmed_at timestamptz,
+  unique (user_id, signal_id)
+);
+
+create index if not exists signal_unlocks_user_idx on signal_unlocks(user_id);
+create index if not exists signal_unlocks_signal_idx on signal_unlocks(signal_id);
