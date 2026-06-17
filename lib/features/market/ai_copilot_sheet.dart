@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/shimmer_text.dart';
@@ -11,9 +12,10 @@ import '../../data/models/market.dart';
 import 'trade_preview_sheet.dart';
 
 class CopilotMsg {
-  CopilotMsg(this.isUser, this.text);
+  CopilotMsg(this.isUser, this.text, {this.sources = const []});
   final bool isUser;
   final String text;
+  final List<Map<String, dynamic>> sources;
 }
 
 class AiCopilotSheet extends StatefulWidget {
@@ -101,7 +103,10 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
       if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
 
       setState(() {
-        _msgs.add(CopilotMsg(false, data['reply'] as String? ?? 'Analysis completed.'));
+        final srcs = (data['sources'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _msgs.add(CopilotMsg(false, data['reply'] as String? ?? 'Analysis completed.', sources: srcs));
       });
     } catch (e) {
       setState(() {
@@ -252,6 +257,43 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
               style: TextStyle(color: fg, fontSize: 13.5, height: 1.4),
             ),
           ),
+          // Live web sources the copilot cited.
+          if (!m.isUser && m.sources.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: m.sources.map((s) {
+                  final src = (s['source'] as String?) ?? 'source';
+                  final url = s['url'] as String?;
+                  return GestureDetector(
+                    onTap: url == null
+                        ? null
+                        : () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: t.surface,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: t.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.travel_explore_rounded, size: 10, color: t.brand),
+                          const SizedBox(width: 4),
+                          Text(src,
+                              style: TextStyle(color: t.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
           // Interactive Action for Trade Recommendations
           if (isRec && !m.isUser) ...[
             const SizedBox(height: 6),
