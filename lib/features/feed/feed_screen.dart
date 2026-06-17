@@ -35,6 +35,7 @@ class FeedScreen extends StatelessWidget {
         body: Column(
           children: [
             _FeedHeader(t: t),
+            _PulseLine(color: t.brand),
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -56,6 +57,7 @@ class FeedScreen extends StatelessWidget {
         child: Column(
           children: [
             _FeedHeader(t: t),
+            _PulseLine(color: t.brand),
             Expanded(child: _FeedBody(appState: appState, t: t)),
           ],
         ),
@@ -313,8 +315,91 @@ class _FeedHeader extends StatelessWidget {
   }
 }
 
+class _PulseLine extends StatefulWidget {
+  const _PulseLine({required this.color});
+  final Color color;
 
-class _TopToast extends StatefulWidget {
+  @override
+  State<_PulseLine> createState() => _PulseLineState();
+}
+
+class _PulseLineState extends State<_PulseLine>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return CustomPaint(
+          size: const Size(double.infinity, 3),
+          painter: _PulseLinePainter(
+            progress: _ctrl.value,
+            color: widget.color,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PulseLinePainter extends CustomPainter {
+  _PulseLinePainter({required this.progress, required this.color});
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    final w = size.width;
+    final mid = size.height / 2;
+
+    for (double x = 0; x < w; x += 1) {
+      final t = (x / w + progress) % 1.0;
+      final y = mid + math.sin(t * math.pi * 4) * 0.8 * math.sin(t * math.pi);
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Glow
+    paint.color = color.withValues(alpha: 0.2);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawPath(path, paint);
+
+    // Main line
+    paint.color = color.withValues(alpha: 0.5);
+    paint.maskFilter = null;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PulseLinePainter old) =>
+      old.progress != progress || old.color != color;
+}
   const _TopToast({
     required this.message,
     required this.t,
