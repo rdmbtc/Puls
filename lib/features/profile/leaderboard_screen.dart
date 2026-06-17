@@ -502,7 +502,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   if (trader['isAgent'] == true) ...[
                                     const SizedBox(width: 3),
                                     const Icon(Icons.smart_toy_rounded,
-                                        size: 11, color: Color(0xFF8B5CF6)),
+                                        size: 11, color: AgentBadge.agentColor),
                                   ],
                                 ],
                               ),
