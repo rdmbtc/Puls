@@ -84,7 +84,7 @@ class _CandlestickChartState extends State<CandlestickChart> {
     final candles = _generateCandles();
     if (candles.isEmpty) {
       return Center(
-        child: Text('No candlestick data', style: TextStyle(color: t.textSubtle, fontSize: 12)),
+        child: Text('No candlestick data yet — need more price history.', style: TextStyle(color: t.textSubtle, fontSize: 12)),
       );
     }
 

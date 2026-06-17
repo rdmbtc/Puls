@@ -151,7 +151,7 @@ class _FeedBody extends StatelessWidget {
                     color: t.brand, strokeWidth: 2.5),
               ),
               const SizedBox(height: 16),
-              Text('Loading live markets…',
+              Text('Loading markets…',
                   style: TextStyle(color: t.textMuted, fontSize: 14)),
               const SizedBox(height: 6),
               Text('Fetching from Polymarket',
@@ -173,7 +173,7 @@ class _FeedBody extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text(
-                  'Check your connection and try again.',
+                  'Markets couldn\'t load. Check your connection and retry.',
                   style: TextStyle(color: t.textMuted, fontSize: 13),
                   textAlign: TextAlign.center,
                 ),
@@ -1235,16 +1235,11 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
+            // Single uniform brand wash — was a left→right gradient that read
+            // as two separate backgrounds (pink left / white right).
+            color: t.brandSubtle,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: t.brand.withValues(alpha: 0.35)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                t.brand.withValues(alpha: 0.14),
-                t.surfaceRaised,
-              ],
-            ),
           ),
           child: Row(
             children: [

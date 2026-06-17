@@ -116,7 +116,7 @@ class _SupportScreenState extends State<SupportScreen> {
       body: _loading
           ? Center(child: CircularProgressIndicator(color: t.brand))
           : _error != null
-              ? Center(child: Text('Failed to load tickets', style: TextStyle(color: t.textMuted)))
+              ? Center(child: Text('Couldn\'t load tickets. Pull to retry.', style: TextStyle(color: t.textMuted)))
               : RefreshIndicator(
                   color: t.brand,
                   onRefresh: _fetch,
@@ -251,7 +251,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Network error — please try again')),
+          SnackBar(content: Text('Something went wrong — try again.')),
         );
       }
     }
@@ -411,7 +411,7 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Network error — please try again')),
+          const SnackBar(content: Text('Something went wrong — try again.')),
         );
       }
     }

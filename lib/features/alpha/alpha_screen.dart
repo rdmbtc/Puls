@@ -368,23 +368,12 @@ class _AlphaCard extends StatelessWidget {
               ],
             )
           else
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: busy ? null : (unlocked ? onView : onUnlock),
-                icon: busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Icon(unlocked ? Icons.menu_book_rounded : Icons.lock_outline_rounded, size: 18, color: Colors.white),
-                label: Text(
-                  unlocked ? 'View analysis' : 'Unlock for \$${price.toStringAsFixed(price < 0.01 ? 4 : 2)}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.brand,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
+            _ShimmerUnlockButton(
+              price: price,
+              unlocked: unlocked,
+              busy: busy,
+              onPressed: busy ? null : (unlocked ? onView : onUnlock),
+              t: t,
             ),
         ],
       ),
@@ -492,5 +481,115 @@ class _MarkdownLite extends StatelessWidget {
     if (index < line.length) spans.add(TextSpan(text: line.substring(index)));
     if (spans.isEmpty) spans.add(TextSpan(text: line));
     return spans;
+  }
+}
+
+class _ShimmerUnlockButton extends StatefulWidget {
+  const _ShimmerUnlockButton({
+    required this.price,
+    required this.unlocked,
+    required this.busy,
+    required this.onPressed,
+    required this.t,
+  });
+
+  final double price;
+  final bool unlocked;
+  final bool busy;
+  final VoidCallback? onPressed;
+  final PulsThemeColors t;
+
+  @override
+  State<_ShimmerUnlockButton> createState() => _ShimmerUnlockButtonState();
+}
+
+class _ShimmerUnlockButtonState extends State<_ShimmerUnlockButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final unlocked = widget.unlocked;
+    final busy = widget.busy;
+
+    if (unlocked) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: widget.onPressed,
+          icon: const Icon(Icons.menu_book_rounded, size: 18, color: Colors.white),
+          label: const Text('View analysis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: t.brand,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final x = _ctrl.value;
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: LinearGradient(
+              begin: Alignment(x * 3 - 2, 0),
+              end: Alignment(x * 3 - 1, 0),
+              colors: [
+                t.brand,
+                t.brand.withValues(alpha: 0.85),
+                const Color(0xFF818CF8),
+                t.brand.withValues(alpha: 0.85),
+                t.brand,
+              ],
+              stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: t.brand.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ElevatedButton.icon(
+            onPressed: widget.onPressed,
+            icon: busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.lock_outline_rounded, size: 18, color: Colors.white),
+            label: Text(
+              busy ? 'Unlocking…' : 'Unlock for \$${widget.price.toStringAsFixed(widget.price < 0.01 ? 4 : 2)}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
