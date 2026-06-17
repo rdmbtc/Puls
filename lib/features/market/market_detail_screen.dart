@@ -15,7 +15,6 @@ import 'share_market_sheet.dart';
 import 'advanced_charts.dart';
 import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
-import '../comments/comment_thread.dart';
 import 'market_detail_tabs.dart';
 
 class MarketDetailScreen extends StatefulWidget {
@@ -123,7 +122,11 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
 
         // ── Discussion / comments / activity ────────────────────────────
         const SizedBox(height: 24),
-        MarketDetailTabs(marketId: market.id, question: market.question),
+        MarketDetailTabs(
+          marketId: market.id,
+          contractAddress: market.contractAddress,
+          question: market.question,
+        ),
       ],
     );
 
