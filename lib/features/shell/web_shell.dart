@@ -4,6 +4,7 @@ import 'package:picons/picons.dart';
 import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_footer.dart';
 import '../discover/discover_screen.dart';
 import '../feed/feed_screen.dart';
 import '../home/home_screen.dart';
@@ -154,18 +155,25 @@ class _WebShellState extends State<WebShell>
               ),
               VerticalDivider(
                   width: 1, color: t.border.withValues(alpha: 0.4)),
-              // Content with fade+slide transition
+              // Content with fade+slide transition + footer
               Expanded(
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.02, 0),
-                      end: Offset.zero,
-                    ).animate(_fadeAnim),
-                    child: IndexedStack(
-                        index: _index, children: _pages),
-                  ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: FadeTransition(
+                        opacity: _fadeAnim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.02, 0),
+                            end: Offset.zero,
+                          ).animate(_fadeAnim),
+                          child: IndexedStack(
+                              index: _index, children: _pages),
+                        ),
+                      ),
+                    ),
+                    const PulsFooter(),
+                  ],
                 ),
               ),
             ],
