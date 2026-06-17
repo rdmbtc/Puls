@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../payments/payment_receipt.dart';
+import '../payments/payment_receipt_sheet.dart';
 import '../profile/profile_screen.dart' show GlassCard;
+import 'alpha_actions.dart';
 
 /// Alpha — paid premium analysis (creator layer).
 ///
@@ -94,8 +97,12 @@ class _AlphaScreenState extends State<AlphaScreen> {
       return;
     }
     final price = (sig['priceUsdc'] as num?)?.toDouble() ?? 0;
-    final confirmed = await _confirmUnlock(context.puls, sig['title']?.toString() ?? 'this analysis', price);
-    if (confirmed != true) return;
+    // Tiered friction: confirm once per device, then unlocks are one-tap.
+    if (AlphaFriction.unlockNeedsConfirm) {
+      final confirmed = await _confirmUnlock(context.puls, sig['title']?.toString() ?? 'this analysis', price);
+      if (confirmed != true) return;
+      AlphaFriction.markUnlockConfirmed();
+    }
 
     setState(() => _busy.add(id));
     try {
@@ -109,9 +116,19 @@ class _AlphaScreenState extends State<AlphaScreen> {
           final idx = _signals.indexWhere((s) => s['id'] == id);
           if (idx >= 0) _signals[idx] = {..._signals[idx], 'unlocked': true};
         });
-        _snack(res['alreadyUnlocked'] == true
-            ? 'Already unlocked — opening analysis.'
-            : 'Unlocked • \$${price.toStringAsFixed(price < 0.01 ? 4 : 2)} paid to creator.');
+        if (res['alreadyUnlocked'] == true) {
+          _snack('Already unlocked — opening analysis.');
+        } else {
+          if (!mounted) return;
+          await PaymentReceiptSheet.show(
+            context,
+            PaymentReceipt.fromResponse(
+              res,
+              amountUsd: price,
+              creatorHandle: '@${sig['creatorHandle'] ?? 'puls'}',
+            ),
+          );
+        }
       } else {
         // Gated (live:false) — honest "coming at launch".
         _snack(res['message']?.toString() ?? 'Paid analysis activates at launch.');
@@ -123,28 +140,42 @@ class _AlphaScreenState extends State<AlphaScreen> {
     }
   }
 
-  // One-tap tip to the forecaster — a small real USDC nanopayment.
-  Future<void> _tip(Map<String, dynamic> sig) async {
+  // One-tap tip to the forecaster — fires after a 5s Undo window, then settles
+  // a small real USDC nanopayment and shows the unified receipt sheet.
+  void _tip(Map<String, dynamic> sig) {
     final id = sig['id'] as String;
     final wallet = WalletServiceScope.of(context);
     if (wallet.state.userId == null) {
       _snack('Sign in to tip forecasters.');
       return;
     }
-    setState(() => _busy.add(id));
-    try {
-      final res = await wallet.tipCreator(amountUsdc: _kTipAmount, context: 'alpha:$id');
-      if (!mounted) return;
-      if (res['ok'] == true) {
-        _snack('Tipped \$${_kTipAmount.toStringAsFixed(2)} to the forecaster 🙌');
-      } else {
-        _snack(res['message']?.toString() ?? 'Tips activate at launch.');
-      }
-    } catch (e) {
-      _snack(e.toString().replaceAll('Exception:', '').trim());
-    } finally {
-      if (mounted) setState(() => _busy.remove(id));
-    }
+    final handle = '@${sig['creatorHandle'] ?? 'puls'}';
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    final tip = DeferredTip(
+      delay: const Duration(seconds: 5),
+      onFire: () async {
+        try {
+          final res = await wallet.tipCreator(amountUsdc: _kTipAmount, context: 'alpha:$id');
+          if (!mounted) return;
+          await PaymentReceiptSheet.show(
+            context,
+            PaymentReceipt.fromResponse(res, amountUsd: _kTipAmount, creatorHandle: handle),
+          );
+        } catch (e) {
+          _snack(e.toString().replaceAll('Exception:', '').trim());
+        }
+      },
+    )..start();
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        content: Text('Tipping \$${_kTipAmount.toStringAsFixed(2)} to $handle'),
+        action: SnackBarAction(label: 'Undo', onPressed: tip.cancel),
+      ),
+    );
   }
 
   Future<bool?> _confirmUnlock(PulsThemeColors t, String title, double price) {

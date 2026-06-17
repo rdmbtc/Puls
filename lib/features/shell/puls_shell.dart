@@ -11,7 +11,6 @@ import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
-import '../onboarding/onboarding_flags.dart';
 import '../onboarding/onboarding_sheet.dart';
 import 'shell_nav.dart';
 import 'web_shell.dart';
