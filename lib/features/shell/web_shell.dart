@@ -25,7 +25,6 @@ class WebShell extends StatefulWidget {
 class _WebShellState extends State<WebShell>
     with SingleTickerProviderStateMixin {
   int _index = 0;
-  bool _collapsed = false;
   late final AnimationController _transCtrl;
   late final Animation<double> _fadeAnim;
 
@@ -114,87 +113,67 @@ class _WebShellState extends State<WebShell>
     return ShellNavScope(
       goToTab: _goToTab,
       child: Scaffold(
-      backgroundColor: gradientBg,
-      body: Stack(
-        children: [
-          // ── Theme-aware gradient ─────────────────────────────────────────
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -0.6),
-                  radius: 1.4,
-                  colors: [gradientGlow, gradientEnd],
-                  stops: const [0.0, 0.7],
+        backgroundColor: gradientBg,
+        body: Stack(
+          children: [
+            // ── Theme-aware gradient ───────────────────────────────────────
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.6),
+                    radius: 1.4,
+                    colors: [gradientGlow, gradientEnd],
+                    stops: const [0.0, 0.7],
+                  ),
                 ),
               ),
             ),
-          ),
-          // ── Dot grid ────────────────────────────────────────────────────
-          Positioned.fill(
-            child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
-          ),
-          // ── Shell ────────────────────────────────────────────────────────
-          Row(
-            children: [
-              // Sidebar
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                width: _collapsed ? 64 : 220,
-                child: _Sidebar(
+            // ── Dot grid ───────────────────────────────────────────────────
+            Positioned.fill(
+              child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
+            ),
+            // ── Shell: top island nav · content · footer ───────────────────
+            Column(
+              children: [
+                _TopNav(
                   index: _index,
                   items: _items,
                   t: t,
                   isDark: isDark,
-                  collapsed: _collapsed,
                   onTap: _navigate,
-                  onToggleCollapse: () => setState(() => _collapsed = !_collapsed),
                   onToggleTheme: appState.toggleThemeMode,
                 ),
-              ),
-              VerticalDivider(
-                  width: 1, color: t.border.withValues(alpha: 0.4)),
-              // Content with fade+slide transition + footer
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: FadeTransition(
-                        opacity: _fadeAnim,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0.02, 0),
-                            end: Offset.zero,
-                          ).animate(_fadeAnim),
-                          child: IndexedStack(
-                              index: _index, children: _pages),
-                        ),
-                      ),
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.02, 0),
+                        end: Offset.zero,
+                      ).animate(_fadeAnim),
+                      child: IndexedStack(index: _index, children: _pages),
                     ),
-                    const PulsFooter(),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+                const PulsFooter(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({
+// ── Top island nav ─────────────────────────────────────────────────────────────
+class _TopNav extends StatelessWidget {
+  const _TopNav({
     required this.index,
     required this.items,
     required this.t,
     required this.isDark,
-    required this.collapsed,
     required this.onTap,
-    required this.onToggleCollapse,
     required this.onToggleTheme,
   });
 
@@ -202,197 +181,364 @@ class _Sidebar extends StatelessWidget {
   final List<_NavItem> items;
   final PulsThemeColors t;
   final bool isDark;
-  final bool collapsed;
   final ValueChanged<int> onTap;
-  final VoidCallback onToggleCollapse;
   final VoidCallback onToggleTheme;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Logo + collapse button
-        Padding(
-          padding: EdgeInsets.fromLTRB(collapsed ? 12 : 20, 24, 12, 20),
-          child: Row(
-            children: [
-              Container(
-                width: 30, height: 30,
-                decoration: BoxDecoration(
-                  color: t.brandSubtle,
-                  borderRadius: BorderRadius.circular(8),
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Show labels inside the island only when there is room for them.
+        final showLabels = c.maxWidth >= 1120;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: SizedBox(
+            height: 56,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Left: brand wordmark
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _Brand(t: t),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset('assets/logo.png', fit: BoxFit.cover),
-              ),
-              if (!collapsed) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text('Puls',
-                      style: TextStyle(
-                        fontFamily: PulsColors.fontDisplay,
-                        color: t.text,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                      )),
+                // Center: the dynamic island
+                _Island(
+                  index: index,
+                  items: items,
+                  t: t,
+                  isDark: isDark,
+                  showLabels: showLabels,
+                  onTap: onTap,
+                ),
+                // Right: controls (wallet · theme · network)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _RightControls(
+                    t: t,
+                    isDark: isDark,
+                    onToggleTheme: onToggleTheme,
+                  ),
                 ),
               ],
-              const SizedBox(width: 4),
-              _IconBtn(
-                icon: collapsed ? Picons.arrowRight : Picons.arrowLeft,
-                color: t.textSubtle,
-                onTap: onToggleCollapse,
-              ),
-            ],
-          ),
-        ),
-        // Nav items
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              children: List.generate(items.length, (i) {
-                final item = items[i];
-                final selected = i == index;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: _SidebarItem(
-                    item: item,
-                    selected: selected,
-                    collapsed: collapsed,
-                    t: t,
-                    onTap: () => onTap(i),
-                  ),
-                );
-              }),
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _Brand extends StatelessWidget {
+  const _Brand({required this.t});
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: t.brandSubtle,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset('assets/logo.png', fit: BoxFit.cover),
         ),
-        // Bottom: dark mode toggle + Arc badge
-        Padding(
-          padding: EdgeInsets.fromLTRB(collapsed ? 8 : 12, 0, collapsed ? 8 : 12, 20),
-          child: Column(
-            children: [
-              _buildWalletCard(context),
-              const SizedBox(height: 8),
-              // Dark mode toggle
-              _SidebarToggle(
-                isDark: isDark,
-                collapsed: collapsed,
-                t: t,
-                onToggle: onToggleTheme,
-              ),
-              const SizedBox(height: 8),
-              if (!collapsed)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: t.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: t.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8, height: 8,
-                        decoration: BoxDecoration(
-                          color: t.yes, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Arc Testnet',
-                          style: TextStyle(
-                              color: t.textMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                    color: t.yes, shape: BoxShape.circle),
-                ),
-            ],
+        const SizedBox(width: 10),
+        Text(
+          'Puls',
+          style: TextStyle(
+            fontFamily: PulsColors.fontDisplay,
+            color: t.text,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildWalletCard(BuildContext context) {
+// ── The floating island holding the nav pills ───────────────────────────────────
+class _Island extends StatelessWidget {
+  const _Island({
+    required this.index,
+    required this.items,
+    required this.t,
+    required this.isDark,
+    required this.showLabels,
+    required this.onTap,
+  });
+
+  final int index;
+  final List<_NavItem> items;
+  final PulsThemeColors t;
+  final bool isDark;
+  final bool showLabels;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF131127) : Colors.white;
+    final shadow = isDark
+        ? t.brand.withValues(alpha: 0.22)
+        : t.brand.withValues(alpha: 0.08);
+
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(26),
+        // 1px inner light edge → premium "glass" rim
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : t.border,
+        ),
+        boxShadow: [
+          BoxShadow(color: shadow, blurRadius: 24, offset: const Offset(0, 8)),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(items.length, (i) {
+          return _NavPill(
+            item: items[i],
+            selected: i == index,
+            showLabel: showLabels,
+            t: t,
+            isDark: isDark,
+            onTap: () => onTap(i),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _NavPill extends StatefulWidget {
+  const _NavPill({
+    required this.item,
+    required this.selected,
+    required this.showLabel,
+    required this.t,
+    required this.isDark,
+    required this.onTap,
+  });
+  final _NavItem item;
+  final bool selected;
+  final bool showLabel;
+  final PulsThemeColors t;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  State<_NavPill> createState() => _NavPillState();
+}
+
+class _NavPillState extends State<_NavPill> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final selected = widget.selected;
+    final idleIcon =
+        widget.isDark ? const Color(0xFF8181AA) : const Color(0xFF9A9A94);
+
+    final pill = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.showLabel ? 14 : 11,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: selected
+            ? t.brand
+            : _hovered
+                ? (widget.isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : t.surfaceRaised)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedScale(
+            scale: selected ? 1.08 : 1.0,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            child: Picon(
+              widget.item.icon,
+              size: 18,
+              color: selected ? Colors.white : idleIcon,
+            ),
+          ),
+          if (widget.showLabel) ...[
+            const SizedBox(width: 8),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? Colors.white : t.textMuted,
+              ),
+              child: Text(widget.item.label),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: widget.showLabel
+            ? pill
+            : Tooltip(message: widget.item.label, child: pill),
+      ),
+    );
+  }
+}
+
+// ── Right-side controls: wallet · theme · network ───────────────────────────────
+class _RightControls extends StatelessWidget {
+  const _RightControls({
+    required this.t,
+    required this.isDark,
+    required this.onToggleTheme,
+  });
+  final PulsThemeColors t;
+  final bool isDark;
+  final VoidCallback onToggleTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _WalletChip(t: t),
+        const SizedBox(width: 8),
+        _ThemeToggle(t: t, isDark: isDark, onToggle: onToggleTheme),
+      ],
+    );
+  }
+}
+
+class _WalletChip extends StatelessWidget {
+  const _WalletChip({required this.t});
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
     final wallet = WalletServiceScope.of(context);
     final ws = wallet.state;
     if (ws.walletAddress == null || ws.walletAddress!.isEmpty) {
-      return const SizedBox.shrink();
+      // Not connected → show a quiet network badge instead.
+      return _NetworkBadge(t: t);
     }
-    
-    final shortAddress = ws.walletAddress!.length > 10 
-        ? '${ws.walletAddress!.substring(0, 6)}...${ws.walletAddress!.substring(ws.walletAddress!.length - 4)}'
-        : ws.walletAddress!;
-        
-    final label = ws.isExternalWallet ? 'Browser Wallet' : 'MPC Wallet';
 
-    if (collapsed) {
-      return Tooltip(
-        message: '$label: $shortAddress\n${ws.usdcBalance} USDC',
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: t.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: t.border),
-          ),
-          child: Icon(Icons.account_balance_wallet_outlined, size: 18, color: t.textMuted),
-        ),
-      );
-    }
+    final addr = ws.walletAddress!;
+    final shortAddress = addr.length > 10
+        ? '${addr.substring(0, 6)}…${addr.substring(addr.length - 4)}'
+        : addr;
+    final usdc =
+        double.tryParse(ws.usdcBalance)?.toStringAsFixed(2) ?? ws.usdcBalance;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
       decoration: BoxDecoration(
         color: t.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: t.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(Icons.account_balance_wallet_outlined, size: 13, color: t.textSubtle),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.w500),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: wallet.signOut,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Icon(Icons.logout_rounded, size: 11, color: t.textSubtle),
-                ),
-              ),
-            ],
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: t.yes, shape: BoxShape.circle),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(width: 8),
           Text(
             shortAddress,
             style: TextStyle(
               color: t.text,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 14, color: t.border),
+          const SizedBox(width: 8),
           Text(
-            '\$${double.tryParse(ws.usdcBalance)?.toStringAsFixed(2) ?? ws.usdcBalance} USDC',
+            '\$$usdc',
             style: TextStyle(
               color: t.yes,
-              fontSize: 11,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 6),
+          _IconBtn(
+            icon: Icons.logout_rounded,
+            color: t.textSubtle,
+            onTap: wallet.signOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetworkBadge extends StatelessWidget {
+  const _NetworkBadge({required this.t});
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: t.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: t.yes, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Arc Testnet',
+            style: TextStyle(
+              color: t.textMuted,
+              fontSize: 12.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -402,106 +548,21 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _SidebarItem extends StatefulWidget {
-  const _SidebarItem({
-    required this.item,
-    required this.selected,
-    required this.collapsed,
+class _ThemeToggle extends StatefulWidget {
+  const _ThemeToggle({
     required this.t,
-    required this.onTap,
-  });
-  final _NavItem item;
-  final bool selected;
-  final bool collapsed;
-  final PulsThemeColors t;
-  final VoidCallback onTap;
-
-  @override
-  State<_SidebarItem> createState() => _SidebarItemState();
-}
-
-class _SidebarItemState extends State<_SidebarItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = widget.t;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.collapsed ? 12 : 12,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? t.brand.withValues(alpha: 0.12)
-                : _hovered
-                    ? t.surface
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: widget.collapsed
-                ? MainAxisAlignment.center
-                : MainAxisAlignment.start,
-            children: [
-              Picon(
-                widget.item.icon,
-                size: 18,
-                color: widget.selected ? t.brand : t.textMuted,
-              ),
-              if (!widget.collapsed) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    widget.item.label,
-                    style: TextStyle(
-                      color: widget.selected ? t.brand : t.textMuted,
-                      fontSize: 14,
-                      fontWeight: widget.selected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
-                ),
-                if (widget.selected)
-                  Container(
-                    width: 4, height: 4,
-                    decoration: BoxDecoration(
-                      color: t.brand, shape: BoxShape.circle),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SidebarToggle extends StatefulWidget {
-  const _SidebarToggle({
     required this.isDark,
-    required this.collapsed,
-    required this.t,
     required this.onToggle,
   });
-  final bool isDark;
-  final bool collapsed;
   final PulsThemeColors t;
+  final bool isDark;
   final VoidCallback onToggle;
 
   @override
-  State<_SidebarToggle> createState() => _SidebarToggleState();
+  State<_ThemeToggle> createState() => _ThemeToggleState();
 }
 
-class _SidebarToggleState extends State<_SidebarToggle> {
+class _ThemeToggleState extends State<_ThemeToggle> {
   bool _hovered = false;
 
   @override
@@ -515,37 +576,23 @@ class _SidebarToggleState extends State<_SidebarToggle> {
         onTap: widget.onToggle,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.collapsed ? 12 : 12,
-            vertical: 10,
-          ),
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: _hovered ? t.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(color: _hovered ? t.border : Colors.transparent),
           ),
-          child: Row(
-            mainAxisAlignment: widget.collapsed
-                ? MainAxisAlignment.center
-                : MainAxisAlignment.start,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Picon(
-                  key: ValueKey(widget.isDark),
-                  widget.isDark ? Picons.sun : Picons.moon,
-                  size: 18,
-                  color: t.textMuted,
-                ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Picon(
+                key: ValueKey(widget.isDark),
+                widget.isDark ? Picons.sun : Picons.moon,
+                size: 18,
+                color: t.textMuted,
               ),
-              if (!widget.collapsed) ...[
-                const SizedBox(width: 10),
-                Text(
-                  widget.isDark ? 'Light mode' : 'Dark mode',
-                  style: TextStyle(color: t.textMuted, fontSize: 14),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -555,7 +602,7 @@ class _SidebarToggleState extends State<_SidebarToggle> {
 
 class _IconBtn extends StatefulWidget {
   const _IconBtn({required this.icon, required this.color, required this.onTap});
-  final PiconData icon;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
@@ -575,15 +622,14 @@ class _IconBtnState extends State<_IconBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          width: 28, height: 28,
+          width: 26,
+          height: 26,
           decoration: BoxDecoration(
-            color: _hovered
-                ? context.puls.surface
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
+            color: _hovered ? context.puls.surfaceRaised : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
-            child: Picon(widget.icon, size: 14, color: widget.color),
+            child: Icon(widget.icon, size: 14, color: widget.color),
           ),
         ),
       ),
