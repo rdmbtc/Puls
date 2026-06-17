@@ -10,6 +10,7 @@
     { "source": "/about", "destination": "/about.html" },
     { "source": "/stats", "destination": "/stats.html" },
     { "source": "/agent", "destination": "/agent.html" },
+    { "source": "/pulse", "destination": "/pulse.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
