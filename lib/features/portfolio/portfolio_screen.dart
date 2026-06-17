@@ -18,6 +18,7 @@ import '../market/trade_preview_sheet.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
+import '../../core/widgets/count_up_text.dart';
 
 import '../../core/config.dart' show backendUrl;
 const _backendUrl = backendUrl;
@@ -761,13 +762,16 @@ class _HeroCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text('\$$totalSpent USDC',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.0,
-                        height: 1.1)),
+                CountUpText(
+                  double.tryParse(totalSpent) ?? 0,
+                  builder: (context, v) => Text('\$${v.toStringAsFixed(2)} USDC',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          height: 1.1)),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -778,12 +782,15 @@ class _HeroCard extends StatelessWidget {
                         size: 16,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        'PNL ${pnlPositive ? '+' : ''}\$${totalPnl.toStringAsFixed(2)} USDC',
-                        style: TextStyle(
-                          color: pnlPositive ? t.yes : t.no,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                      CountUpText(
+                        totalPnl,
+                        builder: (context, v) => Text(
+                          'PNL ${pnlPositive ? '+' : ''}\$${v.toStringAsFixed(2)} USDC',
+                          style: TextStyle(
+                            color: pnlPositive ? t.yes : t.no,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ] else ...[

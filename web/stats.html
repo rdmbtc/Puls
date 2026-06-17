@@ -71,8 +71,9 @@
     }
     .split h2 { font-size: 15px; font-weight: 700; margin: 0 0 14px; letter-spacing: -.2px; }
     .bar { height: 14px; border-radius: 8px; overflow: hidden; display: flex; background: var(--border); }
-    .bar .human { background: var(--brand); }
-    .bar .agent { background: var(--agent); }
+    .bar .human { background: var(--brand); width: 0; transition: width 900ms cubic-bezier(0.22,1,0.36,1); }
+    .bar .agent { background: var(--agent); width: 0; transition: width 900ms cubic-bezier(0.22,1,0.36,1); }
+    @media (prefers-reduced-motion: reduce) { .bar .human, .bar .agent { transition: none; } }
     .legend { display: flex; gap: 18px; margin-top: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
     .legend b { color: var(--text); }
     .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
@@ -145,33 +146,63 @@
   <script>
     var API = 'https://84-22-148-57.sslip.io';
     var nf = new Intl.NumberFormat('en-US');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var prev = {}; // last numeric value per key, so refreshes animate from where we were
     function usd(n) {
       if (n == null) return '—';
       if (n < 1) return '$' + Number(n).toFixed(n < 0.01 ? 6 : 4).replace(/0+$/,'').replace(/\.$/,'');
       return '$' + nf.format(Math.round(n * 100) / 100);
     }
-    function card(val, label, hint) {
-      return '<div class="card"><div class="val">' + val + '</div>' +
+    // Animate an element's number from its previous value up to `to`, reformatting each frame.
+    function countUp(el, key, to, fmt) {
+      if (!el) return;
+      to = Number(to) || 0;
+      var from = prev[key] == null ? 0 : prev[key];
+      prev[key] = to;
+      if (reduceMotion || from === to) { el.textContent = fmt(to); return; }
+      var start = null, dur = 900;
+      function frame(ts) {
+        if (start == null) start = ts;
+        var p = Math.min(1, (ts - start) / dur);
+        var eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        el.textContent = fmt(from + (to - from) * eased);
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+    var intFmt = function (v) { return nf.format(Math.round(v)); };
+    function card(id, label, hint) {
+      return '<div class="card"><div class="val" id="' + id + '">0</div>' +
         '<div class="label">' + label + '</div>' +
         (hint ? '<div class="hint">' + hint + '</div>' : '') + '</div>';
     }
+    var built = false;
     function render(d) {
       var nano = d.nanopayments || { count: 0, volumeUsdc: 0 };
-      var cards = [
-        card(nf.format(d.users || 0), 'Users onboarded', 'Google sign-in → Circle wallet'),
-        card(nf.format(d.trades || 0), 'Trades settled', usd(d.volumeUsdc) + ' volume'),
-        card(nf.format(nano.count || 0), 'Nanopayments', usd(nano.volumeUsdc) + ' in USDC'),
-        card(nf.format(d.marketsDeployed || 0), 'Markets live', (d.marketsResolved || 0) + ' resolved')
-      ].join('');
-      document.getElementById('cards').innerHTML = cards;
+      if (!built) {
+        document.getElementById('cards').innerHTML = [
+          card('vUsers', 'Users onboarded', 'Google sign-in → Circle wallet'),
+          card('vTrades', 'Trades settled', '<span id="hTrades">' + usd(d.volumeUsdc) + '</span> volume'),
+          card('vNano', 'Nanopayments', '<span id="hNano">' + usd(nano.volumeUsdc) + '</span> in USDC'),
+          card('vMarkets', 'Markets live', '<span id="hMarkets">' + (d.marketsResolved || 0) + '</span> resolved')
+        ].join('');
+        built = true;
+      }
+      countUp(document.getElementById('vUsers'), 'users', d.users || 0, intFmt);
+      countUp(document.getElementById('vTrades'), 'trades', d.trades || 0, intFmt);
+      countUp(document.getElementById('vNano'), 'nano', nano.count || 0, intFmt);
+      countUp(document.getElementById('vMarkets'), 'markets', d.marketsDeployed || 0, intFmt);
+      var hT = document.getElementById('hTrades'); if (hT) hT.textContent = usd(d.volumeUsdc);
+      var hN = document.getElementById('hNano'); if (hN) hN.textContent = usd(nano.volumeUsdc);
+      var hM = document.getElementById('hMarkets'); if (hM) hM.textContent = (d.marketsResolved || 0);
 
       var ht = d.humanTrades || 0, at = d.agentTrades || 0, tot = ht + at;
       if (tot > 0) {
         document.getElementById('splitWrap').style.display = 'block';
         document.getElementById('barHuman').style.width = (ht / tot * 100) + '%';
         document.getElementById('barAgent').style.width = (at / tot * 100) + '%';
-        document.getElementById('lgHuman').textContent = nf.format(ht);
-        document.getElementById('lgAgent').textContent = nf.format(at);
+        countUp(document.getElementById('lgHuman'), 'lgHuman', ht, intFmt);
+        countUp(document.getElementById('lgAgent'), 'lgAgent', at, intFmt);
         if (d.agents) document.getElementById('lgAgents').innerHTML = '<b>' + d.agents + '</b> autonomous agents';
       }
       var when = d.updatedAt ? new Date(d.updatedAt).toLocaleString() : new Date().toLocaleString();
