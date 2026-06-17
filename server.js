@@ -2293,29 +2293,70 @@ app.get('/api/stats', async (req, res) => {
     if (statsCache.data && Date.now() - statsCache.ts < STATS_TTL_MS) {
       return res.json(statsCache.data);
     }
-    const [countRes, marketsRes, resolvedRes] = await Promise.all([
+    const [countRes, marketsRes, resolvedRes, usersRes, payCountRes] = await Promise.all([
       supabase.from('trades').select('*', { count: 'exact', head: true }).eq('state', 'COMPLETE'),
       supabase.from('deployed_markets').select('*', { count: 'exact', head: true }),
       supabase.from('deployed_markets').select('*', { count: 'exact', head: true }).eq('resolved', true),
+      // "Users onboarded" = wallets provisioned (one per Google sign-in / agent).
+      supabase.from('wallets').select('*', { count: 'exact', head: true }),
+      // Nanopayments = settled x402 receipts (alpha unlocks, copy-fees, tips, agent buys).
+      supabase.from('x402_payments').select('*', { count: 'exact', head: true }),
     ]);
     const tradeCount = countRes.count ?? 0;
-    // Supabase caps responses at 1000 rows — paginate the volume sum
+    // Supabase caps responses at 1000 rows — paginate the volume sum.
+    // Single pass also computes the humans-vs-agents split (same bucketing as the
+    // leaderboard: house agent, agent_* ids, or trades tagged "🤖 Agent:").
     let volumeUsdc = 0;
+    let agentTrades = 0;
+    let agentVolumeUsdc = 0;
+    const agentIds = new Set();
     for (let from = 0; from < tradeCount; from += 1000) {
       const { data: page } = await supabase
         .from('trades')
-        .select('usdc_amount')
+        .select('usdc_amount, user_id, question')
         .eq('state', 'COMPLETE')
         .range(from, from + 999);
       if (!page || page.length === 0) break;
-      volumeUsdc += page.reduce((acc, r) => acc + (parseFloat(r.usdc_amount) || 0), 0);
+      for (const r of page) {
+        const amt = parseFloat(r.usdc_amount) || 0;
+        volumeUsdc += amt;
+        const uid = r.user_id || '';
+        const isAgent = uid === HOUSE_AGENT_USER || uid.startsWith('agent_')
+          || (typeof r.question === 'string' && r.question.startsWith('🤖 Agent:'));
+        if (isAgent) {
+          agentTrades += 1;
+          agentVolumeUsdc += amt;
+          agentIds.add(uid || 'agent');
+        }
+      }
       if (page.length < 1000) break;
     }
+    // Sum of nanopayment volume (x402 receipts are few — usually a single page).
+    let nanoVolumeUsdc = 0;
+    const payCount = payCountRes.count ?? 0;
+    for (let from = 0; from < payCount; from += 1000) {
+      const { data: page } = await supabase
+        .from('x402_payments')
+        .select('amount_usdc')
+        .range(from, from + 999);
+      if (!page || page.length === 0) break;
+      nanoVolumeUsdc += page.reduce((acc, r) => acc + (parseFloat(r.amount_usdc) || 0), 0);
+      if (page.length < 1000) break;
+    }
+    const r2 = (n) => Math.round(n * 100) / 100;
     const data = {
       trades: tradeCount,
-      volumeUsdc: Math.round(volumeUsdc * 100) / 100,
+      volumeUsdc: r2(volumeUsdc),
       marketsDeployed: marketsRes.count ?? 0,
       marketsResolved: resolvedRes.count ?? 0,
+      // Traction snapshot (verifiable, no PII) — surfaced on the public /stats page.
+      users: usersRes.count ?? 0,
+      humanTrades: Math.max(0, tradeCount - agentTrades),
+      agentTrades,
+      agents: agentIds.size,
+      humanVolumeUsdc: r2(volumeUsdc - agentVolumeUsdc),
+      agentVolumeUsdc: r2(agentVolumeUsdc),
+      nanopayments: { count: payCount, volumeUsdc: Math.round(nanoVolumeUsdc * 1e6) / 1e6 },
       updatedAt: new Date().toISOString(),
     };
     statsCache = { data, ts: Date.now() };
