@@ -11,7 +11,6 @@ import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
 import '../agent/agent_screen.dart';
-import '../onboarding/onboarding_flags.dart';
 import '../onboarding/onboarding_sheet.dart';
 import 'shell_nav.dart';
 import 'web_shell.dart';
@@ -121,7 +120,7 @@ class _DynamicIslandNav extends StatelessWidget {
   static final _items = [
     _Item(Picons.lightning, 'Feed'),
     _Item(Picons.chartBar, 'Portfolio'),
-    _Item(Picons.trophy, 'Leaderboard'),
+    _Item(Picons.star, 'Creators'),
     _Item(Picons.robot, 'Agent'),
     _Item(Picons.userCircle, 'Profile'),
   ];

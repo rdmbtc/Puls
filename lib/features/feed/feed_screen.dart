@@ -18,7 +18,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
-import '../agent/agent_screen.dart' show agentSubTabRequest;
+import '../profile/leaderboard_screen.dart' show LeaderboardScreen;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -1169,8 +1169,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 }
 
 /// A slim banner at the top of the Feed that surfaces the latest paid "alpha"
-/// forecast. Tapping it deep-links into the Agent → Alpha sub-tab so users meet
-/// the creator-economy paywall earlier in the flow. Renders nothing until a
+/// forecast. Tapping it deep-links into the Creators hub → Alpha segment so
+/// users meet the creator-economy paywall earlier. Renders nothing until a
 /// signal is available, so it never blocks the feed.
 class _AlphaFeedTeaser extends StatefulWidget {
   const _AlphaFeedTeaser();
@@ -1210,10 +1210,10 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
   }
 
   void _openAlpha() {
-    // 2 = Alpha sub-tab inside the Agent screen.
-    agentSubTabRequest.value = 2;
+    // Alpha now lives in the Creators hub (Leaderboard tab) as a segment.
+    LeaderboardScreen.pendingSegment = 'alpha';
     final nav = ShellNavScope.maybeOf(context);
-    nav?.goToTab(PulsTab.agent);
+    nav?.goToTab(PulsTab.leaderboard);
   }
 
   @override
