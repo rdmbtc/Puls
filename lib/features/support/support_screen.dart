@@ -30,14 +30,13 @@ class _SupportScreenState extends State<SupportScreen> {
     return h;
   }
 
-  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
-
   Future<void> _fetch() async {
     try {
-      final uid = _userId;
-      if (uid == null) return;
+      // Identity comes from the Bearer token; the server derives the verified
+      // `supabase_<uuid>` id itself. Do NOT pass ?userId= (the raw Supabase uuid
+      // mismatches the server's expected `supabase_` id and 403s).
       final res = await http.get(
-        Uri.parse('$backendUrl/api/support/tickets?userId=$uid'),
+        Uri.parse('$backendUrl/api/support/tickets'),
         headers: _headers,
       );
       if (res.statusCode != 200) throw Exception('Failed');
@@ -241,8 +240,21 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
       if (res.statusCode == 200 || res.statusCode == 201) {
         widget.onCreated();
         if (mounted) Navigator.of(context).pop();
+      } else {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to create ticket (${res.statusCode})')),
+          );
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Network error — please try again')),
+        );
+      }
+    }
     if (mounted) setState(() => _sending = false);
   }
 
@@ -388,8 +400,21 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       if (res.statusCode == 200 || res.statusCode == 201) {
         _inputCtrl.clear();
         await _fetch();
+      } else {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error']?.toString() ?? 'Failed to send (${res.statusCode})')),
+          );
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error — please try again')),
+        );
+      }
+    }
     if (mounted) setState(() => _sending = false);
   }
 
