@@ -471,6 +471,106 @@
     };
   </script>
 
+  <script>
+    // ── CCTP V2: bridge USDC from Ethereum Sepolia → Arc Testnet (in-app) ──
+    // Uses the Forwarding Service (burn-with-hook): Circle mints on Arc for the
+    // user, so they don't need ARC gas. Source chain is Sepolia, so we switch
+    // MetaMask to Sepolia for the burn, then poll Iris for the Arc mint.
+    const SEPOLIA = {
+      chainIdHex: '0xaa36a7', chainId: 11155111, name: 'Ethereum Sepolia',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com', explorer: 'https://sepolia.etherscan.io',
+    };
+    const SEPOLIA_USDC = '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238';
+    const SEPOLIA_TOKEN_MESSENGER = '0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa';
+    const SEPOLIA_DOMAIN = 0, ARC_DOMAIN = 26;
+    const IRIS = 'https://iris-api-sandbox.circle.com';
+    const FORWARD_HOOK = '0x636374702d666f72776172640000000000000000000000000000000000000000';
+    const TOKEN_MESSENGER_ABI = [
+      'function depositForBurnWithHook(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData)'
+    ];
+    const ERC20_ABI = [
+      'function allowance(address owner, address spender) view returns (uint256)',
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address owner) view returns (uint256)'
+    ];
+
+    async function _switchTo(cfg) {
+      try {
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: cfg.chainIdHex }] });
+      } catch (e) {
+        if (e.code === 4902) {
+          await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+            chainId: cfg.chainIdHex, chainName: cfg.name, rpcUrls: [cfg.rpcUrl],
+            blockExplorerUrls: [cfg.explorer], nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          }] });
+        } else { throw e; }
+      }
+    }
+
+    // amountUsdc: string like "1". Returns { arcTxHash } or { error }.
+    window.bridgeUsdcToArc = async function (amountUsdc) {
+      try {
+        if (!window.ethereum) return JSON.stringify({ error: 'No browser wallet. Install MetaMask.' });
+        await _switchTo(SEPOLIA);
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const user = await signer.getAddress();
+
+        const amount = BigInt(Math.round(parseFloat(amountUsdc) * 1e6));
+        if (amount <= 0n) return JSON.stringify({ error: 'Enter an amount.' });
+
+        // Quote forwarding fees.
+        const feeRes = await fetch(`${IRIS}/v2/burn/USDC/fees/${SEPOLIA_DOMAIN}/${ARC_DOMAIN}?forward=true`);
+        if (!feeRes.ok) return JSON.stringify({ error: 'Could not fetch bridge fees.' });
+        const fees = await feeRes.json();
+        const f = (fees || []).find(x => x.finalityThreshold === 1000);
+        if (!f) return JSON.stringify({ error: 'Fast-transfer route unavailable right now.' });
+        const forwardFee = BigInt(f.forwardFee.med);
+        const protocolFee = (amount * BigInt(Math.round(f.minimumFee * 100))) / 1000000n;
+        const maxFee = forwardFee + protocolFee;
+        const total = amount + maxFee;
+
+        // Balance guard.
+        const usdc = new ethers.Contract(SEPOLIA_USDC, ERC20_ABI, signer);
+        const bal = await usdc.balanceOf(user);
+        if (bal < total) return JSON.stringify({ error: `Need ${(Number(total)/1e6).toFixed(4)} Sepolia USDC (have ${(Number(bal)/1e6).toFixed(4)}). Get test USDC at faucet.circle.com.` });
+
+        // Approve if needed.
+        const allowance = await usdc.allowance(user, SEPOLIA_TOKEN_MESSENGER);
+        if (allowance < total) {
+          const ap = await usdc.approve(SEPOLIA_TOKEN_MESSENGER, total);
+          await ap.wait();
+        }
+
+        // Burn-with-hook.
+        const mintRecipient = ethers.zeroPadValue(user, 32);
+        const emptyCaller = ethers.zeroPadValue('0x', 32);
+        const tm = new ethers.Contract(SEPOLIA_TOKEN_MESSENGER, TOKEN_MESSENGER_ABI, signer);
+        const burnTx = await tm.depositForBurnWithHook(
+          total, ARC_DOMAIN, mintRecipient, SEPOLIA_USDC, emptyCaller, maxFee, 1000, FORWARD_HOOK
+        );
+        await burnTx.wait();
+
+        // Poll Iris for the Arc mint (forwardTxHash). Cap ~3 min.
+        for (let i = 0; i < 36; i++) {
+          try {
+            const r = await fetch(`${IRIS}/v2/messages/${SEPOLIA_DOMAIN}?transactionHash=${burnTx.hash}`);
+            if (r.ok) {
+              const d = await r.json();
+              const fwd = d?.messages?.[0]?.forwardTxHash;
+              if (fwd) return JSON.stringify({ arcTxHash: fwd, burnTxHash: burnTx.hash });
+            }
+          } catch (_) {}
+          await new Promise(s => setTimeout(s, 5000));
+        }
+        // Burn succeeded; mint still settling.
+        return JSON.stringify({ burnTxHash: burnTx.hash, pending: 'true' });
+      } catch (e) {
+        return JSON.stringify({ error: (e && e.message) ? e.message : 'Bridge failed' });
+      }
+    };
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

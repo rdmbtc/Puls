@@ -32,3 +32,17 @@ Future<WalletConnectResult> sellPositionOnChain(bool isYes, double shares, Strin
 /// Run on-chain claim winnings transaction.
 Future<WalletConnectResult> claimOnChain(String contractAddress) =>
     impl.claimOnChain(contractAddress);
+
+/// Bridge USDC from Ethereum Sepolia → Arc via Circle CCTP (Forwarding Service).
+/// Returns the Arc mint tx hash on success (or burn hash + pending if still settling).
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc) =>
+    impl.bridgeUsdcToArc(amountUsdc);
+
+/// Result of a CCTP bridge attempt.
+class BridgeResult {
+  final String? arcTxHash;
+  final String? burnTxHash;
+  final bool pending;
+  final String? error;
+  BridgeResult({this.arcTxHash, this.burnTxHash, this.pending = false, this.error});
+}
