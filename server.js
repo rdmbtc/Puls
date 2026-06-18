@@ -4224,12 +4224,24 @@ app.post('/api/agent/chat', authenticateUser, requireVerifiedUser, strictLimiter
     const feedBySlug = Object.fromEntries(feed.map(m => [m.slug, m]));
 
     const marketLines = feed.map(m => `- ${m.slug}: "${m.question}"${m.deployed ? ' [ready]' : ''}`).join('\n');
+
+    // Vision: research the open web on the user's question so the agent reasons
+    // over real, current information (and can cite it) — same rail the house
+    // agent + market AI use. Best-effort; never blocks the chat.
+    let research = { brief: '', sources: [] };
+    try {
+      research = await researchQuestion(message.slice(0, 200), 4);
+    } catch (e) {
+      console.error('[agent/chat] research failed:', e.message);
+    }
+
     const sys = `You are Puls Agent, an autonomous trading agent on Arc Testnet with ${remaining.toFixed(2)} USDC to spend.
 These are the live prediction markets you can trade (slug: question):
 ${marketLines || '(none available)'}
+${research.brief ? `\nLive web research for context (base your reasoning on this, cite it in your reply if relevant):\n${research.brief}\n` : ''}
 When the user wants you to buy, pick the most relevant market and respond with ONE line of JSON only:
-{"action":"buy","slug":"<exact slug from the list>","side":"YES|NO","usdcAmount":<number <= ${remaining.toFixed(2)}>,"reply":"<short explanation of your pick>"}
-Otherwise respond: {"action":"none","reply":"<your message>"}
+{"action":"buy","slug":"<exact slug from the list>","side":"YES|NO","usdcAmount":<number <= ${remaining.toFixed(2)}>,"reply":"<short explanation of your pick, grounded in the research>"}
+Otherwise respond: {"action":"none","reply":"<your message, informed by the research>"}
 Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON object.`;
 
     let intent = { action: 'none', reply: '' };
@@ -4331,7 +4343,7 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
       }
     }
 
-    res.json({ reply: formatForApp(intent.reply) || 'Done.', trade, remaining: Math.max(0, remaining - spentNow), reputation: agentRepCount.get(`agent_${userId}`) ?? 0 });
+    res.json({ reply: formatForApp(intent.reply) || 'Done.', trade, remaining: Math.max(0, remaining - spentNow), reputation: agentRepCount.get(`agent_${userId}`) ?? 0, sources: (research.sources || []).slice(0, 3) });
   } catch (e) {
     console.error('agent chat error:', e.message);
     res.status(500).json({ error: e.message });
