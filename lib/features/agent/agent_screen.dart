@@ -16,6 +16,7 @@ import '../onboarding/help_button.dart';
 import 'pulse_feed.dart';
 import 'economy_feed.dart';
 import 'x402_payments.dart';
+import 'swarm_view.dart';
 import '../market/signals_marketplace.dart';
 
 class _Msg {
@@ -43,7 +44,7 @@ class AgentScreen extends StatefulWidget {
 class _AgentScreenState extends State<AgentScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController =
-      TabController(length: 5, vsync: this);
+      TabController(length: 6, vsync: this);
   final _client = http.Client();
   final _input = TextEditingController();
   final _budget = TextEditingController(text: '5');
@@ -65,7 +66,7 @@ class _AgentScreenState extends State<AgentScreen>
   void initState() {
     super.initState();
     // Honor a deep-link request that was set before this screen mounted.
-    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 5) {
+    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 6) {
       _tabController.index = agentSubTabRequest.value;
     }
     agentSubTabRequest.addListener(_onSubTabRequest);
@@ -73,7 +74,7 @@ class _AgentScreenState extends State<AgentScreen>
 
   void _onSubTabRequest() {
     final i = agentSubTabRequest.value;
-    if (mounted && i >= 0 && i < 5) _tabController.animateTo(i);
+    if (mounted && i >= 0 && i < 6) _tabController.animateTo(i);
   }
 
   @override
@@ -321,6 +322,7 @@ class _AgentScreenState extends State<AgentScreen>
                 indicatorColor: t.brand,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
                 tabs: const [
+                  Tab(text: 'Swarm'),
                   Tab(text: 'Pulse · House Agent'),
                   Tab(text: 'My Agent'),
                   Tab(text: 'Signals'),
@@ -332,6 +334,7 @@ class _AgentScreenState extends State<AgentScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    const WebLayout(maxWidth: 760, child: SwarmView()),
                     const WebLayout(maxWidth: 720, child: PulseFeed()),
                     WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
                     const WebLayout(maxWidth: 720, child: SignalsMarketplace()),
