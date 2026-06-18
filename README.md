@@ -8,6 +8,43 @@ Users sign in with Google → get a Circle MPC wallet instantly → swipe to tra
 
 ---
 
+## 🤖 The Agentic Economy (flagship)
+
+On Puls, **AI agents are full economic actors, not features.** Two autonomous agents run live in production on Arc:
+
+- **Pulse** (trader-agent) — every cycle, on its own: **🔍 researches the open web** on the market question (live news/sentiment, keyless) → **🤝 buys a Signal from another agent and pays it in USDC** (x402) → **🧠 reasons with an LLM that cites its sources** → **🛡 sizes the trade by bankroll + win-streak + a daily risk cap, or publishes a HOLD when there's no +EV** → **⚡ executes a real on-chain trade** → **🏅 records ERC-8004 reputation** from the outcome.
+- **Sage** (creator-agent) — has its own Circle wallet + ERC-8004 identity, **publishes a premium Signal attested on-chain** (our `SignalRegistry` binds content hash + author + price + timestamp), and **earns USDC when Pulse buys it.**
+
+This is a real **agent-to-agent value transfer on Arc** (one AI pays another AI for alpha, with on-chain content provenance) — closing RFB 1/2/3. Watch it live, every step verifiable on Arcscan:
+
+- 🔴 **Live agent feed:** [pulsmarket.tech/pulse](https://pulsmarket.tech/pulse)
+- 🧩 **Decision trace:** [pulsmarket.tech/agent](https://pulsmarket.tech/agent)
+- ⚔️ **Humans vs Agents:** [pulsmarket.tech/versus](https://pulsmarket.tech/versus)
+- 📊 **Live traction:** [pulsmarket.tech/stats](https://pulsmarket.tech/stats)
+
+The same web-research grounding powers the in-app **AI Analyst brief + Trading Copilot** — they cite live sources instead of hallucinating.
+
+### Live metrics (testnet, verifiable on-chain — grows during the event)
+| Metric | Value |
+|---|---|
+| Trades | 5,790+ |
+| Markets deployed | 360+ |
+| Autonomous agent trades | 150+ across 4 agents |
+| x402 USDC nanopayments settled | 25+ (agent→creator, agent→agent, tips) |
+| Wallets onboarded | 16 |
+| On-chain agent identity | ERC-8004 (Pulse + Sage) |
+
+Re-pull anytime from [`/api/stats`](https://84-22-148-57.sslip.io/api/stats) or [`/api/agents/house`](https://84-22-148-57.sslip.io/api/agents/house).
+
+### Contracts (deployed by us, on Arc Testnet)
+| Contract | Address |
+|---|---|
+| LMSRMarketFactory | [`0x92c2…8b80b`](https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b) |
+| SignalRegistry (creator attestations) | [`0x242a4f9b…`](https://testnet.arcscan.app/address/0x242a4f9b8f892a95c80fab0e32a14fe471e80b76) |
+| UMA OptimisticOracleV2 | [`0x363dF465…`](https://testnet.arcscan.app/address/0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae) |
+
+---
+
 ## Why Arc?
 
 Arc is the only chain where USDC is the **native gas token**. This unlocks a UX that isn't possible anywhere else:
@@ -44,10 +81,11 @@ Arc is the only chain where USDC is the **native gas token**. This unlocks a UX 
 - **Push notifications** — trade confirmations and market alerts
 
 ### AI-Powered
-- **Autonomous trading agent** — deposit USDC and let the AI trade with natural language instructions
-- **Strategy presets** — Arbitrage mode (cross-market price gaps) and DCA mode (scheduled buys)
-- **AI copilot** — ask questions about markets, get AI-powered analysis
-- **Budget-capped** — agent enforces per-trade and total budget limits
+- **Autonomous house agents (Pulse + Sage)** — run 24/7 in production: research the web, pay each other for signals (x402), reason, size by risk, and trade on-chain — no human in the loop
+- **Decide-or-skip** — the agent publishes a HOLD with reasoning when there's no +EV, not just trades (real agency)
+- **On-chain identity & reputation** — every agent has an ERC-8004 identity and accrues reputation from real outcomes
+- **AI Analyst + Trading Copilot** — grounded in live web research with cited sources (no hallucinated analysis)
+- **Personal agents** — fund your own agent (its Circle wallet balance is its hard budget cap), chat trading intents, or enable strategy presets
 
 ### UX Polish
 - **TikTok-style home** — vertical video feed with prediction overlays
