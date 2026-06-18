@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import 'colony_feed.dart';
 
 /// "Swarm" — the in-app home of the autonomous AI agent colony.
 ///
@@ -25,6 +26,7 @@ class _SwarmViewState extends State<SwarmView> {
   List<Map<String, dynamic>> _agents = const [];
   bool _loading = true;
   Timer? _refresh;
+  int _seg = 0; // 0 = Live colony feed, 1 = Agents grid
 
   @override
   void initState() {
@@ -81,33 +83,80 @@ class _SwarmViewState extends State<SwarmView> {
     final traders = _agents.where((a) => a['role'] == 'trader').length;
     final creators = _agents.where((a) => a['role'] == 'creator').length;
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-        children: [
-          _header(t, traders, creators),
-          const SizedBox(height: 16),
-          LayoutBuilder(builder: (context, c) {
-            final cols = c.maxWidth > 520 ? 3 : 2;
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _agents.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: cols,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.92,
-              ),
-              itemBuilder: (_, i) => _AgentCard(
-                agent: _agents[i],
-                onTap: () => _openDetail(_agents[i]),
-              ),
-            );
-          }),
-        ],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: _segmentBar(t),
+        ),
+        Expanded(
+          child: _seg == 0
+              ? const ColonyFeed()
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    children: [
+                      _header(t, traders, creators),
+                      const SizedBox(height: 16),
+                      LayoutBuilder(builder: (context, c) {
+                        final cols = c.maxWidth > 520 ? 3 : 2;
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _agents.length,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: cols,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 0.92,
+                          ),
+                          itemBuilder: (_, i) => _AgentCard(
+                            agent: _agents[i],
+                            onTap: () => _openDetail(_agents[i]),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _segmentBar(PulsThemeColors t) {
+    Widget seg(int i, IconData icon, String label) {
+      final sel = _seg == i;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _seg = i),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: sel ? t.brand : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 15, color: sel ? Colors.white : t.textMuted),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: sel ? Colors.white : t.textMuted, fontSize: 12.5, fontWeight: FontWeight.w800)),
+            ]),
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: t.border),
       ),
+      child: Row(children: [
+        seg(0, Icons.stream_rounded, 'Live Colony'),
+        seg(1, Icons.grid_view_rounded, 'Agents'),
+      ]),
     );
   }
 
@@ -407,6 +456,7 @@ class _AgentDetailSheet extends StatelessWidget {
     final review = d['signalReview'] as Map<String, dynamic>?;
     final alphaPaid = (d['alphaPaid'] as num?)?.toDouble();
     final alphaTxId = d['alphaTxId'] as String?;
+    final alphaMemo = d['alphaMemo'] == true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -486,6 +536,17 @@ class _AgentDetailSheet extends StatelessWidget {
                   Text('paid \$${alphaPaid.toStringAsFixed(3)} for alpha',
                       style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
                 ]),
+              ),
+            if (alphaMemo)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: t.brand.withValues(alpha: 0.35)),
+                ),
+                child: Text('📝 on-chain memo',
+                    style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w800)),
               ),
             if (txHash != null && txHash.startsWith('0x'))
               InkWell(
