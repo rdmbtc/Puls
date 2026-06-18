@@ -766,35 +766,46 @@ class _FeatureCardState extends State<_FeatureCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(26),
+        curve: Curves.easeOut,
+        transform: _hovered ? (Matrix4.identity()..translate(0.0, -5.0)) : Matrix4.identity(),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _hovered ? t.surfaceRaised : t.surface,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [t.surface, Color.alphaBlend(f.color.withValues(alpha: 0.035), t.surface)],
+          ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _hovered ? f.color.withValues(alpha: 0.5) : t.border),
+          border: Border.all(color: _hovered ? f.color.withValues(alpha: 0.45) : t.border),
           boxShadow: _hovered
-              ? [BoxShadow(color: f.color.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 4))]
-              : [],
+              ? [BoxShadow(color: f.color.withValues(alpha: 0.16), blurRadius: 34, offset: const Offset(0, 16))]
+              : [BoxShadow(color: t.text.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 48, height: 48,
+              width: 52, height: 52,
               decoration: BoxDecoration(
-                color: f.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [f.color, Color.alphaBlend(Colors.white.withValues(alpha: 0.4), f.color)],
+                ),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: f.color.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 8))],
               ),
-              child: Icon(f.icon, color: f.color, size: 24),
+              child: Icon(f.icon, color: Colors.white, size: 26),
             ),
             const SizedBox(height: 18),
             Text(
               f.title,
-              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(color: t.text, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
             ),
             const SizedBox(height: 8),
             Text(
               f.body,
-              style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.6),
+              style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.55),
             ),
           ],
         ),
@@ -850,6 +861,7 @@ class _HowItWorksSection extends StatelessWidget {
             child: Column(
               children: _steps.asMap().entries.map((e) {
                 final step = e.value;
+                final isLast = e.key == _steps.length - 1;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: _StepRow(
@@ -857,7 +869,8 @@ class _HowItWorksSection extends StatelessWidget {
                     title: step.$2,
                     body: step.$3,
                     color: step.$4,
-                    isLast: e.key == _steps.length - 1,
+                    nextColor: isLast ? null : _steps[e.key + 1].$4,
+                    isLast: isLast,
                   ),
                 );
               }).toList(),
@@ -875,10 +888,12 @@ class _StepRow extends StatelessWidget {
     required this.title,
     required this.body,
     required this.color,
+    required this.nextColor,
     required this.isLast,
   });
   final String number, title, body;
   final Color color;
+  final Color? nextColor;
   final bool isLast;
 
   @override
@@ -886,6 +901,7 @@ class _StepRow extends StatelessWidget {
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
     final isMobile = w < 600;
+    final badge = isMobile ? 44.0 : 50.0;
 
     return IntrinsicHeight(
       child: Row(
@@ -894,44 +910,63 @@ class _StepRow extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: isMobile ? 36 : 44, height: isMobile ? 36 : 44,
+                width: badge, height: badge,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
-                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [color, Color.alphaBlend(Colors.white.withValues(alpha: 0.42), color)],
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [BoxShadow(color: color.withValues(alpha: 0.34), blurRadius: 16, offset: const Offset(0, 8))],
                 ),
                 child: Center(
-                  child: Text(number, style: TextStyle(color: color, fontSize: isMobile ? 12 : 13, fontWeight: FontWeight.w700)),
+                  child: Text(number, style: TextStyle(color: Colors.white, fontSize: isMobile ? 14 : 16, fontWeight: FontWeight.w800)),
                 ),
               ),
               if (!isLast)
                 Expanded(
                   child: Container(
-                    width: 1.5,
-                    color: t.border,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    width: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [color, nextColor ?? color],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
                 ),
             ],
           ),
-          SizedBox(width: isMobile ? 16 : 24),
+          SizedBox(width: isMobile ? 16 : 22),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : (isMobile ? 20 : 28)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: isMobile ? 6 : 10),
-                  Text(
-                    title,
-                    style: TextStyle(color: t.text, fontSize: isMobile ? 15 : 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: TextStyle(color: t.textMuted, fontSize: isMobile ? 13 : 14, height: 1.6),
-                  ),
-                ],
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 18, vertical: isMobile ? 14 : 16),
+                decoration: BoxDecoration(
+                  color: t.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: t.border),
+                  boxShadow: [BoxShadow(color: t.text.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6))],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(color: t.text, fontSize: isMobile ? 15 : 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      body,
+                      style: TextStyle(color: t.textMuted, fontSize: isMobile ? 13 : 14, height: 1.55),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
