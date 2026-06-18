@@ -1,0 +1,258 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../app/puls_app.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/models/creator_signal.dart';
+
+/// Signals Marketplace — a single live feed of EVERY published signal (from AI
+/// creator-agents like Atlas/Nova/Sage and from humans). Each card shows the
+/// author, the on-chain attestation, and a one-tap Unlock (x402 USDC per-read).
+///
+/// This is the "AI alpha market" surface: agents publish here, and anyone —
+/// human or agent — buys. It also makes the agent economy visible at a glance.
+class SignalsMarketplace extends StatefulWidget {
+  const SignalsMarketplace({super.key});
+
+  @override
+  State<SignalsMarketplace> createState() => _SignalsMarketplaceState();
+}
+
+class _SignalsMarketplaceState extends State<SignalsMarketplace> {
+  List<CreatorSignal> _signals = [];
+  final Map<String, _Author> _authors = {};
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final wallet = WalletServiceScope.of(context);
+      final data = await wallet.getSignals(); // no creatorUserId → all published
+      final list = ((data['signals'] as List?) ?? [])
+          .map((e) => CreatorSignal.fromJson(e as Map<String, dynamic>))
+          .where((s) => s.isPublished)
+          .toList();
+      // Resolve author display from the roster (agents) — best-effort.
+      try {
+        final roster = await wallet.getAgentRoster();
+        for (final a in (roster['agents'] as List? ?? [])) {
+          final m = a as Map<String, dynamic>;
+          _authors['agent_swarm_${m['key']}'] = _Author(m['name'] as String? ?? 'Agent', true);
+        }
+      } catch (_) {}
+      // Known house creators.
+      _authors.putIfAbsent('agent_sage', () => _Author('Sage 🔮', true));
+      _authors.putIfAbsent('house_pulse', () => _Author('Pulse 🤖', true));
+      if (mounted) setState(() { _signals = list; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _unlock(CreatorSignal s) async {
+    final wallet = WalletServiceScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await wallet.unlockSignal(s.id);
+      if (res['live'] == false) {
+        messenger.showSnackBar(SnackBar(content: Text('${res['message'] ?? 'Unlock activates at launch.'}')));
+        return;
+      }
+      setState(() => _loading = true);
+      await _fetch();
+      if (mounted) messenger.showSnackBar(const SnackBar(content: Text('Unlocked — thesis revealed ✓')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Unlock failed: $e')));
+    }
+  }
+
+  _Author _authorFor(String userId) {
+    if (_authors.containsKey(userId)) return _authors[userId]!;
+    final isAgent = userId.contains('agent');
+    return _Author(isAgent ? 'Puls Agent 🤖' : 'Puls Trader', isAgent);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    if (_loading) {
+      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+    }
+    return RefreshIndicator(
+      onRefresh: _fetch,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        children: [
+          _header(t),
+          const SizedBox(height: 14),
+          if (_error != null)
+            Text("Couldn't load signals.", style: TextStyle(color: t.textMuted, fontSize: 13))
+          else if (_signals.isEmpty)
+            _empty(t)
+          else
+            ..._signals.expand((s) => [
+                  _MarketSignalCard(
+                    signal: s,
+                    author: _authorFor(s.creatorUserId),
+                    onUnlock: (!s.unlocked) ? () => _unlock(s) : null,
+                  ),
+                  const SizedBox(height: 10),
+                ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(PulsThemeColors t) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [t.brand.withValues(alpha: 0.14), t.brand.withValues(alpha: 0.02)]),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.brand.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome_rounded, color: t.brand, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AI Alpha Market',
+                      style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+                  const SizedBox(height: 2),
+                  Text('Live signals from autonomous AI agents — attested on Arc, unlock per-read with USDC.',
+                      style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.35)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _empty(PulsThemeColors t) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
+        child: Column(children: [
+          Icon(Icons.auto_awesome_rounded, color: t.textMuted, size: 32),
+          const SizedBox(height: 12),
+          Text('No published signals yet', style: TextStyle(color: t.textMuted, fontSize: 13, fontWeight: FontWeight.bold)),
+        ]),
+      );
+}
+
+class _Author {
+  const _Author(this.name, this.isAgent);
+  final String name;
+  final bool isAgent;
+}
+
+class _MarketSignalCard extends StatelessWidget {
+  const _MarketSignalCard({required this.signal, required this.author, this.onUnlock});
+  final CreatorSignal signal;
+  final _Author author;
+  final VoidCallback? onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final isYes = signal.stance == 'YES';
+    final sideColor = isYes ? t.yes : t.no;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Author row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: author.isAgent ? t.brandSubtle : t.surfaceRaised,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: author.isAgent ? t.brand.withValues(alpha: 0.3) : t.border),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (author.isAgent) ...[Icon(Icons.smart_toy_rounded, size: 11, color: t.brand), const SizedBox(width: 4)],
+                  Text(author.name, style: TextStyle(color: author.isAgent ? t.brand : t.textMuted, fontSize: 11, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: sideColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                child: Text(signal.stance, style: TextStyle(color: sideColor, fontSize: 11, fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(signal.title, style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+          if (signal.marketQuestion != null && signal.marketQuestion!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(signal.marketQuestion!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.textSubtle, fontSize: 12)),
+          ],
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            if (signal.confidence != null) _chip(t, '${(signal.confidence! * 100).round()}% conf'),
+            if ((signal.edgeBps ?? 0) > 0) _chip(t, '+${signal.edgeBps} bps edge'),
+            if (signal.horizon != null && signal.horizon!.isNotEmpty) _chip(t, signal.horizon!),
+            _chip(t, '\$${signal.priceUsdc.toStringAsFixed(3)}/read'),
+          ]),
+          const SizedBox(height: 12),
+          if (signal.hasThesis)
+            Text(signal.thesis!, style: TextStyle(color: t.text, fontSize: 13, height: 1.45))
+          else
+            Text(signal.teaser ?? 'Premium analysis — unlock to read the full thesis.',
+                style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
+          if (signal.onchain?.explorer != null) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => launchUrl(Uri.parse(signal.onchain!.explorer!), mode: LaunchMode.externalApplication),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.brand.withValues(alpha: 0.35))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.verified_rounded, size: 13, color: t.brand),
+                  const SizedBox(width: 6),
+                  Text('Attested on Arc', style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w800)),
+                  const SizedBox(width: 6),
+                  Icon(Icons.open_in_new_rounded, size: 11, color: t.brand.withValues(alpha: 0.7)),
+                ]),
+              ),
+            ),
+          ],
+          if (onUnlock != null) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onUnlock,
+                icon: const Icon(Icons.lock_open_rounded, size: 16),
+                label: Text('Unlock \$${signal.priceUsdc.toStringAsFixed(3)}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: t.brand, foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(PulsThemeColors t, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: t.surfaceRaised, borderRadius: BorderRadius.circular(6), border: Border.all(color: t.border)),
+        child: Text(label, style: TextStyle(color: t.textMuted, fontSize: 10.5, fontWeight: FontWeight.w600)),
+      );
+}

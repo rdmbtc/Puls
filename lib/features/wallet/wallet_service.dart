@@ -601,6 +601,11 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  /// The autonomous agent swarm roster (names, brains, balances, decisions).
+  Future<Map<String, dynamic>> getAgentRoster() async {
+    return _get('/api/agents/roster', const {});
+  }
+
   /// One signal. 402 (locked) is returned as data, not thrown.
   Future<Map<String, dynamic>> getSignal(String id) async {
     final headers = <String, String>{};

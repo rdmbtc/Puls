@@ -16,6 +16,7 @@ import '../onboarding/help_button.dart';
 import 'pulse_feed.dart';
 import 'economy_feed.dart';
 import 'x402_payments.dart';
+import '../market/signals_marketplace.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text, {this.txId, this.contract, this.sources = const []});
@@ -42,7 +43,7 @@ class AgentScreen extends StatefulWidget {
 class _AgentScreenState extends State<AgentScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController =
-      TabController(length: 4, vsync: this);
+      TabController(length: 5, vsync: this);
   final _client = http.Client();
   final _input = TextEditingController();
   final _budget = TextEditingController(text: '5');
@@ -64,7 +65,7 @@ class _AgentScreenState extends State<AgentScreen>
   void initState() {
     super.initState();
     // Honor a deep-link request that was set before this screen mounted.
-    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 4) {
+    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 5) {
       _tabController.index = agentSubTabRequest.value;
     }
     agentSubTabRequest.addListener(_onSubTabRequest);
@@ -72,7 +73,7 @@ class _AgentScreenState extends State<AgentScreen>
 
   void _onSubTabRequest() {
     final i = agentSubTabRequest.value;
-    if (mounted && i >= 0 && i < 4) _tabController.animateTo(i);
+    if (mounted && i >= 0 && i < 5) _tabController.animateTo(i);
   }
 
   @override
@@ -322,6 +323,7 @@ class _AgentScreenState extends State<AgentScreen>
                 tabs: const [
                   Tab(text: 'Pulse · House Agent'),
                   Tab(text: 'My Agent'),
+                  Tab(text: 'Signals'),
                   Tab(text: 'Earnings'),
                   Tab(text: 'Economy'),
                 ],
@@ -332,6 +334,7 @@ class _AgentScreenState extends State<AgentScreen>
                   children: [
                     const WebLayout(maxWidth: 720, child: PulseFeed()),
                     WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
+                    const WebLayout(maxWidth: 720, child: SignalsMarketplace()),
                     const WebLayout(maxWidth: 720, child: X402Payments()),
                     const WebLayout(maxWidth: 720, child: EconomyFeed()),
                   ],
