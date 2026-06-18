@@ -33,10 +33,30 @@ Future<WalletConnectResult> sellPositionOnChain(bool isYes, double shares, Strin
 Future<WalletConnectResult> claimOnChain(String contractAddress) =>
     impl.claimOnChain(contractAddress);
 
-/// Bridge USDC from Ethereum Sepolia → Arc via Circle CCTP (Forwarding Service).
-/// Returns the Arc mint tx hash on success (or burn hash + pending if still settling).
-Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) =>
-    impl.bridgeUsdcToArc(amountUsdc, recipient: recipient);
+/// Bridge USDC from a chosen EVM testnet → Arc via Circle CCTP (Forwarding Service).
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient, String? sourceKey}) =>
+    impl.bridgeUsdcToArc(amountUsdc, recipient: recipient, sourceKey: sourceKey);
+
+/// Read the connected wallet's USDC balance on every supported source chain.
+Future<BridgeBalances> getBridgeBalances() => impl.getBridgeBalances();
+
+/// USDC balance on one source chain.
+class BridgeBalance {
+  final String key;
+  final String name;
+  final double usdc;
+  final String symbol;
+  final String explorer;
+  BridgeBalance({required this.key, required this.name, required this.usdc, required this.symbol, required this.explorer});
+}
+
+/// All source-chain balances for the connected wallet.
+class BridgeBalances {
+  final String? address;
+  final List<BridgeBalance> chains;
+  final String? error;
+  BridgeBalances({this.address, this.chains = const [], this.error});
+}
 
 /// Result of a CCTP bridge attempt.
 class BridgeResult {

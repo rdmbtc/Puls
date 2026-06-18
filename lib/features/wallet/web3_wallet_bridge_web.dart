@@ -23,7 +23,10 @@ external JSPromise<JSString> _jsSellPositionOnChain(JSBoolean isYes, JSString sh
 external JSPromise<JSString> _jsClaimOnChain(JSString contractAddress);
 
 @JS('bridgeUsdcToArc')
-external JSPromise<JSString> _jsBridgeUsdcToArc(JSString amountUsdc, JSString recipient);
+external JSPromise<JSString> _jsBridgeUsdcToArc(JSString amountUsdc, JSString recipient, JSString sourceKey);
+
+@JS('getBridgeBalances')
+external JSPromise<JSString> _jsGetBridgeBalances();
 
 bool hasBrowserWallet() {
   try {
@@ -115,9 +118,9 @@ Future<WalletConnectResult> claimOnChain(String contractAddress) async {
   }
 }
 
-Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) async {
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient, String? sourceKey}) async {
   try {
-    final resultJson = (await _jsBridgeUsdcToArc(amountUsdc.toString().toJS, (recipient ?? '').toJS).toDart).toDart;
+    final resultJson = (await _jsBridgeUsdcToArc(amountUsdc.toString().toJS, (recipient ?? '').toJS, (sourceKey ?? '').toJS).toDart).toDart;
     if (resultJson.contains('"error"')) {
       return BridgeResult(error: _extractJsonValue(resultJson, 'error'));
     }
@@ -131,6 +134,37 @@ Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) asy
     );
   } catch (e) {
     return BridgeResult(error: e.toString());
+  }
+}
+
+Future<BridgeBalances> getBridgeBalances() async {
+  try {
+    final json = (await _jsGetBridgeBalances().toDart).toDart;
+    if (json.contains('"error"')) {
+      return BridgeBalances(error: _extractJsonValue(json, 'error'));
+    }
+    final address = _extractJsonValue(json, 'address');
+    // Parse the "chains" array of {key,name,usdc,symbol,explorer}.
+    final chains = <BridgeBalance>[];
+    final re = RegExp(r'\{[^{}]*\}');
+    final arrStart = json.indexOf('"chains"');
+    if (arrStart != -1) {
+      for (final m in re.allMatches(json.substring(arrStart))) {
+        final obj = m.group(0)!;
+        final key = _extractJsonValue(obj, 'key');
+        if (key.isEmpty) continue;
+        chains.add(BridgeBalance(
+          key: key,
+          name: _extractJsonValue(obj, 'name'),
+          usdc: double.tryParse(_extractJsonValue(obj, 'usdc')) ?? 0,
+          symbol: _extractJsonValue(obj, 'symbol'),
+          explorer: _extractJsonValue(obj, 'explorer'),
+        ));
+      }
+    }
+    return BridgeBalances(address: address.isEmpty ? null : address, chains: chains);
+  } catch (e) {
+    return BridgeBalances(error: e.toString());
   }
 }
 

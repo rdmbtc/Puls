@@ -34,6 +34,10 @@ Future<WalletConnectResult> claimOnChain(String contractAddress) async {
   return WalletConnectResult(error: 'External browser wallets are not supported on this platform.');
 }
 
-Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) async {
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient, String? sourceKey}) async {
   return BridgeResult(error: 'Bridging is available on the web app with a browser wallet.');
+}
+
+Future<BridgeBalances> getBridgeBalances() async {
+  return BridgeBalances(error: 'Bridging is available on the web app with a browser wallet.');
 }

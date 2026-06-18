@@ -14,6 +14,7 @@ import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import '../support/support_screen.dart';
+import '../portfolio/bridge_sheet.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -418,6 +419,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
                         ),
+                        if (kIsWeb)
+                          _Row(
+                            icon: Icons.swap_horiz_rounded,
+                            title: 'Bridge USDC to Arc',
+                            subtitle: 'From Ethereum, Arbitrum or Avalanche via Circle CCTP',
+                            t: t,
+                            onTap: () => BridgeSheet.show(context),
+                            trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
+                          ),
                         _Row(
                           icon: Icons.menu_book_rounded,
                           title: 'Documentation',
@@ -580,6 +590,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   trailing: Icon(Icons.open_in_new_rounded, size: 14, color: t.textSubtle),
                 ),
+                if (kIsWeb)
+                  _Row(
+                    icon: Icons.swap_horiz_rounded,
+                    title: 'Bridge USDC to Arc',
+                    subtitle: 'From Ethereum, Arbitrum or Avalanche via Circle CCTP',
+                    t: t,
+                    onTap: () => BridgeSheet.show(context),
+                    trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
+                  ),
                 _Row(
                   icon: Icons.menu_book_rounded,
                   title: 'Documentation',

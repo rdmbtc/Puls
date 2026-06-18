@@ -35,6 +35,47 @@ class _BridgeSheetState extends State<BridgeSheet> {
   String? _error;
   BridgeResult? _result;
 
+  // Multi-chain source state.
+  bool _loadingBal = true;
+  BridgeBalances? _balances;
+  String _source = 'ethereum-sepolia';
+
+  // Non-EVM chains CCTP supports but our MetaMask flow can't sign for — shown
+  // honestly as info, not a fake button.
+  static const _nonEvm = [
+    ('Algorand Testnet', 'Pera wallet (non-EVM)'),
+    ('Aptos Testnet', 'Petra wallet (non-EVM)'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBalances();
+  }
+
+  Future<void> _loadBalances() async {
+    final b = await getBridgeBalances();
+    if (!mounted) return;
+    setState(() {
+      _balances = b;
+      _loadingBal = false;
+      // Default to the chain with the highest balance, if any.
+      if (b.chains.isNotEmpty) {
+        final best = b.chains.reduce((a, c) => c.usdc > a.usdc ? c : a);
+        if (best.usdc > 0) _source = best.key;
+      }
+    });
+  }
+
+  double get _sourceBal {
+    final c = _balances?.chains;
+    if (c == null) return 0;
+    for (final x in c) {
+      if (x.key == _source) return x.usdc;
+    }
+    return 0;
+  }
+
   @override
   void dispose() {
     _amount.dispose();
@@ -53,7 +94,7 @@ class _BridgeSheetState extends State<BridgeSheet> {
       return;
     }
     setState(() { _busy = true; _error = null; _result = null; });
-    final res = await bridgeUsdcToArc(amt, recipient: _toPuls ? pulsAddr : null);
+    final res = await bridgeUsdcToArc(amt, recipient: _toPuls ? pulsAddr : null, sourceKey: _source);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -111,6 +152,25 @@ class _BridgeSheetState extends State<BridgeSheet> {
           else if (_result != null)
             _Success(t: t, result: _result!)
           else ...[
+            Text('From chain', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            if (_loadingBal)
+              Row(children: [
+                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: t.brand)),
+                const SizedBox(width: 8),
+                Text('Reading your USDC across chains…', style: TextStyle(color: t.textSubtle, fontSize: 12)),
+              ])
+            else ...[
+              ...(_balances?.chains ?? const []).map((c) => _ChainRow(
+                    t: t,
+                    name: c.name,
+                    usdc: c.usdc,
+                    selected: _source == c.key,
+                    onTap: () => setState(() => _source = c.key),
+                  )),
+              for (final ne in _nonEvm) _ChainRow(t: t, name: ne.$1, note: ne.$2, disabled: true),
+            ],
+            const SizedBox(height: 14),
             Text('Send to', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
             Row(
@@ -121,7 +181,18 @@ class _BridgeSheetState extends State<BridgeSheet> {
               ],
             ),
             const SizedBox(height: 14),
-            Text('Amount (USDC)', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                Text('Amount (USDC)', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                if (!_loadingBal)
+                  GestureDetector(
+                    onTap: _sourceBal > 0 ? () => setState(() => _amount.text = _sourceBal.toStringAsFixed(_sourceBal < 1 ? 4 : 2)) : null,
+                    child: Text('Max: ${_sourceBal.toStringAsFixed(_sourceBal < 1 ? 4 : 2)}',
+                        style: TextStyle(color: _sourceBal > 0 ? t.brand : t.textSubtle, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                  ),
+              ],
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _amount,
@@ -178,6 +249,73 @@ class _BridgeSheetState extends State<BridgeSheet> {
     );
   }
 }
+
+class _ChainRow extends StatelessWidget {
+  const _ChainRow({
+    required this.t,
+    required this.name,
+    this.usdc,
+    this.note,
+    this.selected = false,
+    this.disabled = false,
+    this.onTap,
+  });
+  final PulsThemeColors t;
+  final String name;
+  final double? usdc;
+  final String? note;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: disabled ? null : onTap,
+        child: Opacity(
+          opacity: disabled ? 0.55 : 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: selected ? t.brand.withValues(alpha: 0.10) : t.surfaceRaised,
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: selected ? t.brand : t.border, width: selected ? 1.2 : 1),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  disabled
+                      ? Icons.lock_outline_rounded
+                      : (selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded),
+                  size: 16,
+                  color: selected ? t.brand : t.textSubtle,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(name,
+                      style: TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                ),
+                if (note != null)
+                  Text(note!, style: TextStyle(color: t.textSubtle, fontSize: 11))
+                else
+                  Text('${(usdc ?? 0).toStringAsFixed((usdc ?? 0) < 1 ? 4 : 2)} USDC',
+                      style: TextStyle(
+                        color: (usdc ?? 0) > 0 ? t.yes : t.textMuted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      )),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _DestTab extends StatelessWidget {
   const _DestTab({required this.t, required this.label, required this.selected, required this.onTap});
