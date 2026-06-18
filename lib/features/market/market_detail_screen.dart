@@ -206,6 +206,30 @@ class _ProbabilityPanel extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.public_rounded, size: 11, color: t.brand),
+                    const SizedBox(width: 4),
+                    Text('Real-world odds',
+                        style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text('Live · tracks consensus',
+                  style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
