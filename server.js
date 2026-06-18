@@ -18,6 +18,7 @@ import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
 import { registerSwap } from './lib/swap.js';
 import { researchQuestion } from './lib/agent_research.js';
+import { registerSwarm } from './lib/agent_swarm.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -4090,11 +4091,20 @@ async function llmCompleteOpenAI(provider, messages, signal) {
 
 // Tries each configured provider in priority order (primary → fallbacks) with a
 // per-attempt timeout and optional retries. Returns the first successful result.
-async function llmComplete(messages) {
+// `opts.prefer` (substring match on a provider model id) tries a preferred
+// provider FIRST — this lets each swarm agent favour a distinct "brain" while
+// still falling back through the whole pool if it's down. Returns the text.
+async function llmComplete(messages, opts = {}) {
   if (LLM_PROVIDERS.length === 0) throw new Error('Agent LLM key not configured');
+  let order = LLM_PROVIDERS.map((p, i) => i);
+  if (opts.prefer) {
+    const want = String(opts.prefer).toLowerCase();
+    const pi = LLM_PROVIDERS.findIndex(p => p.model.toLowerCase().includes(want));
+    if (pi > 0) order = [pi, ...order.filter(i => i !== pi)];
+  }
   const errors = [];
-  for (let i = 0; i < LLM_PROVIDERS.length; i++) {
-    const provider = LLM_PROVIDERS[i];
+  for (const idx of order) {
+    const provider = LLM_PROVIDERS[idx];
     for (let attempt = 1; attempt <= LLM_RETRIES; attempt++) {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), LLM_TIMEOUT_MS);
@@ -4102,13 +4112,15 @@ async function llmComplete(messages) {
         const out = await llmCompleteOne(provider, messages, ac.signal);
         clearTimeout(timer);
         if (!out) throw new Error('empty completion');
-        if (i > 0) console.log(`[llm] served by fallback #${i + 1} (${provider.model})`);
+        if (idx !== order[0] || idx > 0) {
+          // (only noisy-log when not the natural primary)
+        }
         return out;
       } catch (e) {
         clearTimeout(timer);
         const reason = ac.signal.aborted ? `timeout after ${LLM_TIMEOUT_MS}ms` : (e.message || String(e));
         errors.push(`${provider.model}: ${reason}`);
-        console.error(`[llm] provider #${i + 1} (${provider.model}) attempt ${attempt}/${LLM_RETRIES} failed: ${reason}`);
+        console.error(`[llm] provider (${provider.model}) attempt ${attempt}/${LLM_RETRIES} failed: ${reason}`);
       }
     }
   }
@@ -6241,6 +6253,23 @@ if (HOUSE_AGENT) {
   setTimeout(houseAgentTick, 45 * 1000); // first cycle shortly after boot
   setInterval(houseAgentTick, 5 * 60 * 1000); // cooldown enforces the real cadence
 }
+
+// ── Agent Swarm: a colony of autonomous AI actors that live in Pulsmarket ─────
+// Multiple persona-driven agents (traders + creators), each with its own wallet,
+// ERC-8004 identity and preferred LLM "brain". They research, publish + evaluate
+// + buy each other's signals (commenting "accurate, buying" / "flawed, skipping"),
+// trade predictions like humans, and comment on markets — powering AI vs Humans.
+// Env-gated (AGENT_SWARM=true); reuses the house-agent plumbing, never touches it.
+const swarm = registerSwarm(app, {
+  supabase, circle, walletClient, publicClient, adminAccount,
+  getWalletId, saveWallet, getWalletInfo, ensureWalletSet, WALLET_ACCOUNT_TYPE,
+  USDC, IDENTITY_REGISTRY, AGENT_METADATA_URI, SIGNAL_REGISTRY_ADDRESS,
+  resolveAgentTokenId, recordAgentReputation, agentTokenIds,
+  getTreasuryUsdcBalance, houseAgentResearch, executeAgentTrade,
+  researchQuestion, llmComplete, parseLlmJson, formatForApp,
+  keccak256, toHex,
+});
+if (typeof swarm.start === 'function') swarm.start();
 
 // Run strategies check every 60 seconds
 setInterval(runAgentStrategies, 60 * 1000);
