@@ -56,6 +56,8 @@ class _X402PaymentsState extends State<X402Payments> {
   String? _sellerUrl;
   double _totalUsdc = 0;
   int _count = 0;
+  int _a2aCount = 0;
+  double _a2aUsdc = 0;
   bool _loading = true;
   Timer? _refresh;
 
@@ -80,13 +82,18 @@ class _X402PaymentsState extends State<X402Payments> {
       if (res.statusCode != 200) throw Exception('bad status');
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final list = <_Receipt>[];
+      int a2aCount = 0;
+      double a2aUsdc = 0;
       for (final raw in (body['payments'] as List? ?? const [])) {
         final p = raw as Map<String, dynamic>;
+        final endpoint = p['endpoint'] as String? ?? '—';
+        final amt = (p['amountUsdc'] as num?)?.toDouble() ?? 0;
+        if (endpoint == 'agent_to_agent') { a2aCount++; a2aUsdc += amt; }
         list.add(_Receipt(
           id: '${p['id'] ?? ''}',
-          endpoint: p['endpoint'] as String? ?? '—',
+          endpoint: endpoint,
           payerShort: p['payerShort'] as String? ?? '—',
-          amountUsdc: (p['amountUsdc'] as num?)?.toDouble() ?? 0,
+          amountUsdc: amt,
           receiptId: p['receiptId'] as String?,
           status: p['status'] as String? ?? 'settled',
           at: DateTime.tryParse(p['createdAt'] as String? ?? '') ??
@@ -101,6 +108,8 @@ class _X402PaymentsState extends State<X402Payments> {
         _sellerUrl = body['sellerExplorerUrl'] as String?;
         _totalUsdc = (totals['usdc'] as num?)?.toDouble() ?? 0;
         _count = (totals['count'] as num?)?.toInt() ?? list.length;
+        _a2aCount = a2aCount;
+        _a2aUsdc = a2aUsdc;
         _loading = false;
       });
     } catch (_) {
@@ -143,6 +152,10 @@ class _X402PaymentsState extends State<X402Payments> {
         children: [
           _earningsCard(t),
           const SizedBox(height: 14),
+          if (_a2aCount > 0) ...[
+            _agentToAgentCard(t),
+            const SizedBox(height: 14),
+          ],
           _settlementCard(t),
           const SizedBox(height: 20),
           Text('Payment receipts',
@@ -251,6 +264,64 @@ class _X402PaymentsState extends State<X402Payments> {
 
   Widget _statDivider(PulsThemeColors t) =>
       Container(width: 1, height: 30, color: t.border);
+
+  /// Agent↔agent economy: how much USDC AI agents have paid each other for
+  /// alpha, with a count. The headline proof of a real machine-to-machine market.
+  Widget _agentToAgentCard(PulsThemeColors t) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [
+          PulsColors.brandMint.withValues(alpha: 0.16),
+          t.surface,
+        ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PulsColors.brandMint.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: PulsColors.brandMint.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.swap_horiz_rounded, color: PulsColors.brandMint, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Text('Agent ↔ Agent economy',
+                      style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w900)),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(5)),
+                    child: Text('📝 on-chain memo', style: TextStyle(color: t.brand, fontSize: 9, fontWeight: FontWeight.w800)),
+                  ),
+                ]),
+                const SizedBox(height: 3),
+                Text('AI agents paying each other for alpha on Arc — every transfer carries an on-chain memo.',
+                    style: TextStyle(color: t.textMuted, fontSize: 11.5, height: 1.35)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${_a2aUsdc.toStringAsFixed(3)}',
+                  style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              Text('USDC · $_a2aCount pays', style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   /// The one-tap on-chain proof: opens the seller address page on Arcscan,
   /// which always resolves (unlike a per-payment transfer id).
