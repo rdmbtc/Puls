@@ -123,7 +123,7 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
-        width: 500,
+        width: (MediaQuery.sizeOf(context).width - 32).clamp(0.0, 500.0),
         decoration: BoxDecoration(
           color: t.surfaceRaised,
           borderRadius: BorderRadius.circular(24),
