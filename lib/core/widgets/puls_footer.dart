@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -32,11 +36,14 @@ class PulsFooter extends StatelessWidget {
             final brand = _Brand(t: t);
             final links = _LinkRow(t: t);
             final badge = _ArcBadge(t: t, url: _explorerAddress);
+            const status = _LiveStatus();
 
             if (wide) {
               return Row(
                 children: [
                   brand,
+                  const SizedBox(width: 14),
+                  status,
                   const Spacer(),
                   Flexible(child: links),
                   const SizedBox(width: 20),
@@ -54,6 +61,8 @@ class PulsFooter extends StatelessWidget {
                     badge,
                   ],
                 ),
+                const SizedBox(height: 12),
+                status,
                 const SizedBox(height: 12),
                 links,
               ],
@@ -231,6 +240,171 @@ class _ArcBadgeState extends State<_ArcBadge> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// Live status pill for the footer — polls /api/live and shows a pulsing dot
+/// + the running trade count. Taps through to the live Puls Explorer.
+class _LiveStatus extends StatefulWidget {
+  const _LiveStatus();
+
+  @override
+  State<_LiveStatus> createState() => _LiveStatusState();
+}
+
+class _LiveStatusState extends State<_LiveStatus> {
+  Timer? _timer;
+  int? _trades;
+  bool _online = false;
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _poll();
+    // Footer is persistent; 4s keeps it "live" without hammering the backend.
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) => _poll());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _poll() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$backendUrl/api/live'))
+          .timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        setState(() {
+          _trades = (data['trades'] as num?)?.toInt();
+          _online = true;
+        });
+      } else {
+        setState(() => _online = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _online = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final color = _online ? t.yes : t.textSubtle;
+    final label = _online
+        ? (_trades != null ? '$_trades trades · live' : 'Live')
+        : 'reconnecting…';
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => launchUrl(
+          Uri.parse('$appBaseUrl/explorer'),
+          mode: LaunchMode.externalApplication,
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _hovered ? t.borderStrong : t.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PulseDot(color: color, animate: _online),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: t.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small dot that gently pulses while live.
+class _PulseDot extends StatefulWidget {
+  const _PulseDot({required this.color, required this.animate});
+  final Color color;
+  final bool animate;
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.animate) {
+      return Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      );
+    }
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = _c.value;
+        return SizedBox(
+          width: 8,
+          height: 8,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: (1 - v) * 0.5,
+                child: Container(
+                  width: 8 + v * 8,
+                  height: 8 + v * 8,
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

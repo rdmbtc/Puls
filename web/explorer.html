@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puls Explorer — live economy on Arc</title>
+  <meta name="description" content="The live Puls economy on Arc Testnet — trades, USDC volume, wallets and x402 nanopayments, updating every second. Humans and AI agents, settled on-chain.">
+  <link rel="canonical" href="https://pulsmarket.tech/explorer">
+  <meta property="og:title" content="Puls Explorer — the live economy on Arc">
+  <meta property="og:description" content="Trades, wallets and USDC nanopayments updating every second. Humans + AI agents, on-chain on Arc.">
+  <meta property="og:image" content="https://pulsmarket.tech/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <style>
+    :root {
+      --bg: #FAFBFD; --surface: #FFFFFF; --text: #0E1422; --muted: #56607A;
+      --border: #E8EBF1; --brand: #EC4899; --brand-soft: #FCE7F3; --agent: #14B8A6;
+      --agent-soft: #E6FAF6; --good: #16A34A; --bad: #EF4444; --shadow: rgba(20,18,45,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0A0E1A; --surface: #121829; --text: #EAF0FF; --muted: #9AA6C0;
+        --border: #283149; --brand: #F472B6; --brand-soft: #3B0A2A; --agent: #2DD4BF;
+        --agent-soft: #102A2A; --good: #4ADE80; --bad: #F87171; --shadow: rgba(0,0,0,.4);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 40px 20px 80px; }
+    .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--brand); }
+    .badge { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700;
+      letter-spacing: .6px; text-transform: uppercase; color: var(--good); background: var(--agent-soft);
+      border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; margin: 14px 0 0; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.5);} 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0);} 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0);} }
+    @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+    h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.8px; margin: 12px 0 6px; }
+    .sub { color: var(--muted); font-size: 15.5px; margin-bottom: 26px; max-width: 640px; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    @media (min-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px;
+      box-shadow: 0 6px 18px var(--shadow); position: relative; overflow: hidden; }
+    .card .k { font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+    .card .v { font-size: 34px; font-weight: 900; letter-spacing: -1px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+    .card .s { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .card.flash::after { content: ""; position: absolute; inset: 0; background: var(--brand); opacity: 0; pointer-events: none; }
+    .card.flash.on::after { animation: flash .6s ease-out; }
+    @keyframes flash { 0% { opacity: .14; } 100% { opacity: 0; } }
+    .tick { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; display: flex; align-items: center; gap: 12px; min-height: 58px; }
+    .tick .pill { font-size: 11px; font-weight: 900; padding: 3px 9px; border-radius: 6px; }
+    .pill.yes { color: var(--agent); background: var(--agent-soft); }
+    .pill.no { color: var(--bad); background: rgba(239,68,68,.12); }
+    .tick .who { font-weight: 700; }
+    .tick .q { color: var(--muted); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .agentchip { font-size: 10.5px; font-weight: 800; color: #8B5CF6; background: rgba(139,92,246,.12); padding: 2px 7px; border-radius: 5px; }
+    .foot { margin-top: 24px; color: var(--muted); font-size: 12.5px; }
+    .foot a { color: var(--brand); text-decoration: none; }
+    .skel { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <nav style="position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(10px);background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--border);">
+    <div style="max-width:920px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13.5px;font-weight:700;">
+      <a href="/" style="color:var(--brand);text-decoration:none;letter-spacing:-.4px;font-weight:800;font-size:15px;margin-right:6px;">Puls</a>
+      <a href="/explorer" style="color:var(--brand);text-decoration:none;" aria-current="page">Explorer</a>
+      <a href="/agent" style="color:var(--muted);text-decoration:none;">Agent</a>
+      <a href="/pulse" style="color:var(--muted);text-decoration:none;">Pulse</a>
+      <a href="/versus" style="color:var(--muted);text-decoration:none;">Versus</a>
+      <a href="/stats" style="color:var(--muted);text-decoration:none;">Stats</a>
+      <a href="/" style="margin-left:auto;color:#fff;background:var(--brand);text-decoration:none;border-radius:9px;padding:6px 14px;">Open app →</a>
+    </div>
+  </nav>
+  <div class="wrap">
+    <div class="wordmark">Puls</div>
+    <span class="badge"><span class="live-dot"></span><span id="livelabel">LIVE · updating every second</span></span>
+    <h1>Puls Explorer</h1>
+    <div class="sub">The Puls economy on Arc Testnet, in real time — humans and autonomous AI agents trading, paying creators, and settling in USDC. Every number is pulled live from production and verifiable on-chain.</div>
+
+    <div class="grid">
+      <div class="card flash" id="c-trades"><div class="k">Trades</div><div class="v" id="v-trades">—</div><div class="s">settled on Arc</div></div>
+      <div class="card flash" id="c-users"><div class="k">Wallets</div><div class="v" id="v-users">—</div><div class="s">Circle MPC, gasless</div></div>
+      <div class="card flash" id="c-nano"><div class="k">x402 nanopayments</div><div class="v" id="v-nano">—</div><div class="s">agent→creator · tips</div></div>
+      <div class="card flash" id="c-markets"><div class="k">Markets</div><div class="v" id="v-markets">—</div><div class="s">deployed on-chain</div></div>
+    </div>
+
+    <div class="tick" id="tick"><span class="skel">Waiting for the next on-chain trade…</span></div>
+
+    <div class="foot">
+      Source: <a href="https://84-22-148-57.sslip.io/api/live" target="_blank" rel="noopener">/api/live</a> ·
+      deeper traction at <a href="/stats">/stats</a> · watch the agent at <a href="/pulse">/pulse</a>.
+      Testnet — balances are test USDC.
+    </div>
+  </div>
+
+  <script>
+    var API = 'https://84-22-148-57.sslip.io';
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var nf = new Intl.NumberFormat('en-US');
+    // current displayed values (for smooth count-up between polls)
+    var cur = { trades: 0, users: 0, nano: 0, markets: 0 };
+    var have = false;
+    var lastTickAt = null;
+
+    function animateTo(id, cardId, from, to) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (reduce || !have || from === to) { el.textContent = nf.format(to); return; }
+      if (to > from) {
+        var card = document.getElementById(cardId);
+        if (card) { card.classList.remove('on'); void card.offsetWidth; card.classList.add('on'); }
+      }
+      var start = performance.now(), dur = 700;
+      function frame(now) {
+        var p = Math.min(1, (now - start) / dur);
+        var e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        el.textContent = nf.format(Math.round(from + (to - from) * e));
+        if (p < 1) requestAnimationFrame(frame);
+        else el.textContent = nf.format(to);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function renderTick(last) {
+      if (!last) return;
+      if (lastTickAt === last.at) return; // no new trade
+      lastTickAt = last.at;
+      var el = document.getElementById('tick');
+      var sideCls = last.side === 'YES' ? 'yes' : 'no';
+      var who = last.isAgent ? 'Pulse' : 'A trader';
+      el.innerHTML =
+        '<span class="pill ' + sideCls + '">' + (last.side || '—') + '</span>' +
+        '<span class="who">' + who + '</span>' +
+        (last.isAgent ? '<span class="agentchip">🤖 AGENT</span>' : '') +
+        '<span class="who">$' + (Number(last.amountUsdc) || 0).toFixed(2) + '</span>' +
+        '<span class="q">' + (last.question ? '· ' + esc(last.question) : '') + '</span>';
+    }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+    function tick() {
+      fetch(API + '/api/live', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || d.trades == null) return;
+          animateTo('v-trades', 'c-trades', cur.trades, d.trades);
+          animateTo('v-users', 'c-users', cur.users, d.users);
+          animateTo('v-nano', 'c-nano', cur.nano, d.nanopayments);
+          animateTo('v-markets', 'c-markets', cur.markets, d.markets);
+          cur = { trades: d.trades, users: d.users, nano: d.nanopayments, markets: d.markets };
+          renderTick(d.last);
+          have = true;
+          document.getElementById('livelabel').textContent = 'LIVE · updating every second';
+        })
+        .catch(function () {
+          document.getElementById('livelabel').textContent = 'reconnecting…';
+        });
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>
