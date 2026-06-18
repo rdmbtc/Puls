@@ -13,6 +13,7 @@
     { "source": "/pulse", "destination": "/pulse.html" },
     { "source": "/versus", "destination": "/versus.html" },
     { "source": "/build", "destination": "/build.html" },
+    { "source": "/explorer", "destination": "/explorer.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
