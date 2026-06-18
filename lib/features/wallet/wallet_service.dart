@@ -704,6 +704,20 @@ class WalletService extends ChangeNotifier {
     }, timeout: const Duration(seconds: 60));
   }
 
+  /// Withdraw USDC from the user's Puls wallet to any Arc address.
+  /// Returns { ok, txHash, explorerUrl }.
+  Future<Map<String, dynamic>> withdrawUsdc({
+    required String to,
+    required double amountUsdc,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/wallet/withdraw', {
+      'userId': _state.userId!,
+      'to': to,
+      'amountUsdc': amountUsdc,
+    }, timeout: const Duration(seconds: 60));
+  }
+
 
   /// One-tap tip to a forecaster — a small real USDC nanopayment.
   /// Recipient defaults to the house creator payout; pass [toUserId] to tip a
