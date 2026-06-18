@@ -15,6 +15,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import '../support/support_screen.dart';
 import '../portfolio/bridge_sheet.dart';
+import '../portfolio/swap_sheet.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -432,6 +433,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onTap: () => BridgeSheet.show(context),
                             trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
                           ),
+                        if (kIsWeb)
+                          _Row(
+                            icon: Icons.currency_exchange_rounded,
+                            title: 'Swap USDC ↔ EURC',
+                            subtitle: 'Stablecoin swap on Arc, powered by Circle',
+                            t: t,
+                            onTap: () => SwapSheet.show(context),
+                            trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
+                          ),
                         _Row(
                           icon: Icons.menu_book_rounded,
                           title: 'Documentation',
@@ -609,6 +619,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     subtitle: 'From Ethereum, Arbitrum or Avalanche via Circle CCTP',
                     t: t,
                     onTap: () => BridgeSheet.show(context),
+                    trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
+                  ),
+                if (kIsWeb)
+                  _Row(
+                    icon: Icons.currency_exchange_rounded,
+                    title: 'Swap USDC ↔ EURC',
+                    subtitle: 'Stablecoin swap on Arc, powered by Circle',
+                    t: t,
+                    onTap: () => SwapSheet.show(context),
                     trailing: Icon(Icons.chevron_right_rounded, size: 18, color: t.textSubtle),
                   ),
                 _Row(

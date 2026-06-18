@@ -672,6 +672,38 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  // ── Token swap (Circle App Kit: USDC <-> EURC on Arc) ────────────────────
+
+  /// Quote a swap. Returns { ok, estimate }.
+  Future<Map<String, dynamic>> estimateSwap({
+    required String tokenIn,
+    required String tokenOut,
+    required double amountIn,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/swap/estimate', {
+      'userId': _state.userId!,
+      'tokenIn': tokenIn,
+      'tokenOut': tokenOut,
+      'amountIn': amountIn,
+    }, timeout: const Duration(seconds: 30));
+  }
+
+  /// Execute a swap from the user's Circle wallet. Returns { ok, amountOut, txHash, explorerUrl }.
+  Future<Map<String, dynamic>> swap({
+    required String tokenIn,
+    required String tokenOut,
+    required double amountIn,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/swap', {
+      'userId': _state.userId!,
+      'tokenIn': tokenIn,
+      'tokenOut': tokenOut,
+      'amountIn': amountIn,
+    }, timeout: const Duration(seconds: 60));
+  }
+
 
   /// One-tap tip to a forecaster — a small real USDC nanopayment.
   /// Recipient defaults to the house creator payout; pass [toUserId] to tip a
