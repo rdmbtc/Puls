@@ -3,6 +3,7 @@ import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../shell/shell_nav.dart';
+import '../portfolio/funds_sheet.dart';
 import 'onboarding_content.dart';
 import 'onboarding_flags.dart';
 
@@ -284,6 +285,43 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isWelcome) {
+      // New-user activation: lead straight to funding so an empty wallet isn't a dead end.
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text('Explore first',
+                    style: TextStyle(color: t.textMuted, fontSize: 13.5, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).maybePop();
+                FundsSheet.show(context);
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(color: t.brand, borderRadius: BorderRadius.circular(12)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.south_west_rounded, color: Colors.white, size: 16),
+                  SizedBox(width: 7),
+                  Text('Fund my wallet',
+                      style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Row(
