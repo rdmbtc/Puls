@@ -54,6 +54,33 @@
     .tick .who { font-weight: 700; }
     .tick .q { color: var(--muted); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .agentchip { font-size: 10.5px; font-weight: 800; color: #8B5CF6; background: rgba(139,92,246,.12); padding: 2px 7px; border-radius: 5px; }
+    /* ── USDC flow (x402 payments by memo) ───────────────────────────────── */
+    .section-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 32px 0 12px; }
+    .section-h h2 { font-size: 19px; font-weight: 800; letter-spacing: -.4px; margin: 0; }
+    .ftot { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-left: auto; }
+    .chip { font-size: 12px; font-weight: 700; border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: .15s; user-select: none; }
+    .chip:hover { border-color: var(--brand); color: var(--text); }
+    .chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .flow { display: flex; flex-direction: column; gap: 8px; }
+    .frow { display: flex; align-items: center; gap: 11px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 13px; padding: 10px 13px; box-shadow: 0 2px 8px var(--shadow);
+      opacity: 0; transform: translateY(5px); animation: rise .3s ease forwards; }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .frow { animation: none; opacity: 1; transform: none; } }
+    .frow .memo { font-size: 11px; font-weight: 800; border-radius: 6px; padding: 3px 8px; white-space: nowrap; flex: none; }
+    .frow .amt { font-weight: 800; font-variant-numeric: tabular-nums; flex: none; }
+    .frow .flowdir { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; font-variant-numeric: tabular-nums; min-width: 0; flex: 1; }
+    .frow .when { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; text-decoration: none; flex: none; }
+    .frow .when:hover { color: var(--brand); }
+    .memo.a2a { color: #8B5CF6; background: rgba(139,92,246,.13); }
+    .memo.signal { color: var(--agent); background: var(--agent-soft); }
+    .memo.alpha { color: var(--brand); background: var(--brand-soft); }
+    .memo.tip { color: #D97706; background: rgba(245,158,11,.15); }
+    .memo.copy { color: #0EA5E9; background: rgba(14,165,233,.14); }
+    .memo.other { color: var(--muted); background: var(--bg); }
     .foot { margin-top: 24px; color: var(--muted); font-size: 12.5px; }
     .foot a { color: var(--brand); text-decoration: none; }
     .skel { color: var(--muted); }
@@ -85,6 +112,14 @@
     </div>
 
     <div class="tick" id="tick"><span class="skel">Waiting for the next on-chain trade…</span></div>
+
+    <div class="section-h">
+      <h2>USDC flow</h2>
+      <span class="ftot" id="flowtot"></span>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="sub" style="margin:-4px 0 14px;max-width:680px;">Every x402 nanopayment in the Puls economy, tagged with its <b>reason</b> — agents paying each other for signals, alpha unlocks, tips and copy-trade fees. Filter by memo to follow the money.</div>
+    <div class="flow" id="flow"><div class="skel">Loading x402 payments…</div></div>
 
     <div class="foot">
       Source: <a href="https://84-22-148-57.sslip.io/api/live" target="_blank" rel="noopener">/api/live</a> ·
@@ -158,6 +193,85 @@
 
     tick();
     setInterval(tick, 1000);
+
+    // ── USDC flow: x402 payments grouped/filtered by memo (reason) ──────────
+    var MEMO = {
+      agent_to_agent: { cls: 'a2a',    label: '🤖 Agent → agent', chip: '🤖 Agent→agent', order: 1 },
+      signal_unlock:  { cls: 'signal', label: '📈 Signal unlock',  chip: '📈 Signal',       order: 2 },
+      alpha_unlock:   { cls: 'alpha',  label: '🔓 Alpha unlock',   chip: '🔓 Alpha',        order: 3 },
+      tip:            { cls: 'tip',    label: '💸 Tip',            chip: '💸 Tip',          order: 4 },
+      copy_fee:       { cls: 'copy',   label: '🔁 Copy-trade fee', chip: '🔁 Copy-fee',     order: 5 }
+    };
+    function memoMeta(ep) {
+      if (MEMO[ep]) return MEMO[ep];
+      var pretty = String(ep || 'payment').replace(/_/g, ' ');
+      return { cls: 'other', label: '🔓 ' + pretty, chip: pretty, order: 9 };
+    }
+    function short(a) { return (a && a.length > 12) ? (a.slice(0, 6) + '…' + a.slice(-4)) : (a || '—'); }
+    function rel(iso) {
+      var t = Date.parse(iso); if (isNaN(t)) return '';
+      var s = Math.max(0, Math.round((Date.now() - t) / 1000));
+      if (s < 60) return s + 's ago';
+      if (s < 3600) return Math.round(s / 60) + 'm ago';
+      if (s < 86400) return Math.round(s / 3600) + 'h ago';
+      return Math.round(s / 86400) + 'd ago';
+    }
+    function fmtAmt(n) { n = Number(n) || 0; return '$' + (n < 1 ? n.toFixed(3) : n.toFixed(2)); }
+
+    var flowAll = [], flowFilter = 'all', flowProofUrl = null;
+
+    function renderChips() {
+      var present = {};
+      for (var i = 0; i < flowAll.length; i++) present[flowAll[i].endpoint] = true;
+      var keys = Object.keys(present).sort(function (a, b) { return memoMeta(a).order - memoMeta(b).order; });
+      var html = '<span class="chip' + (flowFilter === 'all' ? ' active' : '') + '" data-f="all">All</span>';
+      for (var j = 0; j < keys.length; j++) {
+        html += '<span class="chip' + (flowFilter === keys[j] ? ' active' : '') + '" data-f="' + esc(keys[j]) + '">' + esc(memoMeta(keys[j]).chip) + '</span>';
+      }
+      var c = document.getElementById('chips');
+      c.innerHTML = html;
+      var els = c.querySelectorAll('.chip');
+      for (var k = 0; k < els.length; k++) {
+        els[k].addEventListener('click', function () { flowFilter = this.getAttribute('data-f'); renderChips(); renderFlow(); });
+      }
+    }
+
+    function renderFlow() {
+      var rows = flowFilter === 'all' ? flowAll : flowAll.filter(function (p) { return p.endpoint === flowFilter; });
+      var el = document.getElementById('flow');
+      if (!rows.length) { el.innerHTML = '<div class="skel">No payments for this memo yet.</div>'; }
+      else {
+        el.innerHTML = rows.slice(0, 40).map(function (p) {
+          var m = memoMeta(p.endpoint);
+          var when = flowProofUrl
+            ? '<a class="when" href="' + esc(flowProofUrl) + '" target="_blank" rel="noopener" title="View on-chain settlement on Arcscan">' + rel(p.createdAt) + ' ↗</a>'
+            : '<span class="when">' + rel(p.createdAt) + '</span>';
+          return '<div class="frow">' +
+            '<span class="memo ' + m.cls + '">' + esc(m.label) + '</span>' +
+            '<span class="amt">' + fmtAmt(p.amountUsdc) + '</span>' +
+            '<span class="flowdir">' + esc(p.payerShort || short(p.payer)) + ' → ' + esc(short(p.payTo)) + '</span>' +
+            when + '</div>';
+        }).join('');
+      }
+      var sum = 0; for (var i = 0; i < rows.length; i++) sum += Number(rows[i].amountUsdc) || 0;
+      document.getElementById('flowtot').textContent =
+        nf.format(rows.length) + (rows.length === 1 ? ' payment · ' : ' payments · ') + fmtAmt(sum) + ' USDC';
+    }
+
+    function loadFlow() {
+      fetch(API + '/api/x402/payments?limit=100', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !Array.isArray(d.payments)) return;
+          flowAll = d.payments;
+          flowProofUrl = d.onchainProofUrl || d.sellerExplorerUrl || null;
+          renderChips();
+          renderFlow();
+        })
+        .catch(function () {});
+    }
+    loadFlow();
+    setInterval(loadFlow, 8000);
   </script>
 </body>
 </html>
