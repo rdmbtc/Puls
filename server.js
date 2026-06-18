@@ -2382,7 +2382,54 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// ── x402 creator-monetization layer ──────────────────────────────────────────
+// ── GET /api/live — lightweight, poll-every-second counters for Puls Explorer ─
+// Cheap head-count queries only (no row pagination), 2s micro-cache so a 1s
+// poll never hammers the DB. Plus the single most-recent trade for a "live tick".
+let liveCache = { data: null, ts: 0 };
+const LIVE_TTL_MS = 2000;
+app.get('/api/live', async (req, res) => {
+  try {
+    if (liveCache.data && Date.now() - liveCache.ts < LIVE_TTL_MS) {
+      return res.json({ ...liveCache.data, cached: true });
+    }
+    const [tradesRes, usersRes, marketsRes, payRes, latestRes] = await Promise.all([
+      supabase.from('trades').select('*', { count: 'exact', head: true }).eq('state', 'COMPLETE'),
+      supabase.from('wallets').select('*', { count: 'exact', head: true }),
+      supabase.from('deployed_markets').select('*', { count: 'exact', head: true }),
+      supabase.from('x402_payments').select('*', { count: 'exact', head: true }),
+      supabase.from('trades').select('side, usdc_amount, user_id, question, created_at')
+        .eq('state', 'COMPLETE').order('created_at', { ascending: false }).limit(1),
+    ]);
+    const latest = (latestRes.data && latestRes.data[0]) || null;
+    let last = null;
+    if (latest) {
+      const uid = latest.user_id || '';
+      const isAgent = uid === HOUSE_AGENT_USER || uid.startsWith('agent_')
+        || (typeof latest.question === 'string' && latest.question.startsWith('🤖 Agent:'));
+      last = {
+        side: (latest.side || '').toUpperCase(),
+        amountUsdc: Math.round((parseFloat(latest.usdc_amount) || 0) * 100) / 100,
+        isAgent,
+        question: (latest.question || '').replace('🤖 Agent:', '').trim().slice(0, 80),
+        at: latest.created_at,
+      };
+    }
+    const data = {
+      trades: tradesRes.count ?? 0,
+      users: usersRes.count ?? 0,
+      markets: marketsRes.count ?? 0,
+      nanopayments: payRes.count ?? 0,
+      last,
+      ts: Date.now(),
+    };
+    liveCache = { data, ts: Date.now() };
+    res.json(data);
+  } catch (e) {
+    console.error('live error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // "Forecaster = creator, paid per event." A premium forecast is sold per-read
 // via Circle Gateway batched nanopayments on Arc Testnet. The buyer (human or
 // agent) pays a sub-cent USDC nanopayment that settles to the seller's Arc
