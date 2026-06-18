@@ -668,6 +668,17 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   }
 
   String _formatUserId(String userId) {
+    // Named AI agents that live in Pulsmarket — show their persona, not an id.
+    const agentNames = {
+      'house_pulse': 'Pulse 🤖',
+      'agent_sage': 'Sage 🔮',
+      'agent_swarm_vega': 'Vega ⚡',
+      'agent_swarm_cygnus': 'Cygnus 🛡️',
+      'agent_swarm_orion': 'Orion 🔭',
+      'agent_swarm_atlas': 'Atlas 📈',
+      'agent_swarm_nova': 'Nova 🌐',
+    };
+    if (agentNames.containsKey(userId)) return agentNames[userId]!;
     if (userId.startsWith('eth_')) {
       final addr = userId.substring(4);
       if (addr.length > 10) {
