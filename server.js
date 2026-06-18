@@ -3930,9 +3930,14 @@ function buildLlmProviders() {
     const key = (process.env[`AGENT_LLM_KEY${sfx}`] || '').trim();
     const model = (process.env[`AGENT_MODEL${sfx}`] || '').trim();
     if (!url || !key || !model) continue;
-    // Format: explicit env wins, else auto-detect Google Gemini by host.
+    // Format: explicit env wins, else auto-detect by host.
     let format = (process.env[`AGENT_LLM_FORMAT${sfx}`] || '').trim().toLowerCase();
-    if (!format) format = /generativelanguage\.googleapis\.com/i.test(url) ? 'gemini' : 'openai';
+    if (!format) {
+      if (/generativelanguage\.googleapis\.com/i.test(url)) format = 'gemini';
+      else if (/api\.cohere\.com/i.test(url)) format = 'cohere';
+      else if (/(^|\/\/)(api\.)?ollama\.com/i.test(url)) format = 'ollama';
+      else format = 'openai';
+    }
     if (format === 'openai' && !/\/(chat\/)?completions\/?$/.test(url)) {
       url = url.replace(/\/+$/, '') + '/chat/completions';
     }
@@ -3946,7 +3951,7 @@ const LLM_RETRIES = Math.max(1, parseInt(process.env.AGENT_LLM_RETRIES || '1', 1
 if (LLM_PROVIDERS.length === 0) {
   console.warn('[llm] No agent LLM providers configured (set AGENT_LLM_URL/KEY/MODEL).');
 } else {
-  console.log(`[llm] ${LLM_PROVIDERS.length} provider(s): ${LLM_PROVIDERS.map(p => `${p.model}${p.format === 'gemini' ? '(gemini)' : ''}`).join(' → ')}`);
+  console.log(`[llm] ${LLM_PROVIDERS.length} provider(s): ${LLM_PROVIDERS.map(p => `${p.model}${p.format !== 'openai' ? `(${p.format})` : ''}`).join(' → ')}`);
 }
 const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 const REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
@@ -4019,7 +4024,43 @@ async function recordAgentReputation(agentKey, agentAddress, score, tag) {
 // Completes a chat from ONE provider, dispatching by wire format.
 async function llmCompleteOne(provider, messages, signal) {
   if (provider.format === 'gemini') return llmCompleteGemini(provider, messages, signal);
+  if (provider.format === 'cohere') return llmCompleteCohere(provider, messages, signal);
+  if (provider.format === 'ollama') return llmCompleteOllama(provider, messages, signal);
   return llmCompleteOpenAI(provider, messages, signal);
+}
+
+// Cohere Chat API (v2). URL is the base ("https://api.cohere.com") or full
+// "/v2/chat"; messages map 1:1 (system/user/assistant). Response content is an
+// array of typed blocks → join the text parts.
+async function llmCompleteCohere(provider, messages, signal) {
+  let url = provider.url;
+  if (!/\/v\d\/chat/.test(url)) url = url.replace(/\/(chat\/)?completions\/?$/, '').replace(/\/+$/, '') + '/v2/chat';
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${provider.key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: provider.model, messages }),
+    signal,
+  });
+  if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  const parts = j.message?.content || [];
+  return parts.map(p => p.text || '').join('').trim();
+}
+
+// Ollama Cloud native chat (/api/chat, non-stream). URL is the base
+// ("https://ollama.com" or "https://api.ollama.com") or full "/api/chat".
+async function llmCompleteOllama(provider, messages, signal) {
+  let url = provider.url.replace(/\/+$/, '');
+  if (!/\/api\/chat$/.test(url)) url = url.replace(/\/v1$/, '').replace(/\/api\/chat\/?$/, '') + '/api/chat';
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${provider.key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: provider.model, messages, stream: false }),
+    signal,
+  });
+  if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  return String(j.message?.content || '').trim();
 }
 
 // Google Gemini (generativelanguage API) — different endpoint shape & auth.
