@@ -3925,7 +3925,7 @@ app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res
 // appended automatically when missing. All keys live in .env, never in the repo.
 function buildLlmProviders() {
   const list = [];
-  for (const sfx of ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10']) {
+  for (const sfx of ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10', '_11', '_12', '_13', '_14', '_15']) {
     let url = (process.env[`AGENT_LLM_URL${sfx}`] || '').trim();
     const key = (process.env[`AGENT_LLM_KEY${sfx}`] || '').trim();
     const model = (process.env[`AGENT_MODEL${sfx}`] || '').trim();
