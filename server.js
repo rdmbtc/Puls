@@ -5569,13 +5569,56 @@ async function houseAgentResearch() {
 
 // Decide: LLM picks among the top candidates and explains itself; if the LLM
 // is unavailable the agent falls back to deterministic value reasoning.
+
+// ── Risk & budget manager (autonomy) ─────────────────────────────────────────
+// Pulse sizes each trade from its bankroll, current win-streak, and a daily
+// spend cap — and refuses to act when edge is thin or the day's budget is spent.
+// This makes the agent *decide whether to act*, not just act.
+const HOUSE_AGENT_MIN_EDGE = parseFloat(process.env.HOUSE_AGENT_MIN_EDGE || '0.04'); // 4¢ edge bar
+const HOUSE_AGENT_DAILY_CAP = parseFloat(process.env.HOUSE_AGENT_DAILY_CAP || '5'); // USDC/day
+const houseRisk = { streak: 0, lastOutcomeAt: 0, spentToday: 0, dayKey: '' };
+
+function _todayKey() { return new Date().toISOString().slice(0, 10); }
+
+// Returns the USDC stake given bankroll + win-streak, capped by per-trade and
+// remaining-daily budget. 0 means "can't size a trade now".
+function houseRiskSize(balance) {
+  if (houseRisk.dayKey !== _todayKey()) { houseRisk.dayKey = _todayKey(); houseRisk.spentToday = 0; }
+  const remainingDaily = Math.max(0, HOUSE_AGENT_DAILY_CAP - houseRisk.spentToday);
+  if (remainingDaily < 0.1) return 0;
+  // Base 12% of bankroll, scaled up to +50% on a hot streak (capped), down after a loss.
+  const streakMult = houseRisk.streak >= 3 ? 1.5 : houseRisk.streak === 2 ? 1.25 : houseRisk.streak <= -1 ? 0.6 : 1.0;
+  let stake = (balance - 0.1) * 0.12 * streakMult;
+  stake = Math.min(stake, HOUSE_AGENT_MAX_TRADE, remainingDaily);
+  stake = Math.floor(stake * 10) / 10; // 0.1 USDC granularity
+  return stake >= 0.1 ? stake : 0;
+}
+
 async function houseAgentDecide(candidates, balance, alpha = null, research = null) {
   const top = candidates.slice(0, 5);
-  if (top.length === 0 || top[0].edge < 0.02) return null;
-  const amount = Math.min(HOUSE_AGENT_MAX_TRADE, Math.max(0.1, Math.floor((balance - 0.1) * 10) / 10));
-  if (amount < 0.1) return null;
-
   const sources = research && research.sources ? research.sources : [];
+  const evaluated = candidates.length;
+  const bestEdge = top.length ? top[0].edge : 0;
+
+  // Risk-managed stake. 0 → can't size (low bankroll or daily cap hit).
+  const amount = houseRiskSize(balance);
+
+  // The agent DECIDES WHETHER TO ACT — visible skip with a reason.
+  if (top.length === 0 || bestEdge < HOUSE_AGENT_MIN_EDGE) {
+    return {
+      action: 'skip', evaluated, bestEdge, brain: 'risk', sources,
+      reasoning: `Scanned ${evaluated} markets; best edge ${(bestEdge * 100).toFixed(1)}¢ is below my ${(HOUSE_AGENT_MIN_EDGE * 100).toFixed(0)}¢ bar. No +EV trade — holding capital this cycle.`,
+    };
+  }
+  if (amount < 0.1) {
+    const dailyHit = (HOUSE_AGENT_DAILY_CAP - houseRisk.spentToday) < 0.1;
+    return {
+      action: 'skip', evaluated, bestEdge, brain: 'risk', sources,
+      reasoning: dailyHit
+        ? `Found a ${(bestEdge * 100).toFixed(1)}¢ edge but I've hit my $${HOUSE_AGENT_DAILY_CAP}/day risk cap — standing down until tomorrow.`
+        : `Edge looks good but bankroll is too low to size a safe stake — preserving capital.`,
+    };
+  }
 
   try {
     const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc.${alpha ? ' You just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (below) — weigh it.' : ''}${research && research.brief ? ' You also researched the open web (live news/sentiment below) — use it to sanity-check the edge.' : ''} Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices, the web finding if relevant, and why the edge exists>"}`;
@@ -5595,20 +5638,24 @@ async function houseAgentDecide(candidates, balance, alpha = null, research = nu
     const parsed = parseLlmJson(raw);
     const chosen = top.find(c => c.slug === parsed.slug) || top[0];
     const side = ['YES', 'NO'].includes(parsed.side) ? parsed.side : chosen.side;
-    return { ...chosen, side, amount, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm', sources };
+    return { ...chosen, action: 'go', side, amount, evaluated, streak: houseRisk.streak, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm', sources };
   } catch (e) {
     const c = top[0];
     const cheapPrice = c.side === 'YES' ? c.onChainYes : 1 - c.onChainYes;
     const consensus = c.side === 'YES' ? c.pmYes : 1 - c.pmYes;
     return {
       ...c,
+      action: 'go',
       amount,
-      reasoning: `${c.side} trades at ${(cheapPrice * 100).toFixed(0)}¢ on Arc while Polymarket consensus implies ${(consensus * 100).toFixed(0)}¢ — a ${(c.edge * 100).toFixed(1)}¢ edge. Buying ${c.side} captures the convergence as on-chain pricing tracks consensus.`,
+      evaluated,
+      streak: houseRisk.streak,
+      reasoning: `${c.side} trades at ${(cheapPrice * 100).toFixed(0)}¢ on Arc while Polymarket consensus implies ${(consensus * 100).toFixed(0)}¢ — a ${(c.edge * 100).toFixed(1)}¢ edge. Sizing ${(c.amount ?? 0)} at ${houseRisk.streak >= 2 ? 'elevated (win-streak)' : 'base'} risk; buying ${c.side} to capture the convergence.`,
       brain: 'quant',
       sources,
     };
   }
 }
+
 
 async function houseAgentTick() {
   if (!HOUSE_AGENT || houseAgentBusy) return;
@@ -5659,7 +5706,34 @@ async function houseAgentTick() {
 
     const decision = await houseAgentDecide(candidates, agent.balance, alpha, research);
     if (!decision) {
-      console.log('[Pulse] no opportunity above threshold this cycle');
+      console.log('[Pulse] no candidates this cycle');
+      return;
+    }
+
+    // ── The agent decided NOT to act — publish the skip as a visible decision.
+    // (Full autonomy = deciding whether to act, not just acting.)
+    if (decision.action === 'skip') {
+      console.log(`[Pulse] SKIP — ${decision.reasoning}`);
+      await supabase.from('notifications').insert({
+        user_id: HOUSE_AGENT_USER,
+        title: 'No +EV trade',
+        type: 'agent_decision',
+        read: true,
+        message: JSON.stringify({
+          action: 'skip',
+          question: `Evaluated ${decision.evaluated} markets — no trade`,
+          reasoning: decision.reasoning,
+          brain: decision.brain,
+          evaluated: decision.evaluated,
+          bestEdge: decision.bestEdge,
+          // The agent still PAID for alpha + researched, even when it skips.
+          alphaPaid: alpha ? alpha.cost : null,
+          alphaCreator: alpha ? alpha.creator : null,
+          alphaCounterparty: alpha ? (alpha.counterparty || null) : null,
+          alphaOnchainTx: alpha ? (alpha.onchainTx || null) : null,
+          sources: (decision.sources || []).slice(0, 3),
+        }),
+      });
       return;
     }
 
@@ -5673,12 +5747,16 @@ async function houseAgentTick() {
       return;
     }
 
+    // Risk bookkeeping: count the spend against the daily cap.
+    houseRisk.spentToday += Number(decision.amount) || 0;
+
     const { error: insErr } = await supabase.from('notifications').insert({
       user_id: HOUSE_AGENT_USER,
       title: decision.slug,
       type: 'agent_decision',
       read: true,
       message: JSON.stringify({
+        action: 'go',
         question: decision.question,
         side: decision.side,
         amount: decision.amount,
@@ -5687,6 +5765,8 @@ async function houseAgentTick() {
         pmYes: decision.pmYes,
         onChainYes: decision.onChainYes,
         edge: decision.edge,
+        evaluated: decision.evaluated ?? null,
+        streak: decision.streak ?? null,
         txHash: result.txHash,
         contractAddress: decision.contractAddress,
         // Agent→creator nanopayment that fed this decision (if any).
