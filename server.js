@@ -16,6 +16,7 @@ import { registerComments } from './lib/comments.js';
 import { registerSupport } from './lib/support.js';
 import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
+import { registerSwap } from './lib/swap.js';
 import { researchQuestion } from './lib/agent_research.js';
 
 // Prevent unhandled promise rejections from crashing the server
@@ -2668,6 +2669,17 @@ registerCreatorSignals(app, {
   publicClient,
   keccak256,
   toHex,
+});
+
+// ── Token swap (Circle App Kit) — USDC <-> EURC on Arc ────────────────────────
+// Real on-chain stablecoin FX from the user's own Circle MPC wallet, via Circle's
+// App Kit Swap. Estimate-first; gated by KIT_KEY (free, Circle Console).
+registerSwap(app, {
+  getWalletId,
+  getWalletInfo,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
