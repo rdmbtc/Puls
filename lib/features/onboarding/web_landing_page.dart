@@ -6,6 +6,7 @@ import 'package:flutter_web_scroll/flutter_web_scroll.dart';
 import 'hero_market_stack.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
+import 'meet_the_agents.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -91,6 +92,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                   _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
                   _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
                   _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
                   _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                   _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
                   const _FooterSection(),
