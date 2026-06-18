@@ -23,6 +23,7 @@ dependencies:
   web: ^1.1.1
   haptic_kit: ^1.0.0
   picons: ^3.0.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

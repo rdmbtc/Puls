@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -72,11 +73,13 @@ class _FundsSheetState extends State<FundsSheet> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -98,11 +101,54 @@ class _FundsSheetState extends State<FundsSheet> {
           if (_result != null)
             _WithdrawSuccess(t: t, result: _result!)
           else if (!_withdraw) ...[
-            Text('Your Puls wallet on Arc', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+            Row(children: [
+              Text('Your Puls wallet on Arc', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: t.brand.withValues(alpha: 0.30)),
+                ),
+                child: Text('Arc Testnet · USDC',
+                    style: TextStyle(color: t.brand, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+              ),
+            ]),
             const SizedBox(height: 8),
-            Text('Send USDC (Arc Testnet) to this address to fund your account. From another chain? Use Bridge instead.',
+            Text('Scan or copy your address to receive USDC and fund your account. From another chain? Use Bridge instead.',
                 style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            // Scannable QR of the receiving address (always light bg so it scans in dark mode).
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: t.border),
+                  boxShadow: [
+                    BoxShadow(color: t.brand.withValues(alpha: 0.10), blurRadius: 22, offset: const Offset(0, 8)),
+                  ],
+                ),
+                child: addr.isEmpty
+                    ? const SizedBox(
+                        width: 172, height: 172,
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : QrImageView(
+                        data: addr,
+                        version: QrVersions.auto,
+                        size: 172,
+                        backgroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
+                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0A0E1A)),
+                        dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0A0E1A)),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: t.surfaceRaised, borderRadius: BorderRadius.circular(12), border: Border.all(color: t.border)),
@@ -115,10 +161,20 @@ class _FundsSheetState extends State<FundsSheet> {
                     Clipboard.setData(ClipboardData(text: addr));
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Address copied')));
                   },
+                  behavior: HitTestBehavior.opaque,
                   child: Icon(Icons.copy_rounded, size: 18, color: t.brand),
                 ),
               ]),
             ),
+            const SizedBox(height: 10),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline_rounded, size: 13, color: t.textSubtle),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Only send USDC on Arc Testnet to this address. Other assets or networks may be lost.',
+                    style: TextStyle(color: t.textSubtle, fontSize: 11.5, height: 1.35, fontWeight: FontWeight.w500)),
+              ),
+            ]),
             const SizedBox(height: 12),
             if (addr.isNotEmpty)
               GestureDetector(
@@ -170,6 +226,7 @@ class _FundsSheetState extends State<FundsSheet> {
             ),
           ],
         ],
+        ),
       ),
     );
   }
