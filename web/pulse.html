@@ -279,6 +279,32 @@
     }
 
     function decisionHTML(d) {
+      // The agent evaluated markets and chose NOT to trade — show the judgment.
+      if (d.action === 'skip') {
+        var sAlpha = '';
+        if (d.alphaPaid != null) {
+          var sa2a = d.alphaCounterparty === 'agent_sage';
+          sAlpha = '<div class="why alpha">' +
+            (sa2a ? '🤝 <b>Paid agent Sage 🔮 $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for a signal — then judged it not worth a trade'
+                  : '💸 <b>Paid $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for alpha — then judged it not worth a trade') +
+            '</div>';
+        }
+        var sRes = '';
+        if (d.sources && d.sources.length) {
+          var sl = d.sources.slice(0, 3).map(function (s) {
+            return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
+          }).join(' · ');
+          sRes = '<div class="why research">🔍 <b>Researched the web</b> · ' + sl + '</div>';
+        }
+        return '<div class="dcard">' +
+          '<div class="drow1"><span class="pill" style="background:rgba(150,150,170,.15);color:var(--muted)">⏸ HOLD</span>' +
+          '<span class="brain quant">🛡 Risk</span>' +
+          '<span class="dwhen">' + esc(ago(d.at)) + '</span></div>' +
+          '<div class="dq">' + esc(d.question || 'Evaluated markets — no trade') + '</div>' +
+          sRes + sAlpha +
+          (d.reasoning ? '<div class="why"><b>Why hold:</b> ' + esc(d.reasoning) + '</div>' : '') +
+          '</div>';
+      }
       var side = (d.side || '').toUpperCase();
       var sidePill = '<span class="pill ' + (side === 'YES' ? 'yes' : 'no') + '">' + (side || '—') + '</span>';
       var amt = '<span class="pill amt">$' + Number(d.amount || 0).toFixed(2) + '</span>';
