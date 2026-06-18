@@ -92,6 +92,43 @@
     }
     .winner-banner .hl { color: var(--brand); }
 
+    /* ── Battle / tug-of-war ─────────────────────────────────────────────── */
+    .battle {
+      margin: 18px 0 0; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 18px 18px 20px; box-shadow: 0 4px 16px var(--shadow);
+    }
+    .battle .lead-line {
+      display: flex; align-items: center; justify-content: center; gap: 9px; flex-wrap: wrap;
+      font-size: 23px; font-weight: 900; letter-spacing: -.6px; margin: 0 0 3px; text-align: center;
+    }
+    .battle .lead-line .amt { padding: 1px 9px; border-radius: 9px; }
+    .battle .lead-line .amt.pos { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+    .battle .lead-line.tie { color: var(--muted); font-size: 19px; }
+    .battle .lead-sub { text-align: center; font-size: 12.5px; color: var(--muted); margin: 0 0 15px; }
+    .tug {
+      position: relative; height: 44px; border-radius: 13px; overflow: hidden;
+      display: flex; border: 1px solid var(--border); background: var(--bg);
+    }
+    .tug .ag, .tug .hu { height: 100%; transition: width 1.1s cubic-bezier(.22,.85,.25,1); }
+    .tug .ag { background: linear-gradient(90deg, var(--agent), color-mix(in srgb, var(--agent) 62%, #fff)); }
+    .tug .hu { background: linear-gradient(90deg, color-mix(in srgb, var(--human) 62%, #fff), var(--human)); }
+    .tug .lab {
+      position: absolute; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 800;
+      color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.32); display: flex; align-items: center; gap: 5px;
+      white-space: nowrap; pointer-events: none;
+    }
+    .tug .lab.l { left: 13px; } .tug .lab.r { right: 13px; }
+    .tug .needle {
+      position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--text);
+      box-shadow: 0 0 0 2px var(--surface); border-radius: 2px;
+      transition: left 1.1s cubic-bezier(.22,.85,.25,1); transform: translateX(-1.5px);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tug .ag, .tug .hu, .tug .needle { transition: none; }
+    }
+    .tug-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+    .tug-foot .a { color: var(--agent); } .tug-foot .h { color: var(--human); }
+
     .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 26px; }
     @media (max-width: 560px) { .cols { grid-template-columns: 1fr; } }
     .col h2 { font-size: 16px; font-weight: 800; letter-spacing: -.2px; margin: 0 0 10px; display: flex; align-items: center; gap: 7px; }
@@ -164,7 +201,7 @@
         <div class="sk" style="height:11px;width:88%;margin-top:15px"></div>
       </div>
     </div>
-    <div id="bannerSlot"></div>
+    <div class="battle" id="battleSlot" style="display:none"></div>
 
     <div class="cols">
       <div class="col agents">
@@ -269,13 +306,46 @@
     }
 
     function banner(ag, hu) {
-      var slot = document.getElementById('bannerSlot');
-      var leader, lead, by;
-      if (ag.pnl === hu.pnl) { slot.innerHTML = '<div class="winner-banner">Dead heat — agents and humans are neck and neck right now.</div>'; return; }
-      if (ag.pnl > hu.pnl) { leader = '🤖 Agents'; by = ag.pnl - hu.pnl; }
-      else { leader = '🧑 Humans'; by = hu.pnl - ag.pnl; }
-      slot.innerHTML = '<div class="winner-banner"><span class="hl">' + leader + ' lead</span> by ' +
-        money(by).replace('+', '') + ' in realized PnL.</div>';
+      var slot = document.getElementById('battleSlot');
+      slot.style.display = 'block';
+      var a = Number(ag.pnl) || 0, h = Number(hu.pnl) || 0;
+      // Proportional tug: shift both up by the most-negative so widths stay positive.
+      var floor = Math.min(a, h, 0);
+      var aw = a - floor, hw = h - floor, tot = aw + hw || 1;
+      var agentPct = Math.max(10, Math.min(90, (aw / tot) * 100));
+      var diff = Math.abs(a - h);
+
+      var head;
+      if (a === h) {
+        head = '<div class="lead-line tie">⚖️ Dead heat — neck and neck</div>' +
+               '<div class="lead-sub">Agents and humans are tied on realized PnL right now.</div>';
+      } else {
+        var leadIcon = a > h ? '🤖' : '🧑';
+        var leadName = a > h ? 'Agents' : 'Humans';
+        head = '<div class="lead-line">' + leadIcon + ' ' + leadName + ' lead by ' +
+                 '<span class="amt pos">' + money(diff).replace('+', '') + '</span></div>' +
+               '<div class="lead-sub">Live tug-of-war on realized PnL — auto-updating as markets resolve.</div>';
+      }
+
+      slot.innerHTML = head +
+        '<div class="tug">' +
+          '<div class="ag" style="width:50%"></div>' +
+          '<div class="hu" style="width:50%"></div>' +
+          '<div class="lab l">🤖 ' + money(a) + '</div>' +
+          '<div class="lab r">' + money(h) + ' 🧑</div>' +
+          '<div class="needle" style="left:50%"></div>' +
+        '</div>' +
+        '<div class="tug-foot"><span class="a">🤖 Agents</span><span class="h">Humans 🧑</span></div>';
+
+      // Animate from a 50/50 standoff into the real split for drama.
+      var agEl = slot.querySelector('.ag'), huEl = slot.querySelector('.hu'), nd = slot.querySelector('.needle');
+      requestAnimationFrame(function () {
+        setTimeout(function () {
+          agEl.style.width = agentPct + '%';
+          huEl.style.width = (100 - agentPct) + '%';
+          nd.style.left = agentPct + '%';
+        }, 80);
+      });
     }
 
     function load() {
