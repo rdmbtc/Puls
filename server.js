@@ -3924,13 +3924,18 @@ app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res
 // appended automatically when missing. All keys live in .env, never in the repo.
 function buildLlmProviders() {
   const list = [];
-  for (const sfx of ['', '_2', '_3', '_4', '_5']) {
+  for (const sfx of ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10']) {
     let url = (process.env[`AGENT_LLM_URL${sfx}`] || '').trim();
     const key = (process.env[`AGENT_LLM_KEY${sfx}`] || '').trim();
     const model = (process.env[`AGENT_MODEL${sfx}`] || '').trim();
     if (!url || !key || !model) continue;
-    if (!/\/(chat\/)?completions\/?$/.test(url)) url = url.replace(/\/+$/, '') + '/chat/completions';
-    list.push({ url, key, model });
+    // Format: explicit env wins, else auto-detect Google Gemini by host.
+    let format = (process.env[`AGENT_LLM_FORMAT${sfx}`] || '').trim().toLowerCase();
+    if (!format) format = /generativelanguage\.googleapis\.com/i.test(url) ? 'gemini' : 'openai';
+    if (format === 'openai' && !/\/(chat\/)?completions\/?$/.test(url)) {
+      url = url.replace(/\/+$/, '') + '/chat/completions';
+    }
+    list.push({ url, key, model, format });
   }
   return list;
 }
@@ -3940,7 +3945,7 @@ const LLM_RETRIES = Math.max(1, parseInt(process.env.AGENT_LLM_RETRIES || '1', 1
 if (LLM_PROVIDERS.length === 0) {
   console.warn('[llm] No agent LLM providers configured (set AGENT_LLM_URL/KEY/MODEL).');
 } else {
-  console.log(`[llm] ${LLM_PROVIDERS.length} provider(s): ${LLM_PROVIDERS.map(p => p.model).join(' → ')}`);
+  console.log(`[llm] ${LLM_PROVIDERS.length} provider(s): ${LLM_PROVIDERS.map(p => `${p.model}${p.format === 'gemini' ? '(gemini)' : ''}`).join(' → ')}`);
 }
 const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 const REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
@@ -4010,8 +4015,41 @@ async function recordAgentReputation(agentKey, agentAddress, score, tag) {
   }
 }
 
-// Streams an OpenAI-compatible SSE chat completion from ONE provider.
+// Completes a chat from ONE provider, dispatching by wire format.
 async function llmCompleteOne(provider, messages, signal) {
+  if (provider.format === 'gemini') return llmCompleteGemini(provider, messages, signal);
+  return llmCompleteOpenAI(provider, messages, signal);
+}
+
+// Google Gemini (generativelanguage API) — different endpoint shape & auth.
+// Maps OpenAI-style messages to Gemini "contents" + systemInstruction.
+async function llmCompleteGemini(provider, messages, signal) {
+  const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content ?? '') }] }));
+  // URL may be a base ("…/v1beta") or a full ":generateContent" — normalise.
+  let url = provider.url;
+  if (!/:generateContent/.test(url)) {
+    url = url.replace(/\/+$/, '') + `/models/${provider.model}:generateContent`;
+  }
+  const body = { contents };
+  if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': provider.key, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  const parts = j.candidates?.[0]?.content?.parts || [];
+  return parts.map(p => p.text || '').join('').trim();
+}
+
+// OpenAI-compatible streaming SSE chat completion. Falls back to reading the
+// non-stream JSON body if the provider ignored stream:true.
+async function llmCompleteOpenAI(provider, messages, signal) {
   const r = await fetch(provider.url, {
     method: 'POST',
     headers: { authorization: `Bearer ${provider.key}`, 'content-type': 'application/json' },
@@ -4019,6 +4057,13 @@ async function llmCompleteOne(provider, messages, signal) {
     signal,
   });
   if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const ctype = r.headers.get('content-type') || '';
+  // Some gateways ignore stream:true and return a single JSON object.
+  if (!/text\/event-stream/i.test(ctype)) {
+    const j = await r.json().catch(() => null);
+    const msg = j?.choices?.[0]?.message;
+    return String(msg?.content || msg?.reasoning_content || '').trim();
+  }
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let buf = '', out = '';
