@@ -138,10 +138,16 @@ class _BridgeSheetState extends State<BridgeSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Move USDC from Ethereum Sepolia to Arc with Circle CCTP — Circle mints on Arc for you (no Arc gas needed).',
+            'Move USDC from a connected browser wallet (MetaMask) on Ethereum, Arbitrum or Avalanche to Arc via Circle CCTP. Circle mints on Arc for you — no Arc gas needed.',
             style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
+          _Notice(
+            t: t,
+            icon: Icons.account_balance_wallet_outlined,
+            text: 'Your USDC must be in the connected wallet (MetaMask) on the source chain — not in your Puls wallet. The bridge mints the USDC into your Puls wallet on Arc.',
+          ),
+          const SizedBox(height: 16),
 
           if (!hasWallet)
             _Notice(

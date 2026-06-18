@@ -310,6 +310,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                     const SizedBox(height: 20),
                     _WalletCard(ws: ws, wallet: wallet, t: t),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 20),
+                      _BridgeCard(t: t, onTap: () => BridgeSheet.show(context)),
+                    ],
                   ],
                 ),
               ),
@@ -488,6 +492,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             duration: const Duration(milliseconds: 350),
             child: _WalletCard(ws: ws, wallet: wallet, t: t),
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 16),
+            FadeInUp(
+              delay: const Duration(milliseconds: 90),
+              duration: const Duration(milliseconds: 350),
+              child: _BridgeCard(t: t, onTap: () => BridgeSheet.show(context)),
+            ),
+          ],
           const SizedBox(height: 16),
           FadeInUp(
             delay: const Duration(milliseconds: 100),
@@ -1069,6 +1081,60 @@ class _RowState extends State<_Row> {
 }
 
 // ── Wallet card ──────────────────────────────────────────────────────────────
+/// Prominent, tappable "Bridge USDC to Arc" card for the profile.
+class _BridgeCard extends StatelessWidget {
+  const _BridgeCard({required this.t, required this.onTap});
+  final PulsThemeColors t;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [t.brand.withValues(alpha: 0.16), t.brand.withValues(alpha: 0.04)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.brand.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: t.brand.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(Icons.swap_horiz_rounded, color: t.brand, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bridge USDC to Arc',
+                      style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text('From Ethereum, Arbitrum or Avalanche · Circle CCTP',
+                      style: TextStyle(color: t.textMuted, fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: t.textSubtle, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
 class _WalletCard extends StatelessWidget {
   const _WalletCard({
     required this.ws,
