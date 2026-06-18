@@ -5,7 +5,7 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { createPublicClient, createWalletClient, http, decodeEventLog, keccak256, toHex, parseAbiItem } from 'viem';
+import { createPublicClient, createWalletClient, http, decodeEventLog, keccak256, toHex, parseAbiItem, encodeFunctionData, stringToHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from 'viem/chains';
 import { x402Paywall, x402Info } from './lib/x402.js';
@@ -6318,7 +6318,7 @@ const swarm = registerSwarm(app, {
   resolveAgentTokenId, recordAgentReputation, agentTokenIds,
   getTreasuryUsdcBalance, houseAgentResearch, executeAgentTrade,
   researchQuestion, llmComplete, parseLlmJson, formatForApp,
-  keccak256, toHex,
+  keccak256, toHex, encodeFunctionData, parseAbiItem, stringToHex,
 });
 if (typeof swarm.start === 'function') swarm.start();
 
