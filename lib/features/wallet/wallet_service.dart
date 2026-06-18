@@ -606,6 +606,11 @@ class WalletService extends ChangeNotifier {
     return _get('/api/agents/roster', const {});
   }
 
+  /// Unified AI Colony feed — every swarm agent's actions, newest first.
+  Future<Map<String, dynamic>> getColonyFeed({int limit = 40}) async {
+    return _get('/api/agents/feed', {'limit': '$limit'});
+  }
+
   /// One signal. 402 (locked) is returned as data, not thrown.
   Future<Map<String, dynamic>> getSignal(String id) async {
     final headers = <String, String>{};
