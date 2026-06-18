@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart' show appBaseUrl;
 import '../../core/theme/app_theme.dart';
 
@@ -47,6 +48,22 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
         const SnackBar(content: Text('✅ Share text copied to clipboard!')),
       );
     }
+  }
+
+  Future<void> _shareOnX() async {
+    final slug = widget.position['slug'] as String? ?? '';
+    final side = widget.position['side'] as String? ?? 'YES';
+    final question = widget.position['question'] as String? ?? 'Prediction';
+    final pnlVal = widget.pnl ?? 0.0;
+    final pnlSign = pnlVal >= 0 ? '+' : '';
+    final emoji = pnlVal >= 0 ? '🚀' : '📉';
+
+    final text = 'I just bet $side on "$question" on Puls 👀\n'
+        'P&L: $pnlSign\$${pnlVal.toStringAsFixed(2)} USDC $emoji — live on Arc Testnet.';
+    final url = '$appBaseUrl/m/$slug';
+    final intent = Uri.parse('https://twitter.com/intent/tweet'
+        '?text=${Uri.encodeComponent(text)}&url=${Uri.encodeComponent(url)}');
+    await launchUrl(intent, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _copyLink() async {
@@ -269,6 +286,7 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                _xButton(_shareOnX, t),
                 _actionBtn(Icons.link_rounded, 'Copy Link', _copyLink, t),
                 _actionBtn(Icons.chat_bubble_outline_rounded, 'Copy Text', _copyText, t),
                 _actionBtn(Icons.close_rounded, 'Close', () => Navigator.pop(context), t),
@@ -277,6 +295,29 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _xButton(VoidCallback onTap, PulsThemeColors t) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: t.brand,
+            child: const Text(
+              '𝕏',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Post on X',
+          style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
