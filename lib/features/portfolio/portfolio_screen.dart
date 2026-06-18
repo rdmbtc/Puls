@@ -19,6 +19,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
 import '../../core/widgets/count_up_text.dart';
+import 'bridge_sheet.dart';
 
 import '../../core/config.dart' show backendUrl;
 const _backendUrl = backendUrl;
@@ -594,7 +595,15 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        actions: const [HelpAction(tab: PulsTab.portfolio)],
+        actions: [
+          if (kIsWeb)
+            TextButton.icon(
+              onPressed: () => BridgeSheet.show(context),
+              icon: Icon(Icons.swap_horiz_rounded, size: 18, color: t.brand),
+              label: Text('Bridge', style: TextStyle(color: t.brand, fontWeight: FontWeight.w700)),
+            ),
+          const HelpAction(tab: PulsTab.portfolio),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(

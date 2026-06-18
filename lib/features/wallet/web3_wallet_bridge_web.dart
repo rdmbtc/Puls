@@ -22,6 +22,9 @@ external JSPromise<JSString> _jsSellPositionOnChain(JSBoolean isYes, JSString sh
 @JS('claimOnChain')
 external JSPromise<JSString> _jsClaimOnChain(JSString contractAddress);
 
+@JS('bridgeUsdcToArc')
+external JSPromise<JSString> _jsBridgeUsdcToArc(JSString amountUsdc);
+
 bool hasBrowserWallet() {
   try {
     return _jsHasBrowserWallet().toDart;
@@ -109,6 +112,25 @@ Future<WalletConnectResult> claimOnChain(String contractAddress) async {
     return WalletConnectResult(txHash: txHash);
   } catch (e) {
     return WalletConnectResult(error: e.toString());
+  }
+}
+
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc) async {
+  try {
+    final resultJson = (await _jsBridgeUsdcToArc(amountUsdc.toString().toJS).toDart).toDart;
+    if (resultJson.contains('"error"')) {
+      return BridgeResult(error: _extractJsonValue(resultJson, 'error'));
+    }
+    final arc = _extractJsonValue(resultJson, 'arcTxHash');
+    final burn = _extractJsonValue(resultJson, 'burnTxHash');
+    final pending = resultJson.contains('"pending"');
+    return BridgeResult(
+      arcTxHash: arc.isEmpty ? null : arc,
+      burnTxHash: burn.isEmpty ? null : burn,
+      pending: pending && arc.isEmpty,
+    );
+  } catch (e) {
+    return BridgeResult(error: e.toString());
   }
 }
 
