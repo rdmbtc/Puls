@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../app/puls_app.dart';
 import '../wallet/web3_wallet_bridge.dart';
 
 /// In-app CCTP bridge: move USDC from Ethereum Sepolia → Arc Testnet via
@@ -30,6 +31,7 @@ class BridgeSheet extends StatefulWidget {
 class _BridgeSheetState extends State<BridgeSheet> {
   final _amount = TextEditingController(text: '1');
   bool _busy = false;
+  bool _toPuls = true; // default: mint to the user's Puls (Circle MPC) wallet
   String? _error;
   BridgeResult? _result;
 
@@ -45,8 +47,13 @@ class _BridgeSheetState extends State<BridgeSheet> {
       setState(() => _error = 'Enter an amount greater than 0.');
       return;
     }
+    final pulsAddr = WalletServiceScope.of(context).state.walletAddress;
+    if (_toPuls && (pulsAddr == null || pulsAddr.isEmpty)) {
+      setState(() => _error = 'No Puls wallet found — sign in first, or switch the destination to your connected wallet.');
+      return;
+    }
     setState(() { _busy = true; _error = null; _result = null; });
-    final res = await bridgeUsdcToArc(amt);
+    final res = await bridgeUsdcToArc(amt, recipient: _toPuls ? pulsAddr : null);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -104,6 +111,16 @@ class _BridgeSheetState extends State<BridgeSheet> {
           else if (_result != null)
             _Success(t: t, result: _result!)
           else ...[
+            Text('Send to', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(child: _DestTab(t: t, label: 'My Puls wallet', selected: _toPuls, onTap: () => setState(() => _toPuls = true))),
+                const SizedBox(width: 8),
+                Expanded(child: _DestTab(t: t, label: 'Connected wallet', selected: !_toPuls, onTap: () => setState(() => _toPuls = false))),
+              ],
+            ),
+            const SizedBox(height: 14),
             Text('Amount (USDC)', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
             TextField(
@@ -161,6 +178,39 @@ class _BridgeSheetState extends State<BridgeSheet> {
     );
   }
 }
+
+class _DestTab extends StatelessWidget {
+  const _DestTab({required this.t, required this.label, required this.selected, required this.onTap});
+  final PulsThemeColors t;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? t.brand.withValues(alpha: 0.14) : t.surfaceRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? t.brand : t.border, width: selected ? 1.2 : 1),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? t.brand : t.textMuted,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _Notice extends StatelessWidget {
   const _Notice({required this.t, required this.icon, required this.text, this.danger = false});
