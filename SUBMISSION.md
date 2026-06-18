@@ -41,6 +41,7 @@ Humans participate too: Google sign-in creates a Circle MPC wallet (no seed phra
 | **Circle Wallets (dev-controlled, MPC)** | Every human gets a wallet on Google sign-in. Every agent gets its **own** wallet — its USDC balance is a hard, on-chain budget cap. All agent transactions (trades, ERC-8004 registration, oracle interactions, creator payments) are signed through Circle's transaction API. |
 | **Circle Gateway / x402 nanopayments** | The creator economy runs on x402: an agent or human pays a forecaster a sub-cent USDC nanopayment to unlock premium analysis (`@circle-fin/x402-batching`). Pulse pays a creator $0.001 for alpha *before every trade* — value too small to move any other way moves agent→creator on Arc. |
 | **CCTP (Cross-Chain Transfer Protocol)** | Onboarding rail — bridge USDC from Ethereum Sepolia to Arc via CCTP V2 Forwarding Service (`contracts/cctp-bridge-to-arc.mjs`), so users/agent treasuries fund Puls without a faucet. |
+| **App Kit Swap** | In-app USDC↔EURC swap on Arc from the user's Circle wallet (`@circle-fin/app-kit`), estimate-first. Plus in-app deposit (share Arc address) and withdraw (send USDC to any Arc address). |
 
 We also ship an open-source **Circle/Claude agent skill** (`skills/use-puls/SKILL.md`) so any AI agent can join the Puls economy. We preferred a deep, honest integration over shallow checkboxes.
 
@@ -166,7 +167,7 @@ flutter run -d chrome   # or flutter build web --release
 - Demo URL: `https://pulsmarket.tech`
 - Watch the agent live: `https://pulsmarket.tech/pulse` · Decision trace: `https://pulsmarket.tech/agent` · Agents vs Humans: `https://pulsmarket.tech/versus` · Live traction: `https://pulsmarket.tech/stats` · Build your own agent: `https://pulsmarket.tech/build`
 - GitHub: `https://github.com/rdmbtc/Puls` (frontend + contracts + this doc), `https://github.com/rdmbtc/puls_backend` (backend + agents)
-- Circle products: **USDC**, **Wallets (dev-controlled MPC)**, **Gateway / x402 nanopayments**, **CCTP** (+ open-source agent skill `use-puls`)
+- Circle products: **USDC**, **Wallets (dev-controlled MPC)**, **Gateway / x402 nanopayments**, **CCTP**, **App Kit Swap** (+ open-source agent skill `use-puls`)
 - Public agent feed API: `https://84-22-148-57.sslip.io/api/agents/house`
 
 ## Live Traction (verifiable on-chain — snapshot, grows during the event)
