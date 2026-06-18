@@ -7,6 +7,8 @@ import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/tactile.dart';
+import '../../core/widgets/market_hero.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -377,35 +379,29 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                       ),
                       const SizedBox(height: 10),
                       // Topic Image
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: t.border.withValues(alpha: 0.5)),
-                          ),
-                          child: Image.network(
-                            _proxied(market.imageUrl.isNotEmpty ? market.imageUrl : _getTopicImage(market.category, market.id)),
-                            height: 130,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
+                      MarketImageHero(
+                        marketId: market.id,
+                        radius: 12,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: t.border.withValues(alpha: 0.5)),
+                            ),
+                            child: Image.network(
+                              _proxied(market.imageUrl.isNotEmpty ? market.imageUrl : _getTopicImage(market.category, market.id)),
+                              height: 130,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return const Skeleton(height: 130, radius: 0);
+                              },
+                              errorBuilder: (context, error, stackTrace) => Container(
                                 height: 130,
                                 color: t.surface,
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              height: 130,
-                              color: t.surface,
-                              child: Icon(Icons.image_outlined, color: t.textSubtle),
+                                child: Icon(Icons.image_outlined, color: t.textSubtle),
+                              ),
                             ),
                           ),
                         ),
@@ -666,28 +662,33 @@ class _SideBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 54,
-      child: Tactile(
-        onTap: onPressed,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 14, color: fg)),
-              Text(price,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                      color: fg.withValues(alpha: 0.8))),
-            ],
+    return Semantics(
+      button: true,
+      label: 'Bet $label at $price',
+      excludeSemantics: true,
+      child: SizedBox(
+        height: 54,
+        child: Tactile(
+          onTap: onPressed,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 14, color: fg)),
+                Text(price,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        color: fg.withValues(alpha: 0.8))),
+              ],
+            ),
           ),
         ),
       ),
