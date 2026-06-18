@@ -1,10 +1,13 @@
 import 'package:fl_chart/fl_chart.dart' hide CandlestickChart;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/image_util.dart';
+import '../../core/widgets/market_hero.dart';
+import '../../core/widgets/animated_count.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -51,9 +54,13 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
       children: [
         // ── Hero image ──────────────────────────────────────────────────
         if (market.imageUrl.isNotEmpty) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: networkImage(market.imageUrl, height: 180, fit: BoxFit.cover),
+          MarketImageHero(
+            marketId: market.id,
+            radius: 16,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: networkImage(market.imageUrl, height: 180, fit: BoxFit.cover),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -156,7 +163,16 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           ),
         ],
       ),
-      body: kIsWeb ? WebLayout(maxWidth: 720, child: body) : body,
+      body: kIsWeb
+          ? _KeyboardTradeShortcuts(
+              onYes: () => showTradePreviewSheet(
+                  context: context, market: market, side: MarketSide.yes),
+              onNo: () => showTradePreviewSheet(
+                  context: context, market: market, side: MarketSide.no),
+              onBack: () => Navigator.of(context).maybePop(),
+              child: WebLayout(maxWidth: 720, child: body),
+            )
+          : body,
       bottomNavigationBar: kIsWeb ? null : SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
@@ -240,7 +256,14 @@ class _ProbabilityPanel extends StatelessWidget {
                   children: [
                     Text('YES', style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
-                    Text('$yesPct%', style: TextStyle(color: t.yes, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1)),
+                    Semantics(
+                      label: 'Yes odds $yesPct percent',
+                      child: AnimatedCount(
+                        value: yesPct.toDouble(),
+                        formatter: (v) => '${v.round()}%',
+                        style: TextStyle(color: t.yes, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+                      ),
+                    ),
                     Text(TradeMath.formatPrice(market.yesPrice), style: TextStyle(color: t.textMuted, fontSize: 12)),
                   ],
                 ),
@@ -254,7 +277,14 @@ class _ProbabilityPanel extends StatelessWidget {
                     children: [
                       Text('NO', style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 2),
-                      Text('$noPct%', style: TextStyle(color: t.no, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1)),
+                      Semantics(
+                        label: 'No odds $noPct percent',
+                        child: AnimatedCount(
+                          value: noPct.toDouble(),
+                          formatter: (v) => '${v.round()}%',
+                          style: TextStyle(color: t.no, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+                        ),
+                      ),
                       Text(TradeMath.formatPrice(market.noPrice), style: TextStyle(color: t.textMuted, fontSize: 12)),
                     ],
                   ),
@@ -313,9 +343,54 @@ class _ProbabilityPanel extends StatelessWidget {
                 )),
               ],
             ),
+            const SizedBox(height: 8),
+            Center(
+              child: Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _KbHint(keyLabel: 'Y', action: 'Yes', t: t),
+                  _KbHint(keyLabel: 'N', action: 'No', t: t),
+                  _KbHint(keyLabel: 'Esc', action: 'Back', t: t),
+                ],
+              ),
+            ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// A tiny "[Y] Yes" keycap hint shown on web to surface keyboard shortcuts.
+class _KbHint extends StatelessWidget {
+  const _KbHint({required this.keyLabel, required this.action, required this.t});
+  final String keyLabel;
+  final String action;
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: t.surfaceRaised,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: t.border),
+          ),
+          child: Text(keyLabel,
+              style: TextStyle(
+                  color: t.textMuted,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: PulsColors.tabularFigures)),
+        ),
+        const SizedBox(width: 3),
+        Text(action, style: TextStyle(color: t.textSubtle, fontSize: 10)),
+      ],
     );
   }
 }
@@ -773,4 +848,37 @@ class _TradeBtn extends StatelessWidget {
 String _fmtDate(DateTime v) {
   const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return '${m[v.month - 1]} ${v.day}, ${v.year}';
+}
+
+/// Desktop/web keyboard accelerators for the Market Detail screen:
+///   • Y or →  → open the Buy YES sheet
+///   • N or ←  → open the Buy NO sheet
+///   • Esc      → go back
+/// The detail screen has no text inputs, so these never fight the keyboard.
+class _KeyboardTradeShortcuts extends StatelessWidget {
+  const _KeyboardTradeShortcuts({
+    required this.child,
+    required this.onYes,
+    required this.onNo,
+    required this.onBack,
+  });
+
+  final Widget child;
+  final VoidCallback onYes;
+  final VoidCallback onNo;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyY): onYes,
+        const SingleActivator(LogicalKeyboardKey.arrowRight): onYes,
+        const SingleActivator(LogicalKeyboardKey.keyN): onNo,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): onNo,
+        const SingleActivator(LogicalKeyboardKey.escape): onBack,
+      },
+      child: Focus(autofocus: true, child: child),
+    );
+  }
 }

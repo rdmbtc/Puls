@@ -11,6 +11,7 @@ import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/widgets/pulse_dot.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
@@ -300,6 +301,32 @@ class _FeedHeader extends StatelessWidget {
                 border: Border.all(color: t.border),
               ),
               child: Icon(Icons.notifications_outlined, color: t.textSubtle, size: 18),
+            ),
+          ),
+          Semantics(
+            label: 'Markets live',
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: t.yesBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PulseDot(size: 6, color: t.yes, period: const Duration(milliseconds: 1400)),
+                  Text(
+                    'LIVE',
+                    style: TextStyle(
+                      color: t.yes,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Container(
@@ -1350,7 +1377,7 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
           ),
           child: Row(
             children: [
-              Text('🔥', style: const TextStyle(fontSize: 18)),
+              const Text('🔥', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

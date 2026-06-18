@@ -1,5 +1,6 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -77,15 +78,38 @@ class WatchlistScreen extends StatelessWidget {
                     duration: const Duration(milliseconds: 350),
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _WatchCard(
-                        market: markets[i],
-                        t: t,
-                        onRemove: () =>
-                            appState.toggleWatchlist(markets[i].id),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MarketDetailScreen(
-                                marketId: markets[i].id),
+                      child: Slidable(
+                        key: ValueKey(markets[i].id),
+                        groupTag: 'watchlist',
+                        endActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.28,
+                          dismissible: DismissiblePane(
+                            onDismissed: () =>
+                                appState.toggleWatchlist(markets[i].id),
+                          ),
+                          children: [
+                            SlidableAction(
+                              onPressed: (_) =>
+                                  appState.toggleWatchlist(markets[i].id),
+                              backgroundColor: t.no,
+                              foregroundColor: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              icon: Icons.bookmark_remove_rounded,
+                              label: 'Remove',
+                            ),
+                          ],
+                        ),
+                        child: _WatchCard(
+                          market: markets[i],
+                          t: t,
+                          onRemove: () =>
+                              appState.toggleWatchlist(markets[i].id),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MarketDetailScreen(
+                                  marketId: markets[i].id),
+                            ),
                           ),
                         ),
                       ),
