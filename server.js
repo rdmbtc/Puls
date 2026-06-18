@@ -1126,6 +1126,75 @@ app.get('/api/wallet/balance', authenticateUser, async (req, res) => {
   }
 });
 
+// POST /api/wallet/withdraw — send USDC from the user's Puls (Circle MPC) wallet
+// to any Arc address. Real on-chain transfer; gasless from the SCA wallet.
+app.post('/api/wallet/withdraw', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+  try {
+    const userId = req.body.userId; // forced to verified id by authenticateUser
+    const to = String(req.body.to || '').trim();
+    const amount = Number(req.body.amountUsdc);
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(to)) {
+      return res.status(400).json({ error: 'Enter a valid Arc (0x…) address.' });
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Enter a valid amount.' });
+    }
+
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(404).json({ error: 'Wallet not found' });
+    const info = await getWalletInfo(walletId);
+
+    if (to.toLowerCase() === String(info.address).toLowerCase()) {
+      return res.status(400).json({ error: "That's your own wallet address." });
+    }
+    if (parseFloat(info.usdcBalance) < amount) {
+      return res.status(402).json({ error: `Insufficient balance (have ${info.usdcBalance} USDC).` });
+    }
+
+    const amountMicro = Math.round(amount * 1_000_000).toString();
+    let txId = null;
+    try {
+      const txRes = await circle.createContractExecutionTransaction({
+        walletId,
+        contractAddress: USDC,
+        abiFunctionSignature: 'transfer(address,uint256)',
+        abiParameters: [to, amountMicro],
+        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+      });
+      txId = txRes.data?.id || null;
+    } catch (txErr) {
+      console.error('[withdraw] transfer failed:', txErr.message);
+      return res.status(502).json({ error: 'Withdrawal failed, please try again.' });
+    }
+
+    // Resolve the on-chain hash (best-effort, short poll).
+    let txHash = null;
+    for (let i = 0; i < 12 && txId; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const st = await circle.getTransaction({ id: txId });
+        const tx = st.data?.transaction;
+        if (tx?.txHash) { txHash = tx.txHash; break; }
+        if (['FAILED', 'DENIED', 'CANCELLED'].includes(tx?.state)) break;
+      } catch (_) {}
+    }
+
+    console.log(`[withdraw] ${amount} USDC ${info.address} → ${to} (tx ${txHash || txId})`);
+    res.json({
+      ok: true,
+      amountUsdc: amount,
+      to,
+      txId,
+      txHash,
+      explorerUrl: txHash ? `https://testnet.arcscan.app/tx/${txHash}` : null,
+    });
+  } catch (e) {
+    console.error('[withdraw] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/wallet/export
 app.get('/api/wallet/export', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
