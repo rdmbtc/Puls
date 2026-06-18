@@ -109,7 +109,7 @@ class _SwarmViewState extends State<SwarmView> {
                             crossAxisCount: cols,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
-                            childAspectRatio: 0.92,
+                            mainAxisExtent: 176,
                           ),
                           itemBuilder: (_, i) => _AgentCard(
                             agent: _agents[i],

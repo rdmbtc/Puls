@@ -212,17 +212,19 @@ class _EventCard extends StatelessWidget {
           const SizedBox(height: 9),
           Row(children: [
             Text(ago(at), style: TextStyle(color: t.textSubtle, fontSize: 11)),
-            const Spacer(),
-            Wrap(spacing: 10, children: [
-              if (alphaMemo)
-                _MemoBadge(txId: (alphaTxId != null && alphaTxId.startsWith('0x')) ? alphaTxId : null),
-              if (alphaTxId != null && alphaTxId.startsWith('0x'))
-                _link(t, Icons.swap_horiz_rounded, 'alpha tx',
-                    'https://testnet.arcscan.app/tx/$alphaTxId'),
-              if (txHash != null && txHash.startsWith('0x'))
-                _link(t, Icons.receipt_long_rounded, 'trade',
-                    'https://testnet.arcscan.app/tx/$txHash'),
-            ]),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Wrap(spacing: 10, runSpacing: 6, alignment: WrapAlignment.end, children: [
+                if (alphaMemo)
+                  _MemoBadge(txId: (alphaTxId != null && alphaTxId.startsWith('0x')) ? alphaTxId : null),
+                if (alphaTxId != null && alphaTxId.startsWith('0x'))
+                  _link(t, Icons.swap_horiz_rounded, 'alpha tx',
+                      'https://testnet.arcscan.app/tx/$alphaTxId'),
+                if (txHash != null && txHash.startsWith('0x'))
+                  _link(t, Icons.receipt_long_rounded, 'trade',
+                      'https://testnet.arcscan.app/tx/$txHash'),
+              ]),
+            ),
           ]),
         ],
       ),

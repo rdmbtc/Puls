@@ -294,13 +294,16 @@ class _X402PaymentsState extends State<X402Payments> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Text('Agent ↔ Agent economy',
-                      style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w900)),
+                  Flexible(
+                    child: Text('Agent ↔ Agent economy',
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w900)),
+                  ),
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(5)),
-                    child: Text('📝 on-chain memo', style: TextStyle(color: t.brand, fontSize: 9, fontWeight: FontWeight.w800)),
+                    child: Text('📝 memo', style: TextStyle(color: t.brand, fontSize: 9, fontWeight: FontWeight.w800)),
                   ),
                 ]),
                 const SizedBox(height: 3),
