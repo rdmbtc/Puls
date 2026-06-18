@@ -1146,6 +1146,34 @@ app.get('/api/wallet/export', authenticateUser, requireVerifiedUser, strictLimit
 });
 
 // ── GET /api/markets ──────────────────────────────────────────────────────────
+
+// Anchor the price users SEE to the real-world Polymarket consensus, blending
+// toward the on-chain LMSR price only as genuine on-chain liquidity builds.
+//
+// Why: a freshly-deployed market starts at a 50/50 LMSR pool and only moves when
+// someone trades on Puls. Showing a raw 50¢/50¢ on a market that Polymarket
+// prices at (say) 5¢ YES misleads users and lets the on-chain price drift away
+// from reality. So with little on-chain volume we trust Polymarket; once real
+// USDC liquidity accumulates, we trust the market itself.
+//
+// totalVolume here = poolYes + poolNo (6-dec USDC units already divided down).
+const PRICE_LIQUIDITY_FULL = 50; // USDC of on-chain pool at which we fully trust on-chain price
+function displayPrices(onchainYes, pmYes, totalVolume) {
+  const pm = (typeof pmYes === 'number' && pmYes >= 0 && pmYes <= 1) ? pmYes : null;
+  const oc = (typeof onchainYes === 'number' && onchainYes >= 0 && onchainYes <= 1) ? onchainYes : null;
+  // No on-chain market yet → pure Polymarket (or 0.5 if unknown).
+  if (oc === null) {
+    const y = pm ?? 0.5;
+    return { yes: y, no: 1 - y };
+  }
+  // No consensus to anchor to → on-chain as-is.
+  if (pm === null) return { yes: oc, no: 1 - oc };
+  // Blend: weight on-chain by how much real liquidity exists.
+  const w = Math.max(0, Math.min(1, (Number(totalVolume) || 0) / PRICE_LIQUIDITY_FULL));
+  const y = pm * (1 - w) + oc * w;
+  return { yes: y, no: 1 - y };
+}
+
 app.get('/api/markets', async (req, res) => {
   try {
     const limit = req.query.limit || 50;
@@ -1294,6 +1322,10 @@ app.get('/api/markets', async (req, res) => {
         const rawPrices = j.outcomePrices || '["0.5","0.5"]';
         currentPrices = JSON.parse(rawPrices).map(p => parseFloat(p) || 0.5);
       } catch {}
+      // Real-world consensus YES from Polymarket (used to anchor the shown price).
+      const pmYes = currentPrices[0];
+      // Blend the on-chain price toward consensus until real liquidity builds.
+      const shown = displayPrices(yesPrice, pmYes, totalVolume);
 
       // A real-world event can finish before Polymarket flips `closed` (e.g. a
       // sports match that just ended). Don't let users trade those: if the event
@@ -1308,8 +1340,8 @@ app.get('/api/markets', async (req, res) => {
       return {
         ...j,
         contractAddress,
-        yesPrice: yesPrice !== null ? parseFloat(yesPrice.toFixed(4)) : currentPrices[0],
-        noPrice: noPrice !== null ? parseFloat(noPrice.toFixed(4)) : currentPrices[1],
+        yesPrice: parseFloat(shown.yes.toFixed(4)),
+        noPrice: parseFloat(shown.no.toFixed(4)),
         poolYes,
         poolNo,
         resolved,
