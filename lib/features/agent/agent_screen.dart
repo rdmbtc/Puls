@@ -18,11 +18,12 @@ import 'economy_feed.dart';
 import 'x402_payments.dart';
 
 class _Msg {
-  _Msg(this.fromAgent, this.text, {this.txId, this.contract});
+  _Msg(this.fromAgent, this.text, {this.txId, this.contract, this.sources = const []});
   final bool fromAgent;
   final String text;
   final String? txId;
   final String? contract;
+  final List<Map<String, dynamic>> sources;
 }
 
 /// Lets other tabs deep-link into one of the Agent screen's sub-tabs.
@@ -201,7 +202,8 @@ class _AgentScreenState extends State<AgentScreen>
       final trade = r['trade'] as Map<String, dynamic>?;
       setState(() {
         _msgs.add(_Msg(true, r['reply'] as String? ?? 'Done.',
-            txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?));
+            txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?,
+            sources: (r['sources'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>().toList()));
         if (r['remaining'] != null) _spent = _budgetVal - (r['remaining'] as num).toDouble();
         if (r['reputation'] != null) _reputation = (r['reputation'] as num).toInt();
       });
@@ -775,6 +777,41 @@ class _AgentScreenState extends State<AgentScreen>
             ),
             child: Text(m.text, style: TextStyle(color: fg, fontSize: 14, height: 1.35)),
           ),
+          if (m.fromAgent && m.sources.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: m.sources.map((s) {
+                  final src = (s['source'] as String?) ?? 'source';
+                  final url = s['url'] as String?;
+                  return GestureDetector(
+                    onTap: url == null
+                        ? null
+                        : () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: t.surface,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: t.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.travel_explore_rounded, size: 10, color: t.brand),
+                          const SizedBox(width: 4),
+                          Text(src, style: TextStyle(color: t.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
           if (m.txId != null) ...[
             const SizedBox(height: 4),
             GestureDetector(
