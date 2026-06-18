@@ -508,7 +508,7 @@
     }
 
     // amountUsdc: string like "1". Returns { arcTxHash } or { error }.
-    window.bridgeUsdcToArc = async function (amountUsdc) {
+    window.bridgeUsdcToArc = async function (amountUsdc, recipient) {
       try {
         if (!window.ethereum) return JSON.stringify({ error: 'No browser wallet. Install MetaMask.' });
         await _switchTo(SEPOLIA);
@@ -543,7 +543,8 @@
         }
 
         // Burn-with-hook.
-        const mintRecipient = ethers.zeroPadValue(user, 32);
+        const dest = (recipient && /^0x[0-9a-fA-F]{40}$/.test(recipient)) ? recipient : user;
+        const mintRecipient = ethers.zeroPadValue(dest, 32);
         const emptyCaller = ethers.zeroPadValue('0x', 32);
         const tm = new ethers.Contract(SEPOLIA_TOKEN_MESSENGER, TOKEN_MESSENGER_ABI, signer);
         const burnTx = await tm.depositForBurnWithHook(

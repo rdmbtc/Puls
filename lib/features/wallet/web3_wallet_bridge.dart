@@ -35,8 +35,8 @@ Future<WalletConnectResult> claimOnChain(String contractAddress) =>
 
 /// Bridge USDC from Ethereum Sepolia → Arc via Circle CCTP (Forwarding Service).
 /// Returns the Arc mint tx hash on success (or burn hash + pending if still settling).
-Future<BridgeResult> bridgeUsdcToArc(double amountUsdc) =>
-    impl.bridgeUsdcToArc(amountUsdc);
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) =>
+    impl.bridgeUsdcToArc(amountUsdc, recipient: recipient);
 
 /// Result of a CCTP bridge attempt.
 class BridgeResult {

@@ -23,7 +23,7 @@ external JSPromise<JSString> _jsSellPositionOnChain(JSBoolean isYes, JSString sh
 external JSPromise<JSString> _jsClaimOnChain(JSString contractAddress);
 
 @JS('bridgeUsdcToArc')
-external JSPromise<JSString> _jsBridgeUsdcToArc(JSString amountUsdc);
+external JSPromise<JSString> _jsBridgeUsdcToArc(JSString amountUsdc, JSString recipient);
 
 bool hasBrowserWallet() {
   try {
@@ -115,9 +115,9 @@ Future<WalletConnectResult> claimOnChain(String contractAddress) async {
   }
 }
 
-Future<BridgeResult> bridgeUsdcToArc(double amountUsdc) async {
+Future<BridgeResult> bridgeUsdcToArc(double amountUsdc, {String? recipient}) async {
   try {
-    final resultJson = (await _jsBridgeUsdcToArc(amountUsdc.toString().toJS).toDart).toDart;
+    final resultJson = (await _jsBridgeUsdcToArc(amountUsdc.toString().toJS, (recipient ?? '').toJS).toDart).toDart;
     if (resultJson.contains('"error"')) {
       return BridgeResult(error: _extractJsonValue(resultJson, 'error'));
     }
