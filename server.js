@@ -3406,6 +3406,9 @@ async function updateLeaderboard() {
     // agent activity separately so the leaderboard can rank them side by side.
     const agentOwnerKey = (t) => {
       if (t.user_id === HOUSE_AGENT_USER) return HOUSE_AGENT_USER;
+      // Swarm agents already trade under their own agent id (agent_swarm_*) and
+      // have first-class profiles — keep them as themselves, don't double-wrap.
+      if (typeof t.user_id === 'string' && t.user_id.startsWith('agent_swarm_')) return t.user_id;
       const isAgentTrade = typeof t.question === 'string' && t.question.startsWith('🤖 Agent:');
       return isAgentTrade ? `agent_${t.user_id}` : t.user_id;
     };
@@ -3478,6 +3481,8 @@ async function updateLeaderboard() {
             let userAddress = userIdToAddressCache.get(userId);
             // House agent trades under 'house_pulse' but its wallet row is keyed 'agent_house_pulse'
             if (!userAddress && userId === HOUSE_AGENT_USER) userAddress = userIdToAddressCache.get(HOUSE_AGENT_KEY);
+            // Swarm agents trade under 'agent_swarm_*'; their wallet row is keyed 'agent_agent_swarm_*'
+            if (!userAddress && userId.startsWith('agent_swarm_')) userAddress = userIdToAddressCache.get(`agent_${userId}`);
             // Resolve addresses not in the wallet cache: eth_-prefixed and raw-address user ids
             if (!userAddress && userId.startsWith('eth_')) userAddress = userId.slice(4);
             if (!userAddress && userId.startsWith('0x') && userId.length === 42) userAddress = userId;
@@ -3702,7 +3707,7 @@ app.get('/api/leaderboard', async (req, res) => {
             const isAgentTrade = typeof t.question === 'string' && t.question.startsWith('🤖 Agent:');
             const key = t.user_id === HOUSE_AGENT_USER
               ? HOUSE_AGENT_USER
-              : (isAgentTrade ? `agent_${t.user_id}` : t.user_id);
+              : (t.user_id.startsWith('agent_swarm_') ? t.user_id : (isAgentTrade ? `agent_${t.user_id}` : t.user_id));
             if (!userStats[key]) {
               userStats[key] = { volume: 0, pnl: 0, trades_count: 0, win_rate: 0 };
             }
@@ -3767,6 +3772,11 @@ app.get('/api/leaderboard', async (req, res) => {
         defaultName = 'Pulse · House Agent';
         defaultAvatar = `https://api.dicebear.com/7.x/bottts/png?size=128&seed=pulse-house`;
         erc8004Id = agentTokenIds.get(HOUSE_AGENT_KEY) ?? null;
+      } else if (row.user_id?.startsWith('agent_swarm_')) {
+        // Swarm agents are first-class citizens — use their OWN profile + identity.
+        defaultName = profile?.display_name || 'Puls Agent';
+        defaultAvatar = profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/png?size=128&seed=${row.user_id}`;
+        erc8004Id = agentTokenIds.get(`agent_${row.user_id}`) ?? null;
       } else if (row.user_id?.startsWith('agent_')) {
         const ownerProfile = profilesMap[row.user_id.slice(6)];
         const ownerName = ownerProfile?.display_name || 'Puls Trader';
