@@ -24,6 +24,7 @@ dependencies:
   haptic_kit: ^1.0.0
   picons: ^3.0.1
   qr_flutter: ^4.1.0
+  flutter_web_scroll: ^1.0.1
 
 dev_dependencies:
   flutter_test:
