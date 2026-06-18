@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_web_scroll/flutter_web_scroll.dart';
 
 import 'hero_market_stack.dart';
 import 'live_activity.dart';
@@ -75,19 +76,26 @@ class _WebLandingPageState extends State<WebLandingPage>
             child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
           ),
           // ── Content ─────────────────────────────────────────────────────
-          SingleChildScrollView(
+          SmoothScrollWeb(
             controller: _scrollCtrl,
-            child: Column(
-              children: [
-                _HeroSection(scrollOffset: _scrollOffset),
-                _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
-                _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
-                _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
-                _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
-                _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
-                _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
-                const _FooterSection(),
-              ],
+            config: SmoothScrollConfig.lenis(
+              scrollSpeed: 1.1,
+              damping: 0.09,
+            ),
+            child: SingleChildScrollView(
+              controller: _scrollCtrl,
+              child: Column(
+                children: [
+                  _HeroSection(scrollOffset: _scrollOffset),
+                  _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
+                  _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
+                  const _FooterSection(),
+                ],
+              ),
             ),
           ),
         ],
