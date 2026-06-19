@@ -744,6 +744,9 @@ class _Tag extends StatelessWidget {
 
 String _getTopicImage(String category, String id) {
   final cat = category.toLowerCase();
+  if (cat.contains('world cup') || cat.contains('fifa')) {
+    return 'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=600&auto=format&fit=crop&q=60';
+  }
   if (cat.contains('politics') || cat.contains('election') || cat.contains('vote')) {
     return 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=600&auto=format&fit=crop&q=60';
   }
