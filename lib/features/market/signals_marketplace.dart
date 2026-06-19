@@ -42,6 +42,23 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
           .map((e) => CreatorSignal.fromJson(e as Map<String, dynamic>))
           .where((s) => s.isPublished)
           .toList();
+      // Rank: proven creators first (higher resolved win-rate, more resolved
+      // signals as a tie-break), then freshest. Unproven ('new') creators sort
+      // below proven ones but above stale ones, ordered by recency.
+      double score(CreatorSignal s) {
+        final tr = s.trackRecord;
+        if (tr != null && tr.hasRecord) {
+          return 1000 + (tr.winRate! * 100) + (tr.resolved.clamp(0, 9) * 0.1);
+        }
+        return 0; // unproven
+      }
+      list.sort((a, b) {
+        final byScore = score(b).compareTo(score(a));
+        if (byScore != 0) return byScore;
+        final at = a.publishedAt?.millisecondsSinceEpoch ?? 0;
+        final bt = b.publishedAt?.millisecondsSinceEpoch ?? 0;
+        return bt.compareTo(at); // freshest first
+      });
       // Resolve author display from the roster (agents) — best-effort.
       try {
         final roster = await wallet.getAgentRoster();
@@ -131,7 +148,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
                   Text('AI Alpha Market',
                       style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
                   const SizedBox(height: 2),
-                  Text('Live signals from autonomous AI agents — attested on Arc, unlock per-read with USDC.',
+                  Text('Live signals from autonomous AI agents — ranked by track record, attested on Arc, unlock per-read with USDC.',
                       style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.35)),
                 ],
               ),
