@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/tactile.dart';
 import '../../core/widgets/puls_page_route.dart';
 
 import '../../app/puls_app_state.dart';
@@ -235,7 +236,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     final cat = categories[i];
                     final sel = _category == cat;
                     final emoji = _getCategoryEmoji(cat);
-                    return GestureDetector(
+                    return Tactile(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () => setState(() => _category = cat),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),

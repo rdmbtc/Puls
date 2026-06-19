@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/tactile.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +24,7 @@ import '../../core/widgets/count_up_text.dart';
 import '../../core/widgets/skeleton.dart';
 
 import '../../core/config.dart' show backendUrl;
+
 const _backendUrl = backendUrl;
 
 class PortfolioScreen extends StatefulWidget {
@@ -64,11 +66,13 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     try {
       final res = await wallet.claimAllWinnings();
       final n = (res['claimed'] as num?)?.toInt() ?? 0;
-      snack.success(
-          n > 0 ? 'Claiming $n winning position${n == 1 ? '' : 's'} — balance updates shortly.'
-                : 'No claimable winnings right now.');
+      snack.success(n > 0
+          ? 'Claiming $n winning position${n == 1 ? '' : 's'} — balance updates shortly.'
+          : 'No claimable winnings right now.');
       _load(silent: true);
-      Future.delayed(const Duration(seconds: 8), () { if (mounted) _load(silent: true); });
+      Future.delayed(const Duration(seconds: 8), () {
+        if (mounted) _load(silent: true);
+      });
     } catch (e) {
       snack.error(e.toString().replaceAll('Exception: ', ''));
     } finally {
@@ -86,7 +90,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [t.yes.withValues(alpha: 0.18), t.surface]),
+            gradient: LinearGradient(
+                colors: [t.yes.withValues(alpha: 0.18), t.surface]),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: t.yes.withValues(alpha: 0.5)),
           ),
@@ -94,16 +99,29 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
             Icon(Icons.redeem_rounded, color: t.yes, size: 20),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('You have $n winning position${n == 1 ? '' : 's'} to claim 🎉',
-                  style: TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w800)),
+              child: Text(
+                  'You have $n winning position${n == 1 ? '' : 's'} to claim 🎉',
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(color: t.yes, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                  color: t.yes, borderRadius: BorderRadius.circular(10)),
               child: _claimingAll
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Claim all', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w900)),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Claim all',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900)),
             ),
           ]),
         ),
@@ -144,34 +162,41 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     _tradeChannel = null;
     if (ws.userId == null) return;
 
-    _tradeChannel = _supabase.channel('public:trades:portfolio')
-      .onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'trades',
-        filter: PostgresChangeFilter(
-          type: PostgresChangeFilterType.eq,
-          column: 'user_id',
-          value: ws.userId,
-        ),
-        callback: (payload) {
-          _load(silent: true);
-        },
-      )
-      .subscribe();
+    _tradeChannel = _supabase
+        .channel('public:trades:portfolio')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'trades',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: ws.userId,
+          ),
+          callback: (payload) {
+            _load(silent: true);
+          },
+        )
+        .subscribe();
   }
 
   void _applySort() {
     _positions.sort((a, b) {
-      final ta = DateTime.tryParse(a['timestamp'] as String? ?? '') ?? DateTime(1970);
-      final tb = DateTime.tryParse(b['timestamp'] as String? ?? '') ?? DateTime(1970);
+      final ta =
+          DateTime.tryParse(a['timestamp'] as String? ?? '') ?? DateTime(1970);
+      final tb =
+          DateTime.tryParse(b['timestamp'] as String? ?? '') ?? DateTime(1970);
       return _newestFirst ? tb.compareTo(ta) : ta.compareTo(tb);
     });
   }
 
   Widget _sortToggle(PulsThemeColors t) {
-    return GestureDetector(
-      onTap: () => setState(() { _newestFirst = !_newestFirst; _applySort(); }),
+    return Tactile(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() {
+        _newestFirst = !_newestFirst;
+        _applySort();
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
@@ -182,9 +207,18 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_newestFirst ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 12, color: t.textMuted),
+            Icon(
+                _newestFirst
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_upward_rounded,
+                size: 12,
+                color: t.textMuted),
             const SizedBox(width: 4),
-            Text(_newestFirst ? 'Newest' : 'Oldest', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(_newestFirst ? 'Newest' : 'Oldest',
+                style: TextStyle(
+                    color: t.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -238,7 +272,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     // Silent reloads (trade just placed / realtime event / pending poll) keep the
     // current list on screen instead of flashing a spinner.
     if (!silent || _positions.isEmpty) {
-      setState(() { _loading = true; _error = null; });
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
     }
     try {
       final headers = <String, String>{};
@@ -252,7 +289,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       );
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode != 200) throw Exception(data['error']);
-      final positions = (data['positions'] as List).cast<Map<String, dynamic>>();
+      final positions =
+          (data['positions'] as List).cast<Map<String, dynamic>>();
 
       List<Map<String, dynamic>> limitOrders = [];
       try {
@@ -273,21 +311,29 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       _schedulePendingPoll();
     } catch (e) {
       if (!mounted) return;
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
   Future<void> _cancelLimitOrder(String orderId) async {
     final wallet = WalletServiceScope.of(context);
     final snack = PulsSnack.of(context);
-    setState(() { _loading = true; });
+    setState(() {
+      _loading = true;
+    });
     try {
       await wallet.cancelLimitOrder(orderId);
       snack.success('Limit order cancelled successfully.');
       await _load();
     } catch (e) {
-      snack.error('Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}');
-      setState(() { _loading = false; });
+      snack.error(
+          'Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}');
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
@@ -303,7 +349,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
+            child: Tactile(
+              behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _showOrdersTab = false),
               child: Container(
                 alignment: Alignment.center,
@@ -323,7 +370,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
             ),
           ),
           Expanded(
-            child: GestureDetector(
+            child: Tactile(
+              behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _showOrdersTab = true),
               child: Container(
                 alignment: Alignment.center,
@@ -360,11 +408,13 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
               question.toLowerCase().split(' ').take(5).join(' '),
             ),
       );
-      currentPrice = isYes ? market.yesPrice as double : market.noPrice as double;
+      currentPrice =
+          isYes ? market.yesPrice as double : market.noPrice as double;
     } catch (_) {}
 
     if (currentPrice == null) return null;
-    final shares = (position['shares'] as num?)?.toDouble() ?? (entryPrice > 0 ? cost / entryPrice : 0);
+    final shares = (position['shares'] as num?)?.toDouble() ??
+        (entryPrice > 0 ? cost / entryPrice : 0);
     final currentValue = shares * currentPrice;
     return currentValue - cost;
   }
@@ -384,7 +434,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       if (pnl != null) {
         totalPnl += pnl;
         openValue += ((p['usdcAmount'] as num?)?.toDouble() ?? 0) + pnl;
-        if (pnl >= 0) { wins++; } else { losses++; }
+        if (pnl >= 0) {
+          wins++;
+        } else {
+          losses++;
+        }
       }
     }
 
@@ -399,7 +453,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         child: _Empty(
           icon: Icons.account_balance_wallet_outlined,
           message: 'Sign in to see your portfolio',
-          sub: 'One tap — a Circle MPC wallet on Arc Testnet is created for you automatically.',
+          sub:
+              'One tap — a Circle MPC wallet on Arc Testnet is created for you automatically.',
           t: t,
           ctaLabel: 'Connect with Google',
           ctaIcon: Icons.login_rounded,
@@ -436,24 +491,45 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     children: [
                       _HeroCard(
                         totalSpent: _totalSpent,
-                        positionCount: _positions.where((p) => p['state'] == 'COMPLETE').length,
+                        positionCount: _positions
+                            .where((p) => p['state'] == 'COMPLETE')
+                            .length,
                         totalPnl: totalPnl,
                         t: t,
                         walletAddress: ws.walletAddress,
                         usdcBalance: ws.usdcBalance,
                       ),
                       const SizedBox(height: 16),
-                      Text('Performance Trend', style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('Performance Trend',
+                          style: TextStyle(
+                              color: t.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       _PortfolioChart(cost: invested, pnl: totalPnl, t: t),
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(child: _StatBox(label: 'Open Value', value: '\$${openValue.toStringAsFixed(2)}', t: t)),
+                          Expanded(
+                              child: _StatBox(
+                                  label: 'Open Value',
+                                  value: '\$${openValue.toStringAsFixed(2)}',
+                                  t: t)),
                           const SizedBox(width: 10),
-                          Expanded(child: _StatBox(label: 'Win Rate', value: (wins + losses) > 0 ? '${((wins / (wins + losses)) * 100).toStringAsFixed(0)}%' : '—', t: t, highlight: wins > losses)),
+                          Expanded(
+                              child: _StatBox(
+                                  label: 'Win Rate',
+                                  value: (wins + losses) > 0
+                                      ? '${((wins / (wins + losses)) * 100).toStringAsFixed(0)}%'
+                                      : '—',
+                                  t: t,
+                                  highlight: wins > losses)),
                           const SizedBox(width: 10),
-                          Expanded(child: _StatBox(label: 'Trades', value: '${_positions.length}', t: t)),
+                          Expanded(
+                              child: _StatBox(
+                                  label: 'Trades',
+                                  value: '${_positions.length}',
+                                  t: t)),
                         ],
                       ),
                     ],
@@ -470,7 +546,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       children: [
                         Expanded(child: _tabToggle(t)),
                         const SizedBox(width: 16),
-                        if (!_showOrdersTab && _positions.length > 1) _sortToggle(t),
+                        if (!_showOrdersTab && _positions.length > 1)
+                          _sortToggle(t),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -481,12 +558,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                               ? _Empty(
                                   icon: Icons.history_rounded,
                                   message: 'No pending orders',
-                                  sub: 'Place a limit order on any prediction to see it here.',
+                                  sub:
+                                      'Place a limit order on any prediction to see it here.',
                                   t: t,
                                 )
                               : ListView.separated(
                                   itemCount: _limitOrders.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 12),
                                   itemBuilder: (context, i) => FadeInUp(
                                     delay: Duration(milliseconds: i * 40),
                                     duration: const Duration(milliseconds: 250),
@@ -494,15 +573,18 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                       order: _limitOrders[i],
                                       t: t,
                                       appState: appState,
-                                      onCancel: () => _cancelLimitOrder(_limitOrders[i]['id'] as String),
+                                      onCancel: () => _cancelLimitOrder(
+                                          _limitOrders[i]['id'] as String),
                                     ),
                                   ),
                                 )
                           : _positions.isEmpty
                               ? _Empty(
                                   icon: Icons.bar_chart_rounded,
-                                  message: 'No positions yet — swipe on a market to start.',
-                                  sub: 'Buy YES or NO on any prediction to get started.',
+                                  message:
+                                      'No positions yet — swipe on a market to start.',
+                                  sub:
+                                      'Buy YES or NO on any prediction to get started.',
                                   t: t,
                                   ctaLabel: 'Browse markets',
                                   ctaIcon: Icons.explore_rounded,
@@ -511,7 +593,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                 )
                               : ListView.separated(
                                   itemCount: _positions.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 12),
                                   itemBuilder: (context, i) => FadeInUp(
                                     delay: Duration(milliseconds: i * 40),
                                     duration: const Duration(milliseconds: 250),
@@ -519,7 +602,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                       position: _positions[i],
                                       t: t,
                                       appState: appState,
-                                      walletService: WalletServiceScope.of(context),
+                                      walletService:
+                                          WalletServiceScope.of(context),
                                       onRefresh: _load,
                                     ),
                                   ),
@@ -542,7 +626,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   children: [
                     _HeroCard(
                       totalSpent: _totalSpent,
-                      positionCount: _positions.where((p) => p['state'] == 'COMPLETE').length,
+                      positionCount: _positions
+                          .where((p) => p['state'] == 'COMPLETE')
+                          .length,
                       totalPnl: totalPnl,
                       t: t,
                       walletAddress: ws.walletAddress,
@@ -551,11 +637,26 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: _StatBox(label: 'Open Value', value: '\$${openValue.toStringAsFixed(2)}', t: t)),
+                        Expanded(
+                            child: _StatBox(
+                                label: 'Open Value',
+                                value: '\$${openValue.toStringAsFixed(2)}',
+                                t: t)),
                         const SizedBox(width: 10),
-                        Expanded(child: _StatBox(label: 'Win Rate', value: (wins + losses) > 0 ? '${((wins / (wins + losses)) * 100).toStringAsFixed(0)}%' : '—', t: t, highlight: wins > losses)),
+                        Expanded(
+                            child: _StatBox(
+                                label: 'Win Rate',
+                                value: (wins + losses) > 0
+                                    ? '${((wins / (wins + losses)) * 100).toStringAsFixed(0)}%'
+                                    : '—',
+                                t: t,
+                                highlight: wins > losses)),
                         const SizedBox(width: 10),
-                        Expanded(child: _StatBox(label: 'Trades', value: '${_positions.length}', t: t)),
+                        Expanded(
+                            child: _StatBox(
+                                label: 'Trades',
+                                value: '${_positions.length}',
+                                t: t)),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -581,7 +682,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     child: _Empty(
                       icon: Icons.history_rounded,
                       message: 'No pending orders',
-                      sub: 'Place a limit order on any prediction to see it here.',
+                      sub:
+                          'Place a limit order on any prediction to see it here.',
                       t: t,
                     ),
                   ),
@@ -600,56 +702,57 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                           order: _limitOrders[i],
                           t: t,
                           appState: appState,
-                          onCancel: () => _cancelLimitOrder(_limitOrders[i]['id'] as String),
+                          onCancel: () => _cancelLimitOrder(
+                              _limitOrders[i]['id'] as String),
                         ),
                       ),
                     ),
                   ),
                 )
+            else if (_positions.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _Empty(
+                    icon: Icons.bar_chart_rounded,
+                    message: 'No positions yet — swipe on a market to start.',
+                    sub: 'Buy YES or NO on any prediction to get started.',
+                    t: t,
+                    imageUrl:
+                        'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
+                    ctaLabel: 'Browse markets',
+                    ctaIcon: Icons.explore_rounded,
+                    onCta: () =>
+                        ShellNavScope.maybeOf(context)?.goToTab(PulsTab.feed),
+                  ),
+                ),
+              )
             else
-              if (_positions.isEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _Empty(
-                      icon: Icons.bar_chart_rounded,
-                      message: 'No positions yet — swipe on a market to start.',
-                      sub: 'Buy YES or NO on any prediction to get started.',
-                      t: t,
-                      imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
-                      ctaLabel: 'Browse markets',
-                      ctaIcon: Icons.explore_rounded,
-                      onCta: () =>
-                          ShellNavScope.maybeOf(context)?.goToTab(PulsTab.feed),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  sliver: SliverToBoxAdapter(child: _claimAllBar(t)),
-                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                sliver: SliverToBoxAdapter(child: _claimAllBar(t)),
+              ),
             if (!_showOrdersTab && _positions.isNotEmpty)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                  sliver: SliverList.builder(
-                    itemCount: _positions.length,
-                    itemBuilder: (context, i) => FadeInUp(
-                      delay: Duration(milliseconds: i * 40),
-                      duration: const Duration(milliseconds: 250),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _PositionCard(
-                          position: _positions[i],
-                          t: t,
-                          appState: appState,
-                          walletService: WalletServiceScope.of(context),
-                          onRefresh: _load,
-                        ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                sliver: SliverList.builder(
+                  itemCount: _positions.length,
+                  itemBuilder: (context, i) => FadeInUp(
+                    delay: Duration(milliseconds: i * 40),
+                    duration: const Duration(milliseconds: 250),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _PositionCard(
+                        position: _positions[i],
+                        t: t,
+                        appState: appState,
+                        walletService: WalletServiceScope.of(context),
+                        onRefresh: _load,
                       ),
                     ),
                   ),
                 ),
+              ),
           ],
         );
       }
@@ -658,7 +761,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text('Portfolio', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        title: Text('Portfolio',
+            style: TextStyle(
+                color: t.text,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -677,7 +784,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 }
 
 class _PortfolioChart extends StatelessWidget {
-  const _PortfolioChart({required this.cost, required this.pnl, required this.t});
+  const _PortfolioChart(
+      {required this.cost, required this.pnl, required this.t});
   final double cost;
   final double pnl;
   final PulsThemeColors t;
@@ -718,7 +826,10 @@ class _PortfolioChart extends StatelessWidget {
                 return touchedSpots.map((spot) {
                   return LineTooltipItem(
                     '\$${spot.y.toStringAsFixed(2)}',
-                    TextStyle(color: t.text, fontWeight: FontWeight.bold, fontSize: 12),
+                    TextStyle(
+                        color: t.text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
                   );
                 }).toList();
               },
@@ -814,7 +925,8 @@ class _HeroCard extends StatelessWidget {
                             letterSpacing: 0.8)),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -824,7 +936,10 @@ class _HeroCard extends StatelessWidget {
                           CircleAvatar(radius: 3, backgroundColor: t.yes),
                           const SizedBox(width: 5),
                           Text('Arc Testnet',
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 10, fontWeight: FontWeight.bold)),
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -833,7 +948,8 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 CountUpText(
                   double.tryParse(totalSpent) ?? 0,
-                  builder: (context, v) => Text('\$${v.toStringAsFixed(2)} USDC',
+                  builder: (context, v) => Text(
+                      '\$${v.toStringAsFixed(2)} USDC',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 34,
@@ -846,7 +962,9 @@ class _HeroCard extends StatelessWidget {
                   children: [
                     if (hasPnl) ...[
                       Icon(
-                        pnlPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                        pnlPositive
+                            ? Icons.trending_up_rounded
+                            : Icons.trending_down_rounded,
                         color: pnlPositive ? t.yes : t.no,
                         size: 16,
                       ),
@@ -864,12 +982,15 @@ class _HeroCard extends StatelessWidget {
                       ),
                     ] else ...[
                       Text('Place your first trade to see P&L',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 13)),
                     ],
                   ],
                 ),
                 const SizedBox(height: 16),
-                Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
+                Container(
+                    height: 1, color: Colors.white.withValues(alpha: 0.1)),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -877,29 +998,50 @@ class _HeroCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('USDC BALANCE', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.bold)),
+                        Text('USDC BALANCE',
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
-                        Text('\$$usdcBalance USDC', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text('\$$usdcBalance USDC',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('WALLET', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.bold)),
+                        Text('WALLET',
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
                         GestureDetector(
                           onTap: () {
                             if (walletAddress != null) {
-                              Clipboard.setData(ClipboardData(text: walletAddress!));
-                              PulsSnack.show(context, 'Address copied to clipboard',
+                              Clipboard.setData(
+                                  ClipboardData(text: walletAddress!));
+                              PulsSnack.show(
+                                  context, 'Address copied to clipboard',
                                   duration: const Duration(seconds: 2));
                             }
                           },
                           child: Row(
                             children: [
-                              Text(shortAddress, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
+                              Text(shortAddress,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline)),
                               const SizedBox(width: 4),
-                              Icon(Icons.copy_rounded, color: Colors.white.withValues(alpha: 0.7), size: 12),
+                              Icon(Icons.copy_rounded,
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  size: 12),
                             ],
                           ),
                         ),
@@ -941,13 +1083,16 @@ class _PositionCardState extends State<_PositionCard> {
     final snack = PulsSnack.of(context);
     setState(() => _claiming = true);
     final slug = widget.position['slug'] as String? ?? '';
-    final String? contractAddress = (widget.position['contractAddress'] as String?) ?? (widget.position['marketId'] as String?);
+    final String? contractAddress =
+        (widget.position['contractAddress'] as String?) ??
+            (widget.position['marketId'] as String?);
 
     try {
       if (contractAddress == null || contractAddress.isEmpty) {
         throw Exception('Market contract address not available');
       }
-      await widget.walletService.claimWinnings(contractAddress: contractAddress, slug: slug);
+      await widget.walletService
+          .claimWinnings(contractAddress: contractAddress, slug: slug);
       if (mounted) {
         snack.success('Claim submitted! Check balance in a few seconds.');
         widget.onRefresh?.call();
@@ -997,15 +1142,21 @@ class _PositionCardState extends State<_PositionCard> {
               ),
         ) as Market;
         currentPrice = isYes ? matchedMarket.yesPrice : matchedMarket.noPrice;
-        final shares = (position['shares'] as num?)?.toDouble() ?? (amount > 0 ? (amount / (hasRealEntryPrice ? entryPrice : 0.5)) : 0.0);
+        final shares = (position['shares'] as num?)?.toDouble() ??
+            (amount > 0
+                ? (amount / (hasRealEntryPrice ? entryPrice : 0.5))
+                : 0.0);
         pnl = (shares * currentPrice) - amount;
       } catch (_) {}
     }
 
     matchedMarket ??= Market(
-      id: (position['marketId'] as String? ?? position['contractAddress'] as String?) ?? '',
+      id: (position['marketId'] as String? ??
+              position['contractAddress'] as String?) ??
+          '',
       slug: position['slug'] as String? ?? 'default-slug',
-      contractAddress: position['contractAddress'] as String? ?? position['marketId'] as String?,
+      contractAddress: position['contractAddress'] as String? ??
+          position['marketId'] as String?,
       question: question,
       category: 'Crypto',
       context: '',
@@ -1022,7 +1173,8 @@ class _PositionCardState extends State<_PositionCard> {
       news: const [],
     );
 
-    final positionContract = (position['contractAddress'] as String?) ?? (position['marketId'] as String?);
+    final positionContract = (position['contractAddress'] as String?) ??
+        (position['marketId'] as String?);
     final hasValidContract = positionContract != null &&
         positionContract.startsWith('0x') &&
         positionContract.length == 42;
@@ -1065,34 +1217,66 @@ class _PositionCardState extends State<_PositionCard> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: sideBg, borderRadius: BorderRadius.circular(6)),
-                child: Text(isYes ? 'YES' : 'NO', style: TextStyle(color: sideFg, fontWeight: FontWeight.w800, fontSize: 11)),
+                decoration: BoxDecoration(
+                    color: sideBg, borderRadius: BorderRadius.circular(6)),
+                child: Text(isYes ? 'YES' : 'NO',
+                    style: TextStyle(
+                        color: sideFg,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11)),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: stateColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(stateLabel, style: TextStyle(color: stateColor, fontWeight: FontWeight.w600, fontSize: 11)),
+                decoration: BoxDecoration(
+                    color: stateColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(stateLabel,
+                    style: TextStyle(
+                        color: stateColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11)),
               ),
               if (resolved) ...[
                 const SizedBox(width: 8),
                 if (claimed)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: t.brand.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                    child: Text('Claimed', style: TextStyle(color: t.brand, fontWeight: FontWeight.bold, fontSize: 11)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: t.brand.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text('Claimed',
+                        style: TextStyle(
+                            color: t.brand,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11)),
                   )
                 else if (userWon)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: t.yes.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                    child: Text('Won', style: TextStyle(color: t.yes, fontWeight: FontWeight.bold, fontSize: 11)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: t.yes.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text('Won',
+                        style: TextStyle(
+                            color: t.yes,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11)),
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: t.no.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                    child: Text('Lost', style: TextStyle(color: t.no, fontWeight: FontWeight.bold, fontSize: 11)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: t.no.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text('Lost',
+                        style: TextStyle(
+                            color: t.no,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11)),
                   ),
               ],
               const Spacer(),
@@ -1102,40 +1286,58 @@ class _PositionCardState extends State<_PositionCard> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('\$${amount.toStringAsFixed(2)} USDC', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14)),
+                      Text('\$${amount.toStringAsFixed(2)} USDC',
+                          style: TextStyle(
+                              color: t.text,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14)),
                       if (state == 'COMPLETE') ...[
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: () => ShareBetCardDialog.show(context, position, pnl),
-                          child: Icon(Icons.share_rounded, size: 14, color: t.brand),
+                          onTap: () =>
+                              ShareBetCardDialog.show(context, position, pnl),
+                          child: Icon(Icons.share_rounded,
+                              size: 14, color: t.brand),
                         ),
                       ],
                     ],
                   ),
                   if (pnl != null && pnl.abs() >= 0.01)
                     Text('${pnl >= 0 ? '+' : ''}\$${pnl.toStringAsFixed(2)}',
-                        style: TextStyle(color: pnl >= 0 ? t.yes : t.no, fontWeight: FontWeight.w800, fontSize: 12)),
+                        style: TextStyle(
+                            color: pnl >= 0 ? t.yes : t.no,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(question, style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(question,
+              style: TextStyle(
+                  color: t.text, fontSize: 14, fontWeight: FontWeight.w700),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
           if (entryPrice > 0 && entryPrice != 0.5) ...[
             const SizedBox(height: 6),
             Row(
               children: [
-                Text('Entry ${(entryPrice * 100).toStringAsFixed(0)}¢', style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                Text('Entry ${(entryPrice * 100).toStringAsFixed(0)}¢',
+                    style: TextStyle(color: t.textSubtle, fontSize: 11)),
                 if (currentPrice != null) ...[
                   const SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_rounded, size: 10, color: t.textSubtle),
+                  Icon(Icons.arrow_forward_rounded,
+                      size: 10, color: t.textSubtle),
                   const SizedBox(width: 6),
                   Text('Now ${(currentPrice * 100).toStringAsFixed(0)}¢',
                       style: TextStyle(
                         color: (currentPrice - entryPrice).abs() < 0.01
                             ? t.textSubtle
-                            : currentPrice >= entryPrice ? t.yes : t.no,
-                        fontSize: 11, fontWeight: FontWeight.w600,
+                            : currentPrice >= entryPrice
+                                ? t.yes
+                                : t.no,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       )),
                 ],
               ],
@@ -1146,18 +1348,26 @@ class _PositionCardState extends State<_PositionCard> {
             Row(
               children: [
                 if (timestamp != null)
-                  Text(_formatTime(timestamp), style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                  Text(_formatTime(timestamp),
+                      style: TextStyle(color: t.textSubtle, fontSize: 11)),
                 const Spacer(),
                 if (txHash != null)
                   GestureDetector(
-                    onTap: () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/$txHash'), mode: LaunchMode.externalApplication),
+                    onTap: () => launchUrl(
+                        Uri.parse('https://testnet.arcscan.app/tx/$txHash'),
+                        mode: LaunchMode.externalApplication),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}',
-                            style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w500)),
+                        Text(
+                            '${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}',
+                            style: TextStyle(
+                                color: t.brand,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
                         const SizedBox(width: 3),
-                        Icon(Icons.open_in_new_rounded, size: 11, color: t.brand),
+                        Icon(Icons.open_in_new_rounded,
+                            size: 11, color: t.brand),
                       ],
                     ),
                   ),
@@ -1183,16 +1393,31 @@ class _PositionCardState extends State<_PositionCard> {
                                 side: isYes ? MarketSide.yes : MarketSide.no,
                                 initialIsBuy: false,
                                 owner: (position['owner'] as String?) ?? 'user',
-                                maxShares: (position['shares'] as num?)?.toDouble() ?? (amount > 0 ? (amount / (hasRealEntryPrice ? entryPrice : 0.5)) : 0.0),
+                                maxShares:
+                                    (position['shares'] as num?)?.toDouble() ??
+                                        (amount > 0
+                                            ? (amount /
+                                                (hasRealEntryPrice
+                                                    ? entryPrice
+                                                    : 0.5))
+                                            : 0.0),
                               ).then((_) => widget.onRefresh?.call());
                             }
                           : null,
                       icon: const Icon(Icons.sell_rounded, size: 14),
-                      label: Text(resolved ? 'Market Resolved' : 'Sell Position', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(
+                          resolved ? 'Market Resolved' : 'Sell Position',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: t.brand,
-                        side: BorderSide(color: (hasValidContract && !resolved) ? t.brand : t.border, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: BorderSide(
+                            color: (hasValidContract && !resolved)
+                                ? t.brand
+                                : t.border,
+                            width: 1.5),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1202,9 +1427,19 @@ class _PositionCardState extends State<_PositionCard> {
                   child: SizedBox(
                     height: 36,
                     child: _claiming
-                        ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                        ? const Center(
+                            child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)))
                         : OutlinedButton.icon(
-                            onPressed: (hasValidContract && resolved && userWon && !claimed) ? _claim : null,
+                            onPressed: (hasValidContract &&
+                                    resolved &&
+                                    userWon &&
+                                    !claimed)
+                                ? _claim
+                                : null,
                             icon: const Icon(Icons.redeem_rounded, size: 14),
                             label: Text(
                               !resolved
@@ -1214,12 +1449,21 @@ class _PositionCardState extends State<_PositionCard> {
                                       : userWon
                                           ? 'Claim Winnings'
                                           : 'Position Lost',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: t.yes,
-                              side: BorderSide(color: (hasValidContract && resolved && userWon && !claimed) ? t.yes : t.border, width: 1.5),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: BorderSide(
+                                  color: (hasValidContract &&
+                                          resolved &&
+                                          userWon &&
+                                          !claimed)
+                                      ? t.yes
+                                      : t.border,
+                                  width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                   ),
@@ -1243,7 +1487,11 @@ class _PositionCardState extends State<_PositionCard> {
 }
 
 class _StatBox extends StatelessWidget {
-  const _StatBox({required this.label, required this.value, required this.t, this.highlight = false});
+  const _StatBox(
+      {required this.label,
+      required this.value,
+      required this.t,
+      this.highlight = false});
   final String label;
   final String value;
   final PulsThemeColors t;
@@ -1256,17 +1504,24 @@ class _StatBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: highlight ? t.yesBg : t.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: highlight ? t.yes.withValues(alpha: 0.3) : t.border),
+        border: Border.all(
+            color: highlight ? t.yes.withValues(alpha: 0.3) : t.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: TextStyle(
+                  color: t.textSubtle,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(
-            color: highlight ? t.yes : t.text,
-            fontSize: 15, fontWeight: FontWeight.w800,
-          )),
+          Text(value,
+              style: TextStyle(
+                color: highlight ? t.yes : t.text,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              )),
         ],
       ),
     );
@@ -1312,12 +1567,15 @@ class _Empty extends StatelessWidget {
               width: 80,
               height: 80,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Icon(icon, color: t.textSubtle, size: 36),
+              errorBuilder: (context, error, stackTrace) =>
+                  Icon(icon, color: t.textSubtle, size: 36),
             )
           else
             Icon(icon, color: t.textSubtle, size: 36),
           const SizedBox(height: 14),
-          Text(message, style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(message,
+              style: TextStyle(
+                  color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(sub,
               style: TextStyle(color: t.textMuted, fontSize: 13),
@@ -1328,7 +1586,8 @@ class _Empty extends StatelessWidget {
               onPressed: onCta,
               icon: Icon(ctaIcon ?? Icons.arrow_forward_rounded, size: 18),
               label: Text(ctaLabel!,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: t.brand,
                 foregroundColor: Colors.white,
@@ -1364,13 +1623,15 @@ class _LimitOrderCard extends StatelessWidget {
     final type = order['type'] as String? ?? 'BUY';
     final isYes = side == 'YES';
     final isBuy = type == 'BUY';
-    
+
     final sideBg = isYes ? t.yesBg : t.noBg;
     final sideFg = isYes ? t.yes : t.no;
-    
+
     final status = order['status'] as String? ?? 'PENDING';
-    final targetPrice = double.tryParse(order['target_price']?.toString() ?? '0') ?? 0.0;
-    final usdcAmount = double.tryParse(order['usdc_amount']?.toString() ?? '0') ?? 0.0;
+    final targetPrice =
+        double.tryParse(order['target_price']?.toString() ?? '0') ?? 0.0;
+    final usdcAmount =
+        double.tryParse(order['usdc_amount']?.toString() ?? '0') ?? 0.0;
     final shares = double.tryParse(order['shares']?.toString() ?? '0') ?? 0.0;
     final txHash = order['tx_hash'] as String?;
     final createdAt = order['created_at'] as String?;
@@ -1378,9 +1639,10 @@ class _LimitOrderCard extends StatelessWidget {
     // Match market to get question
     Market? market;
     try {
-      market = (appState.markets as List).firstWhere(
-        (m) => m.slug == order['slug'] || m.id == order['marketId'] || m.contractAddress == order['marketId']
-      ) as Market;
+      market = (appState.markets as List).firstWhere((m) =>
+          m.slug == order['slug'] ||
+          m.id == order['marketId'] ||
+          m.contractAddress == order['marketId']) as Market;
     } catch (_) {}
 
     final question = market?.question ?? order['slug'] ?? 'Prediction Market';
@@ -1414,35 +1676,63 @@ class _LimitOrderCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: sideBg, borderRadius: BorderRadius.circular(6)),
-                child: Text('$type $side', style: TextStyle(color: sideFg, fontWeight: FontWeight.w800, fontSize: 11)),
+                decoration: BoxDecoration(
+                    color: sideBg, borderRadius: BorderRadius.circular(6)),
+                child: Text('$type $side',
+                    style: TextStyle(
+                        color: sideFg,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11)),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize: 11)),
+                decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(status,
+                    style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11)),
               ),
               const Spacer(),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (isBuy)
-                    Text('\$${usdcAmount.toStringAsFixed(2)} USDC', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14))
+                    Text('\$${usdcAmount.toStringAsFixed(2)} USDC',
+                        style: TextStyle(
+                            color: t.text,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14))
                   else
-                    Text('${shares.toStringAsFixed(0)} shares', style: TextStyle(color: t.text, fontWeight: FontWeight.w800, fontSize: 14)),
-                  Text('Limit: ${(targetPrice * 100).toStringAsFixed(0)}¢', style: TextStyle(color: t.textSubtle, fontWeight: FontWeight.w600, fontSize: 12)),
+                    Text('${shares.toStringAsFixed(0)} shares',
+                        style: TextStyle(
+                            color: t.text,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14)),
+                  Text('Limit: ${(targetPrice * 100).toStringAsFixed(0)}¢',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(question, style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(question,
+              style: TextStyle(
+                  color: t.text, fontSize: 14, fontWeight: FontWeight.w700),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
           const SizedBox(height: 8),
           Row(
             children: [
               if (createdAt != null)
-                Text(_formatTime(createdAt), style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                Text(_formatTime(createdAt),
+                    style: TextStyle(color: t.textSubtle, fontSize: 11)),
               const Spacer(),
               if (status == 'PENDING')
                 SizedBox(
@@ -1450,7 +1740,11 @@ class _LimitOrderCard extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: onCancel,
                     icon: Icon(Icons.cancel_outlined, size: 12, color: t.no),
-                    label: Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.no)),
+                    label: Text('Cancel',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: t.no)),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       minimumSize: Size.zero,
@@ -1460,12 +1754,18 @@ class _LimitOrderCard extends StatelessWidget {
                 )
               else if (txHash != null)
                 GestureDetector(
-                  onTap: () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/$txHash'), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                      Uri.parse('https://testnet.arcscan.app/tx/$txHash'),
+                      mode: LaunchMode.externalApplication),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}',
-                          style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w500)),
+                      Text(
+                          '${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}',
+                          style: TextStyle(
+                              color: t.brand,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
                       const SizedBox(width: 3),
                       Icon(Icons.open_in_new_rounded, size: 11, color: t.brand),
                     ],

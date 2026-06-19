@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/tactile.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,7 +22,8 @@ import 'swarm_view.dart';
 import '../market/signals_marketplace.dart';
 
 class _Msg {
-  _Msg(this.fromAgent, this.text, {this.txId, this.contract, this.sources = const []});
+  _Msg(this.fromAgent, this.text,
+      {this.txId, this.contract, this.sources = const []});
   final bool fromAgent;
   final String text;
   final String? txId;
@@ -110,10 +112,12 @@ class _AgentScreenState extends State<AgentScreen>
         final bal = double.tryParse('${r['balance']}') ?? 0;
         String strategy = 'NONE';
         try {
-          final stratRes = await _client.get(
-            Uri.parse('$backendUrl/api/agent/strategy?userId=$uid'),
-            headers: headers,
-          ).timeout(const Duration(seconds: 5));
+          final stratRes = await _client
+              .get(
+                Uri.parse('$backendUrl/api/agent/strategy?userId=$uid'),
+                headers: headers,
+              )
+              .timeout(const Duration(seconds: 5));
           if (stratRes.statusCode == 200) {
             final sr = jsonDecode(stratRes.body) as Map<String, dynamic>;
             strategy = sr['strategy'] as String? ?? 'NONE';
@@ -146,7 +150,8 @@ class _AgentScreenState extends State<AgentScreen>
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(
+      String path, Map<String, dynamic> body) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
@@ -162,7 +167,8 @@ class _AgentScreenState extends State<AgentScreen>
         )
         .timeout(const Duration(seconds: 150));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
+    if (res.statusCode != 200)
+      throw Exception(data['error'] ?? 'Request failed');
     return data;
   }
 
@@ -171,7 +177,8 @@ class _AgentScreenState extends State<AgentScreen>
     if (uid == null) return;
     setState(() => _busy = true);
     try {
-      final r = await _post('/api/agent/start', {'userId': uid, 'budget': _budget.text});
+      final r = await _post(
+          '/api/agent/start', {'userId': uid, 'budget': _budget.text});
       setState(() {
         _started = true;
         _agentAddress = r['agentAddress'] as String?;
@@ -201,19 +208,27 @@ class _AgentScreenState extends State<AgentScreen>
     });
     _scrollDown();
     try {
-      final r = await _post('/api/agent/chat', {'userId': uid, 'message': text});
+      final r =
+          await _post('/api/agent/chat', {'userId': uid, 'message': text});
       final trade = r['trade'] as Map<String, dynamic>?;
       setState(() {
         _msgs.add(_Msg(true, r['reply'] as String? ?? 'Done.',
-            txId: trade?['txHash'] as String?, contract: trade?['contractAddress'] as String?,
-            sources: (r['sources'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>().toList()));
-        if (r['remaining'] != null) _spent = _budgetVal - (r['remaining'] as num).toDouble();
-        if (r['reputation'] != null) _reputation = (r['reputation'] as num).toInt();
+            txId: trade?['txHash'] as String?,
+            contract: trade?['contractAddress'] as String?,
+            sources: (r['sources'] as List<dynamic>? ?? const [])
+                .whereType<Map<String, dynamic>>()
+                .toList()));
+        if (r['remaining'] != null)
+          _spent = _budgetVal - (r['remaining'] as num).toDouble();
+        if (r['reputation'] != null)
+          _reputation = (r['reputation'] as num).toInt();
       });
       // Agent placed a trade → refresh balance + portfolio instantly.
-      if (trade != null && mounted) WalletServiceScope.of(context).notifyTrade();
+      if (trade != null && mounted)
+        WalletServiceScope.of(context).notifyTrade();
     } catch (e) {
-      setState(() => _msgs.add(_Msg(true, '⚠️ ${e.toString().replaceAll('Exception: ', '')}')));
+      setState(() => _msgs
+          .add(_Msg(true, '⚠️ ${e.toString().replaceAll('Exception: ', '')}')));
     } finally {
       if (mounted) setState(() => _busy = false);
       _scrollDown();
@@ -229,8 +244,11 @@ class _AgentScreenState extends State<AgentScreen>
       final w = (r['withdrawn'] as num?)?.toDouble() ?? 0;
       setState(() {
         _spent = _budgetVal; // remaining now 0
-        _msgs.add(_Msg(true,
-            w > 0 ? 'Withdrew \$${w.toStringAsFixed(2)} USDC back to your wallet.' : 'Nothing to withdraw.'));
+        _msgs.add(_Msg(
+            true,
+            w > 0
+                ? 'Withdrew \$${w.toStringAsFixed(2)} USDC back to your wallet.'
+                : 'Nothing to withdraw.'));
       });
     } catch (e) {
       _toast(e.toString());
@@ -248,32 +266,47 @@ class _AgentScreenState extends State<AgentScreen>
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: t.surfaceRaised,
-        title: Text('Deposit to Agent', style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w800)),
+        title: Text('Deposit to Agent',
+            style: TextStyle(
+                color: t.text, fontSize: 16, fontWeight: FontWeight.w800)),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
           style: TextStyle(color: t.text),
-          decoration: InputDecoration(prefixText: '\$', prefixStyle: TextStyle(color: t.text), labelText: 'USDC amount', labelStyle: TextStyle(color: t.textMuted)),
+          decoration: InputDecoration(
+              prefixText: '\$',
+              prefixStyle: TextStyle(color: t.text),
+              labelText: 'USDC amount',
+              labelStyle: TextStyle(color: t.textMuted)),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: t.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text('Deposit', style: TextStyle(color: t.brand, fontWeight: FontWeight.w700))),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: TextStyle(color: t.textMuted))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, ctrl.text),
+              child: Text('Deposit',
+                  style:
+                      TextStyle(color: t.brand, fontWeight: FontWeight.w700))),
         ],
       ),
     );
     if (amount == null || amount.trim().isEmpty) return;
     setState(() => _busy = true);
     try {
-      final r = await _post('/api/agent/deposit', {'userId': uid, 'amount': amount});
+      final r =
+          await _post('/api/agent/deposit', {'userId': uid, 'amount': amount});
       final d = (r['deposited'] as num?)?.toDouble() ?? 0;
       final bal = (r['balance'] as num?)?.toDouble() ?? _budgetVal;
       setState(() {
         _budgetVal = bal;
         _spent = 0;
-        _msgs.add(_Msg(true, d > 0
-            ? 'Deposited \$${d.toStringAsFixed(2)} USDC. I now have \$${bal.toStringAsFixed(2)} to trade.'
-            : 'Deposit didn\'t go through. Check your wallet balance and try again.'));
+        _msgs.add(_Msg(
+            true,
+            d > 0
+                ? 'Deposited \$${d.toStringAsFixed(2)} USDC. I now have \$${bal.toStringAsFixed(2)} to trade.'
+                : 'Deposit didn\'t go through. Check your wallet balance and try again.'));
       });
       if (mounted) WalletServiceScope.of(context).notifyTrade();
     } catch (e) {
@@ -286,7 +319,8 @@ class _AgentScreenState extends State<AgentScreen>
   void _scrollDown() => WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
           _scroll.animateTo(_scroll.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut);
         }
       });
 
@@ -306,46 +340,52 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             Icon(Icons.smart_toy_rounded, color: t.brand, size: 22),
             const SizedBox(width: 8),
-            Text('AI Agent', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+            Text('AI Agent',
+                style: TextStyle(
+                    color: t.text,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5)),
           ],
         ),
         actions: const [HelpAction(tab: PulsTab.agent)],
       ),
       body: SafeArea(
         child: Column(
-            children: [
-              TabBar(
+          children: [
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.center,
+              labelColor: t.brand,
+              unselectedLabelColor: t.textMuted,
+              indicatorColor: t.brand,
+              labelStyle:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+              tabs: const [
+                Tab(text: 'Swarm'),
+                Tab(text: 'Pulse · House Agent'),
+                Tab(text: 'My Agent'),
+                Tab(text: 'Signals'),
+                Tab(text: 'Earnings'),
+                Tab(text: 'Economy'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
                 controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.center,
-                labelColor: t.brand,
-                unselectedLabelColor: t.textMuted,
-                indicatorColor: t.brand,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                tabs: const [
-                  Tab(text: 'Swarm'),
-                  Tab(text: 'Pulse · House Agent'),
-                  Tab(text: 'My Agent'),
-                  Tab(text: 'Signals'),
-                  Tab(text: 'Earnings'),
-                  Tab(text: 'Economy'),
+                children: [
+                  const WebLayout(maxWidth: 760, child: SwarmView()),
+                  const WebLayout(maxWidth: 720, child: PulseFeed()),
+                  WebLayout(
+                      maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
+                  const WebLayout(maxWidth: 720, child: SignalsMarketplace()),
+                  const WebLayout(maxWidth: 720, child: X402Payments()),
+                  const WebLayout(maxWidth: 720, child: EconomyFeed()),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    const WebLayout(maxWidth: 760, child: SwarmView()),
-                    const WebLayout(maxWidth: 720, child: PulseFeed()),
-                    WebLayout(maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
-                    const WebLayout(maxWidth: 720, child: SignalsMarketplace()),
-                    const WebLayout(maxWidth: 720, child: X402Payments()),
-                    const WebLayout(maxWidth: 720, child: EconomyFeed()),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -370,9 +410,15 @@ class _AgentScreenState extends State<AgentScreen>
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: t.brand.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 8))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: t.brand.withValues(alpha: 0.35),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8))
+                  ],
                 ),
-                child: const Icon(Icons.smart_toy_rounded, size: 42, color: Colors.white),
+                child: const Icon(Icons.smart_toy_rounded,
+                    size: 42, color: Colors.white),
               ),
             ),
             const SizedBox(height: 20),
@@ -380,7 +426,11 @@ class _AgentScreenState extends State<AgentScreen>
               delay: const Duration(milliseconds: 100),
               child: Text('Autonomous Trading Agent',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: t.text, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5)),
             ),
             const SizedBox(height: 8),
             FadeInUp(
@@ -388,7 +438,8 @@ class _AgentScreenState extends State<AgentScreen>
               child: Text(
                 'Fund a budget-capped AI agent with its own Arc wallet and on-chain ERC-8004 identity. It trades predictions for you — autonomously.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.45),
+                style:
+                    TextStyle(color: t.textMuted, fontSize: 14, height: 1.45),
               ),
             ),
             const SizedBox(height: 22),
@@ -396,9 +447,12 @@ class _AgentScreenState extends State<AgentScreen>
               delay: const Duration(milliseconds: 220),
               child: Column(
                 children: [
-                  _feature(t, Icons.account_balance_wallet_rounded, 'Its own Circle MPC wallet on Arc'),
-                  _feature(t, Icons.verified_rounded, 'Verifiable ERC-8004 on-chain identity'),
-                  _feature(t, Icons.shield_rounded, "Spends only what you fund — can't exceed budget"),
+                  _feature(t, Icons.account_balance_wallet_rounded,
+                      'Its own Circle MPC wallet on Arc'),
+                  _feature(t, Icons.verified_rounded,
+                      'Verifiable ERC-8004 on-chain identity'),
+                  _feature(t, Icons.shield_rounded,
+                      "Spends only what you fund — can't exceed budget"),
                 ],
               ),
             ),
@@ -416,8 +470,12 @@ class _AgentScreenState extends State<AgentScreen>
                   prefixStyle: TextStyle(color: t.text),
                   filled: true,
                   fillColor: t.surfaceRaised,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.border)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: t.border)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: t.border)),
                 ),
               ),
             ),
@@ -430,16 +488,22 @@ class _AgentScreenState extends State<AgentScreen>
                   final sel = _budget.text == '$v';
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
+                    child: Tactile(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () => setState(() => _budget.text = '$v'),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: sel ? t.brand : t.surfaceRaised,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: sel ? t.brand : t.border),
                         ),
-                        child: Text('\$$v', style: TextStyle(color: sel ? Colors.white : t.textMuted, fontWeight: FontWeight.w700, fontSize: 13)),
+                        child: Text('\$$v',
+                            style: TextStyle(
+                                color: sel ? Colors.white : t.textMuted,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13)),
                       ),
                     ),
                   );
@@ -457,12 +521,18 @@ class _AgentScreenState extends State<AgentScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: t.brand,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                   child: _busy
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: Colors.white))
                       : Text(signedIn ? 'Activate Agent' : 'Sign in first',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 16)),
                 ),
               ),
             ),
@@ -478,7 +548,10 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             Icon(icon, size: 18, color: t.brand),
             const SizedBox(width: 12),
-            Expanded(child: Text(text, style: TextStyle(color: t.textMuted, fontSize: 13.5, height: 1.3))),
+            Expanded(
+                child: Text(text,
+                    style: TextStyle(
+                        color: t.textMuted, fontSize: 13.5, height: 1.3))),
           ],
         ),
       );
@@ -488,13 +561,15 @@ class _AgentScreenState extends State<AgentScreen>
     if (uid == null) return;
     try {
       Haptics.impact(HapticImpactStyle.light);
-      final r = await _post('/api/agent/strategy', {'userId': uid, 'strategy': value});
+      final r = await _post(
+          '/api/agent/strategy', {'userId': uid, 'strategy': value});
       setState(() {
         _strategy = r['strategy'] as String? ?? 'NONE';
         final strategyName = _strategy == 'NONE'
             ? 'Manual Chat'
             : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA');
-        _msgs.add(_Msg(true, '⚙️ Presets changed: Autonomous strategy set to **$strategyName** mode.'));
+        _msgs.add(_Msg(true,
+            '⚙️ Presets changed: Autonomous strategy set to **$strategyName** mode.'));
       });
     } catch (e) {
       _toast(e.toString());
@@ -534,7 +609,9 @@ class _AgentScreenState extends State<AgentScreen>
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  _strategy == 'NONE' ? 'Manual Chat' : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA Active'),
+                  _strategy == 'NONE'
+                      ? 'Manual Chat'
+                      : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA Active'),
                   style: TextStyle(
                     color: _strategy == 'NONE' ? t.textMuted : t.yes,
                     fontSize: 9,
@@ -547,11 +624,17 @@ class _AgentScreenState extends State<AgentScreen>
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _strategyOption(t, 'NONE', 'Manual Chat', Icons.chat_bubble_outline_rounded)),
+              Expanded(
+                  child: _strategyOption(t, 'NONE', 'Manual Chat',
+                      Icons.chat_bubble_outline_rounded)),
               const SizedBox(width: 8),
-              Expanded(child: _strategyOption(t, 'ARBITRAGE', 'Arbitrage', Icons.trending_up_rounded)),
+              Expanded(
+                  child: _strategyOption(
+                      t, 'ARBITRAGE', 'Arbitrage', Icons.trending_up_rounded)),
               const SizedBox(width: 8),
-              Expanded(child: _strategyOption(t, 'DCA', 'DCA Mode', Icons.schedule_rounded)),
+              Expanded(
+                  child: _strategyOption(
+                      t, 'DCA', 'DCA Mode', Icons.schedule_rounded)),
             ],
           ),
         ],
@@ -559,9 +642,11 @@ class _AgentScreenState extends State<AgentScreen>
     );
   }
 
-  Widget _strategyOption(PulsThemeColors t, String value, String label, IconData icon) {
+  Widget _strategyOption(
+      PulsThemeColors t, String value, String label, IconData icon) {
     final isSelected = _strategy == value;
-    return GestureDetector(
+    return Tactile(
+      behavior: HitTestBehavior.opaque,
       onTap: () => _updateStrategy(value),
       child: Container(
         height: 38,
@@ -574,7 +659,8 @@ class _AgentScreenState extends State<AgentScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: isSelected ? Colors.white : t.textMuted),
+            Icon(icon,
+                size: 13, color: isSelected ? Colors.white : t.textMuted),
             const SizedBox(width: 6),
             Text(
               label,
@@ -627,18 +713,30 @@ class _AgentScreenState extends State<AgentScreen>
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _prompts.map((p) => GestureDetector(
-                onTap: () { _input.text = p; _send(); },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: t.brandSubtle,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: t.brand.withValues(alpha: 0.25)),
-                  ),
-                  child: Text(p, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-              )).toList(),
+          children: _prompts
+              .map((p) => Tactile(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _input.text = p;
+                      _send();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: t.brandSubtle,
+                        borderRadius: BorderRadius.circular(20),
+                        border:
+                            Border.all(color: t.brand.withValues(alpha: 0.25)),
+                      ),
+                      child: Text(p,
+                          style: TextStyle(
+                              color: t.brand,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ))
+              .toList(),
         ),
       );
 
@@ -661,7 +759,9 @@ class _AgentScreenState extends State<AgentScreen>
 
   Widget _header(PulsThemeColors t) {
     final addr = _agentAddress ?? '';
-    final short = addr.length > 10 ? '${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}' : addr;
+    final short = addr.length > 10
+        ? '${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}'
+        : addr;
     final remaining = (_budgetVal - _spent).clamp(0, double.infinity);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -674,8 +774,10 @@ class _AgentScreenState extends State<AgentScreen>
       child: Row(
         children: [
           Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: t.brandSubtle, shape: BoxShape.circle),
+            width: 40,
+            height: 40,
+            decoration:
+                BoxDecoration(color: t.brandSubtle, shape: BoxShape.circle),
             child: Icon(Icons.smart_toy_rounded, color: t.brand, size: 20),
           ),
           const SizedBox(width: 12),
@@ -686,43 +788,65 @@ class _AgentScreenState extends State<AgentScreen>
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: addr.isEmpty ? null : () => launchUrl(
-                          Uri.parse('https://testnet.arcscan.app/address/$addr'),
-                          mode: LaunchMode.externalApplication),
-                      child: Text(short, style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.w700)),
+                      onTap: addr.isEmpty
+                          ? null
+                          : () => launchUrl(
+                              Uri.parse(
+                                  'https://testnet.arcscan.app/address/$addr'),
+                              mode: LaunchMode.externalApplication),
+                      child: Text(short,
+                          style: TextStyle(
+                              color: t.brand,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700)),
                     ),
                     if (_registered) ...[
                       const SizedBox(width: 6),
                       Icon(Icons.verified_rounded, size: 13, color: t.yes),
-                      Text(' ERC-8004', style: TextStyle(color: t.yes, fontSize: 10, fontWeight: FontWeight.w700)),
+                      Text(' ERC-8004',
+                          style: TextStyle(
+                              color: t.yes,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700)),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('Budget \$${remaining.toStringAsFixed(2)} / \$${_budgetVal.toStringAsFixed(2)} USDC',
+                Text(
+                    'Budget \$${remaining.toStringAsFixed(2)} / \$${_budgetVal.toStringAsFixed(2)} USDC',
                     style: TextStyle(color: t.textMuted, fontSize: 11)),
                 if (_registered) ...[
                   const SizedBox(height: 3),
                   GestureDetector(
-                    onTap: addr.isEmpty ? null : () => launchUrl(
-                        Uri.parse('https://testnet.arcscan.app/address/$addr'),
-                        mode: LaunchMode.externalApplication),
+                    onTap: addr.isEmpty
+                        ? null
+                        : () => launchUrl(
+                            Uri.parse(
+                                'https://testnet.arcscan.app/address/$addr'),
+                            mode: LaunchMode.externalApplication),
                     child: Row(
                       children: [
-                        const Icon(Icons.workspace_premium_rounded, size: 12, color: PulsColors.amber),
+                        const Icon(Icons.workspace_premium_rounded,
+                            size: 12, color: PulsColors.amber),
                         const SizedBox(width: 3),
                         Text(
                           _reputation > 0
                               ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
                               : 'Reputation: builds as it trades',
-                          style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: t.textSubtle,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600),
                         ),
                         if (_agentId != null) ...[
                           const SizedBox(width: 5),
-                          Text('· Agent #$_agentId', style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+                          Text('· Agent #$_agentId',
+                              style: TextStyle(
+                                  color: t.textSubtle, fontSize: 10.5)),
                         ],
                         const SizedBox(width: 3),
-                        Icon(Icons.open_in_new_rounded, size: 10, color: t.textSubtle),
+                        Icon(Icons.open_in_new_rounded,
+                            size: 10, color: t.textSubtle),
                       ],
                     ),
                   ),
@@ -737,12 +861,18 @@ class _AgentScreenState extends State<AgentScreen>
                 onPressed: _busy ? null : _deposit,
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   backgroundColor: t.brand,
                   minimumSize: const Size(84, 28),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Deposit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                child: const Text('Deposit',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
               ),
               if (remaining > 0.01) ...[
                 const SizedBox(height: 6),
@@ -750,12 +880,16 @@ class _AgentScreenState extends State<AgentScreen>
                   onPressed: _busy ? null : _withdraw,
                   style: TextButton.styleFrom(
                     foregroundColor: t.brand,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     backgroundColor: t.brandSubtle,
                     minimumSize: const Size(84, 28),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Withdraw', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  child: const Text('Withdraw',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
               ],
             ],
@@ -766,7 +900,8 @@ class _AgentScreenState extends State<AgentScreen>
   }
 
   Widget _bubble(_Msg m, PulsThemeColors t) {
-    final align = m.fromAgent ? CrossAxisAlignment.start : CrossAxisAlignment.end;
+    final align =
+        m.fromAgent ? CrossAxisAlignment.start : CrossAxisAlignment.end;
     final bg = m.fromAgent ? t.surfaceRaised : t.brand;
     final fg = m.fromAgent ? t.text : Colors.white;
     return Padding(
@@ -782,7 +917,8 @@ class _AgentScreenState extends State<AgentScreen>
               borderRadius: BorderRadius.circular(14),
               border: m.fromAgent ? Border.all(color: t.border) : null,
             ),
-            child: Text(m.text, style: TextStyle(color: fg, fontSize: 14, height: 1.35)),
+            child: Text(m.text,
+                style: TextStyle(color: fg, fontSize: 14, height: 1.35)),
           ),
           if (m.fromAgent && m.sources.isNotEmpty) ...[
             const SizedBox(height: 5),
@@ -797,9 +933,11 @@ class _AgentScreenState extends State<AgentScreen>
                   return GestureDetector(
                     onTap: url == null
                         ? null
-                        : () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                        : () => launchUrl(Uri.parse(url),
+                            mode: LaunchMode.externalApplication),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: t.surface,
                         borderRadius: BorderRadius.circular(6),
@@ -808,9 +946,14 @@ class _AgentScreenState extends State<AgentScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.travel_explore_rounded, size: 10, color: t.brand),
+                          Icon(Icons.travel_explore_rounded,
+                              size: 10, color: t.brand),
                           const SizedBox(width: 4),
-                          Text(src, style: TextStyle(color: t.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                          Text(src,
+                              style: TextStyle(
+                                  color: t.textMuted,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -822,7 +965,8 @@ class _AgentScreenState extends State<AgentScreen>
           if (m.txId != null) ...[
             const SizedBox(height: 4),
             GestureDetector(
-              onTap: () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/${m.txId}'),
+              onTap: () => launchUrl(
+                  Uri.parse('https://testnet.arcscan.app/tx/${m.txId}'),
                   mode: LaunchMode.externalApplication),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -830,7 +974,10 @@ class _AgentScreenState extends State<AgentScreen>
                   Icon(Icons.bolt_rounded, size: 13, color: t.yes),
                   const SizedBox(width: 3),
                   Text('Trade executed · View on Arcscan',
-                      style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: t.brand,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(width: 3),
                   Icon(Icons.open_in_new_rounded, size: 11, color: t.brand),
                 ],
@@ -841,7 +988,11 @@ class _AgentScreenState extends State<AgentScreen>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: t.textSubtle)),
+                SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 1.5, color: t.textSubtle)),
                 const SizedBox(width: 6),
                 Text('Trade submitted · confirming on-chain…',
                     style: TextStyle(color: t.textSubtle, fontSize: 11)),
@@ -856,7 +1007,8 @@ class _AgentScreenState extends State<AgentScreen>
   Widget _composer(PulsThemeColors t) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      decoration: BoxDecoration(color: t.bg, border: Border(top: BorderSide(color: t.border))),
+      decoration: BoxDecoration(
+          color: t.bg, border: Border(top: BorderSide(color: t.border))),
       child: Row(
         children: [
           Expanded(
@@ -871,8 +1023,11 @@ class _AgentScreenState extends State<AgentScreen>
                 hintStyle: TextStyle(color: t.textSubtle),
                 filled: true,
                 fillColor: t.surfaceRaised,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
               ),
             ),
           ),
@@ -880,9 +1035,12 @@ class _AgentScreenState extends State<AgentScreen>
           GestureDetector(
             onTap: _busy ? null : _send,
             child: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(color: _busy ? t.border : t.brand, shape: BoxShape.circle),
-              child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                  color: _busy ? t.border : t.brand, shape: BoxShape.circle),
+              child: const Icon(Icons.arrow_upward_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
         ],
