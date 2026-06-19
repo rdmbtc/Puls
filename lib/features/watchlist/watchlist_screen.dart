@@ -4,6 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_page_route.dart';
 import '../../core/utils/trade_math.dart';
 import '../../core/widgets/state_views.dart';
 import '../../data/models/market.dart';
@@ -107,9 +108,10 @@ class WatchlistScreen extends StatelessWidget {
                           onRemove: () =>
                               appState.toggleWatchlist(markets[i].id),
                           onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => MarketDetailScreen(
-                                  marketId: markets[i].id),
+                            pulsRoute(
+                              context,
+                              builder: (_) =>
+                                  MarketDetailScreen(marketId: markets[i].id),
                             ),
                           ),
                         ),
@@ -213,10 +215,11 @@ class _WatchCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(market.question,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    market.question,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 10),
                   Row(

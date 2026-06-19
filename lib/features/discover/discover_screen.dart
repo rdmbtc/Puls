@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
 import '../../core/widgets/tactile.dart';
+import '../../core/widgets/puls_page_route.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -371,7 +372,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               isWatchlisted: appState.isWatchlisted(markets[i].id),
               onWatchlist: () => appState.toggleWatchlist(markets[i].id),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
+                pulsRoute(
+                  context,
                   builder: (_) => MarketDetailScreen(marketId: markets[i].id),
                 ),
               ),
@@ -400,7 +402,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             isWatchlisted: appState.isWatchlisted(markets[i].id),
             onWatchlist: () => appState.toggleWatchlist(markets[i].id),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
+              pulsRoute(
+                context,
                 builder: (_) => MarketDetailScreen(marketId: markets[i].id),
               ),
             ),
@@ -832,7 +835,7 @@ class _EmptyState extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: GestureDetector(
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
+                      pulsRoute(context,
                           builder: (_) => MarketDetailScreen(marketId: m.id)),
                     ),
                     child: Container(

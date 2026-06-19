@@ -9,6 +9,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
+import '../../core/widgets/puls_page_route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
@@ -76,7 +77,7 @@ class _FeedBody extends StatelessWidget {
 
   void _openDetails(BuildContext context, Market market) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      pulsRoute(context,
           builder: (_) => MarketDetailScreen(marketId: market.id)),
     );
   }
@@ -99,7 +100,8 @@ class _FeedBody extends StatelessWidget {
     final amount = appState.fastBuyAmount;
     final label = isYes ? 'YES' : 'NO';
 
-    _showToast(context, '⚡ Buying $label \$${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 1)}…');
+    _showToast(context,
+        '⚡ Buying $label \$${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 1)}…');
 
     try {
       await walletService.buyPosition(
@@ -202,7 +204,8 @@ class _FeedBody extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   'No markets available right now.',
-                  style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -275,8 +278,7 @@ class _FeedHeader extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Puls Feed',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text('Puls Feed', style: Theme.of(context).textTheme.titleMedium),
               Text('Swipe to choose your side',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 12,
@@ -289,7 +291,7 @@ class _FeedHeader extends StatelessWidget {
           GestureDetector(
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                pulsRoute(context, builder: (_) => const NotificationsScreen()),
               );
             },
             child: Container(
@@ -301,7 +303,8 @@ class _FeedHeader extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: t.border),
               ),
-              child: Icon(Icons.notifications_outlined, color: t.textSubtle, size: 18),
+              child: Icon(Icons.notifications_outlined,
+                  color: t.textSubtle, size: 18),
             ),
           ),
           Semantics(
@@ -316,7 +319,10 @@ class _FeedHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PulseDot(size: 6, color: t.yes, period: const Duration(milliseconds: 1400)),
+                  PulseDot(
+                      size: 6,
+                      color: t.yes,
+                      period: const Duration(milliseconds: 1400)),
                   Text(
                     'LIVE',
                     style: TextStyle(
@@ -499,8 +505,7 @@ class _TopToastState extends State<_TopToast>
           child: Material(
             color: Colors.transparent,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: BorderRadius.circular(14),
@@ -571,15 +576,18 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   void _connectWebSocket() {
     _reconnectTimer?.cancel();
     try {
-      final wsUri = Uri.parse(backendUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'));
+      final wsUri = Uri.parse(backendUrl
+          .replaceAll('http://', 'ws://')
+          .replaceAll('https://', 'wss://'));
       _channel = WebSocketChannel.connect(wsUri);
-      
+
       _channel!.ready.then((_) {
         if (!mounted) return;
         debugPrint('[Feed WebSocket] Connected successfully.');
         setState(() {
           _isWebSocketConnected = true;
-          _reconnectDelaySeconds = 2; // Reset backoff delay on successful connection
+          _reconnectDelaySeconds =
+              2; // Reset backoff delay on successful connection
         });
         _pollingTimer?.cancel();
         _pollingTimer = null;
@@ -628,7 +636,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       });
     }
     _startFallbackPolling();
-    
+
     // Schedule bounded reconnect (2s -> 4s -> 8s cap)
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelaySeconds), () {
@@ -650,13 +658,14 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
   void _processSingleWebSocketTrade(Map<String, dynamic> jsonItem) {
     if (!mounted) return;
-    
+
     final id = jsonItem['id'] as String;
     if (_activities.any((a) => a.id == id)) return;
-    
+
     final userId = jsonItem['user_id'] as String;
     final side = jsonItem['side'] as String;
-    final usdcAmount = double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
+    final usdcAmount =
+        double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
     final question = jsonItem['question'] as String? ?? 'Prediction Market';
     final createdAtStr = jsonItem['created_at'] as String;
     final createdAt = DateTime.tryParse(createdAtStr) ?? DateTime.now();
@@ -744,7 +753,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     try {
       final url = Uri.parse('$backendUrl/api/trade/recent');
       final response = await http.get(url).timeout(const Duration(seconds: 3));
-      
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         if (data.isNotEmpty) {
@@ -754,9 +763,10 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
         }
       }
     } catch (e) {
-      debugPrint('[Feed] Error fetching recent trades from backend: $e. Falling back to mock feed.');
+      debugPrint(
+          '[Feed] Error fetching recent trades from backend: $e. Falling back to mock feed.');
     }
-    
+
     if (_activities.isEmpty) {
       _useFallbackMock = true;
       _initializeMockActivities();
@@ -767,13 +777,53 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
   void _initializeMockActivities() {
     final mockData = [
-      _BetActivity(id: 'mock_1', username: '0x8f2d…e11a', action: 'bought', question: 'Will Donald Trump launch a new token in 2026?', amount: 520, time: 'Just now', isYes: true, createdAt: DateTime.now()),
-      _BetActivity(id: 'mock_2', username: 'arbitrum_whale', action: 'bought', question: 'Will BTC exceed \$100k in 2026?', amount: 2500, time: '1m ago', isYes: true, createdAt: DateTime.now().subtract(const Duration(minutes: 1))),
-      _BetActivity(id: 'mock_3', username: '0x4c99…88b2', action: 'bought', question: 'Will the Fed cut interest rates in June?', amount: 150, time: '3m ago', isYes: false, createdAt: DateTime.now().subtract(const Duration(minutes: 3))),
-      _BetActivity(id: 'mock_4', username: 'puls_trader_9', action: 'bought', question: 'Will OpenAI announce GPT-5 before July?', amount: 800, time: '5m ago', isYes: true, createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
-      _BetActivity(id: 'mock_5', username: 'degen_king', action: 'bought', question: 'Will Champions League final go to penalties?', amount: 4300, time: '8m ago', isYes: false, createdAt: DateTime.now().subtract(const Duration(minutes: 8))),
+      _BetActivity(
+          id: 'mock_1',
+          username: '0x8f2d…e11a',
+          action: 'bought',
+          question: 'Will Donald Trump launch a new token in 2026?',
+          amount: 520,
+          time: 'Just now',
+          isYes: true,
+          createdAt: DateTime.now()),
+      _BetActivity(
+          id: 'mock_2',
+          username: 'arbitrum_whale',
+          action: 'bought',
+          question: 'Will BTC exceed \$100k in 2026?',
+          amount: 2500,
+          time: '1m ago',
+          isYes: true,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 1))),
+      _BetActivity(
+          id: 'mock_3',
+          username: '0x4c99…88b2',
+          action: 'bought',
+          question: 'Will the Fed cut interest rates in June?',
+          amount: 150,
+          time: '3m ago',
+          isYes: false,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 3))),
+      _BetActivity(
+          id: 'mock_4',
+          username: 'puls_trader_9',
+          action: 'bought',
+          question: 'Will OpenAI announce GPT-5 before July?',
+          amount: 800,
+          time: '5m ago',
+          isYes: true,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
+      _BetActivity(
+          id: 'mock_5',
+          username: 'degen_king',
+          action: 'bought',
+          question: 'Will Champions League final go to penalties?',
+          amount: 4300,
+          time: '8m ago',
+          isYes: false,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 8))),
     ];
-    
+
     setState(() {
       _activities.addAll(mockData);
       _isLoadingActivities = false;
@@ -786,7 +836,16 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
     final random = math.Random();
     final market = markets[random.nextInt(markets.length)];
-    final usernames = ['solana_maxi', '0x12a9…cd45', 'crypto_ninja', 'betting_dave', 'pulse_master', '0x7e51…33b9', 'whale_watcher', 'trade_lord'];
+    final usernames = [
+      'solana_maxi',
+      '0x12a9…cd45',
+      'crypto_ninja',
+      'betting_dave',
+      'pulse_master',
+      '0x7e51…33b9',
+      'whale_watcher',
+      'trade_lord'
+    ];
     final user = usernames[random.nextInt(usernames.length)];
     final isYes = random.nextBool();
     final amount = (random.nextInt(90) + 10) * 50.0;
@@ -823,7 +882,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       final id = jsonItem['id'] as String;
       final userId = jsonItem['user_id'] as String;
       final side = jsonItem['side'] as String;
-      final usdcAmount = double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
+      final usdcAmount =
+          double.tryParse(jsonItem['usdc_amount'].toString()) ?? 0.0;
       final question = jsonItem['question'] as String? ?? 'Prediction Market';
       final createdAtStr = jsonItem['created_at'] as String;
       final createdAt = DateTime.tryParse(createdAtStr) ?? DateTime.now();
@@ -856,7 +916,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     }
 
     final existingIds = _activities.map((a) => a.id).toSet();
-    final newItems = fetched.where((item) => !existingIds.contains(item.id)).toList();
+    final newItems =
+        fetched.where((item) => !existingIds.contains(item.id)).toList();
 
     if (newItems.isNotEmpty) {
       newItems.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -898,7 +959,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
   void _openDetails(BuildContext context, Market market) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      pulsRoute(context,
           builder: (_) => MarketDetailScreen(marketId: market.id)),
     );
   }
@@ -921,7 +982,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final amount = appState.fastBuyAmount;
     final label = isYes ? 'YES' : 'NO';
 
-    _showToast(context, '⚡ Buying $label \$${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 1)}…');
+    _showToast(context,
+        '⚡ Buying $label \$${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 1)}…');
 
     try {
       await walletService.buyPosition(
@@ -1037,7 +1099,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                 side: BorderSide(color: t.border),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1054,10 +1117,13 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                     Expanded(
                       child: ListView(
                         children: [
-                          _buildCategoryRow('All Markets', null, allMarkets.length),
+                          _buildCategoryRow(
+                              'All Markets', null, allMarkets.length),
                           const Divider(height: 16),
                           ...appState.categories.map((cat) {
-                            final count = allMarkets.where((m) => m.category == cat).length;
+                            final count = allMarkets
+                                .where((m) => m.category == cat)
+                                .length;
                             return _buildCategoryRow(cat, cat, count);
                           }),
                         ],
@@ -1096,37 +1162,43 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                           ),
                         )
                       : ListView.builder(
-                    itemCount: 1000, // Large number to act as infinite
-                    itemBuilder: (context, index) {
-                      final market = filteredMarkets[index % filteredMarkets.length];
-                      return Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 600),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: PredictionFeedCard(
-                              market: market,
-                              showSwipeHint: index == 0,
-                              isWatchlisted: appState.isWatchlisted(market.id),
-                              onWatchlist: () => appState.toggleWatchlist(market.id),
-                              onDetails: () => _openDetails(context, market),
-                              onChoose: (side) {
-                                if (appState.fastBuyEnabled) {
-                                  _fastBuy(context, appState, market, side);
-                                } else {
-                                  showTradePreviewSheet(
-                                    context: context,
+                          itemCount: 1000, // Large number to act as infinite
+                          itemBuilder: (context, index) {
+                            final market =
+                                filteredMarkets[index % filteredMarkets.length];
+                            return Center(
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 600),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: PredictionFeedCard(
                                     market: market,
-                                    side: side,
-                                  );
-                                }
-                              },
-                            ),
-                          ),
+                                    showSwipeHint: index == 0,
+                                    isWatchlisted:
+                                        appState.isWatchlisted(market.id),
+                                    onWatchlist: () =>
+                                        appState.toggleWatchlist(market.id),
+                                    onDetails: () =>
+                                        _openDetails(context, market),
+                                    onChoose: (side) {
+                                      if (appState.fastBuyEnabled) {
+                                        _fastBuy(
+                                            context, appState, market, side);
+                                      } else {
+                                        showTradePreviewSheet(
+                                          context: context,
+                                          market: market,
+                                          side: side,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
@@ -1179,11 +1251,13 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                               key: _listKey,
                               initialItemCount: _activities.length,
                               itemBuilder: (context, index, animation) {
-                                if (index >= _activities.length) return const SizedBox.shrink();
+                                if (index >= _activities.length)
+                                  return const SizedBox.shrink();
                                 final act = _activities[index];
                                 final sideColor = act.isYes ? t.yes : t.no;
                                 final sideText = act.isYes ? 'YES' : 'NO';
-                                return _buildActivityItem(act, sideColor, sideText, animation);
+                                return _buildActivityItem(
+                                    act, sideColor, sideText, animation);
                               },
                             ),
                     ),
@@ -1259,7 +1333,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: sideColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
@@ -1318,7 +1393,8 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
   Future<void> _load() async {
     try {
       final data = await WalletServiceScope.of(context).getAlphaList();
-      final signals = ((data['signals'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final signals =
+          ((data['signals'] as List?) ?? []).cast<Map<String, dynamic>>();
       // Prefer a signal the user hasn't unlocked yet, else just the first.
       final pick = signals.firstWhere(
         (s) => s['unlocked'] != true,
@@ -1401,7 +1477,8 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: t.brand,
                   borderRadius: BorderRadius.circular(8),

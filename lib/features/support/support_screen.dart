@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/puls_page_route.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
@@ -40,7 +41,8 @@ class _SupportScreenState extends State<SupportScreen> {
 
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final needsRefresh = s == null ||
-        (s.expiresAt != null && s.expiresAt! - nowSec < 60); // expired/<60s left
+        (s.expiresAt != null &&
+            s.expiresAt! - nowSec < 60); // expired/<60s left
     if (needsRefresh) {
       try {
         final res = await auth.refreshSession();
@@ -70,9 +72,17 @@ class _SupportScreenState extends State<SupportScreen> {
       final list = (data['tickets'] as List? ?? [])
           .map((t) => t as Map<String, dynamic>)
           .toList();
-      if (mounted) setState(() { _tickets = list; _loading = false; });
+      if (mounted)
+        setState(() {
+          _tickets = list;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
     }
   }
 
@@ -83,7 +93,9 @@ class _SupportScreenState extends State<SupportScreen> {
       context,
       builder: (_) => _NewTicketSheet(
         headers: headers,
-        onCreated: () { _fetch(); },
+        onCreated: () {
+          _fetch();
+        },
       ),
     );
   }
@@ -91,32 +103,43 @@ class _SupportScreenState extends State<SupportScreen> {
   void _openTicket(Map<String, dynamic> ticket) async {
     final headers = await _authHeaders();
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _TicketDetailScreen(
-          ticketId: '${ticket['id']}',
-          subject: ticket['subject'] as String? ?? 'Support',
-          headers: headers,
-        ),
-      ),
-    ).then((_) => _fetch());
+    Navigator.of(context)
+        .push(
+          pulsRoute(
+            context,
+            builder: (_) => _TicketDetailScreen(
+              ticketId: '${ticket['id']}',
+              subject: ticket['subject'] as String? ?? 'Support',
+              headers: headers,
+            ),
+          ),
+        )
+        .then((_) => _fetch());
   }
 
   String _statusLabel(String? status) {
     switch (status) {
-      case 'open': return 'Open';
-      case 'answered': return 'Answered';
-      case 'closed': return 'Closed';
-      default: return status ?? '';
+      case 'open':
+        return 'Open';
+      case 'answered':
+        return 'Answered';
+      case 'closed':
+        return 'Closed';
+      default:
+        return status ?? '';
     }
   }
 
   Color _statusColor(String? status, PulsThemeColors t) {
     switch (status) {
-      case 'open': return PulsColors.amber;
-      case 'answered': return t.yes;
-      case 'closed': return t.textMuted;
-      default: return t.textMuted;
+      case 'open':
+        return PulsColors.amber;
+      case 'answered':
+        return t.yes;
+      case 'closed':
+        return t.textMuted;
+      default:
+        return t.textMuted;
     }
   }
 
@@ -126,7 +149,11 @@ class _SupportScreenState extends State<SupportScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: Text('Support', style: TextStyle(color: t.text, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        title: Text('Support',
+            style: TextStyle(
+                color: t.text,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -139,12 +166,19 @@ class _SupportScreenState extends State<SupportScreen> {
         onPressed: _newTicket,
         backgroundColor: t.brand,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('New Ticket', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        label: const Text('New Ticket',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
       body: _loading
           ? const PulsLoader()
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: PulsErrorState(title: 'Couldn\'t load tickets', message: 'Pull down to retry.', onRetry: _fetch)))
+              ? Center(
+                  child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: PulsErrorState(
+                          title: 'Couldn\'t load tickets',
+                          message: 'Pull down to retry.',
+                          onRetry: _fetch)))
               : RefreshIndicator(
                   color: t.brand,
                   onRefresh: _fetch,
@@ -159,7 +193,8 @@ class _SupportScreenState extends State<SupportScreen> {
       children: [
         const SizedBox(height: 60),
         Container(
-          width: 64, height: 64,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             color: t.brand.withValues(alpha: 0.12),
             shape: BoxShape.circle,
@@ -167,8 +202,10 @@ class _SupportScreenState extends State<SupportScreen> {
           child: Icon(Icons.support_agent_rounded, color: t.brand, size: 32),
         ),
         const SizedBox(height: 20),
-        Text('Need help?', textAlign: TextAlign.center,
-            style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
+        Text('Need help?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text('Open a ticket — we usually reply within a day.',
             textAlign: TextAlign.center,
@@ -205,7 +242,10 @@ class _SupportScreenState extends State<SupportScreen> {
                           ticket['subject'] as String? ?? 'Support',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                              color: t.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -216,7 +256,8 @@ class _SupportScreenState extends State<SupportScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: _statusColor(status, t).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
@@ -271,8 +312,10 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
       } else {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
-          PulsSnack.error(context,
-              data['error']?.toString() ?? 'Couldn\'t create ticket (${res.statusCode})');
+          PulsSnack.error(
+              context,
+              data['error']?.toString() ??
+                  'Couldn\'t create ticket (${res.statusCode})');
         }
       }
     } catch (e) {
@@ -308,7 +351,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('New Support Ticket',
-                style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
+                style: TextStyle(
+                    color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(height: 16),
             TextField(
               controller: _subjectCtrl,
@@ -316,7 +360,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
               decoration: InputDecoration(
                 labelText: 'Subject',
                 labelStyle: TextStyle(color: t.textMuted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: t.border),
@@ -332,7 +377,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
               decoration: InputDecoration(
                 labelText: 'How can we help?',
                 labelStyle: TextStyle(color: t.textMuted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: t.border),
@@ -347,11 +393,20 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                 onPressed: _sending ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: t.brand,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _sending
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Submit', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : const Text('Submit',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15)),
               ),
             ),
           ],
@@ -406,9 +461,16 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       final msgs = (ticket['messages'] as List? ?? [])
           .map((m) => m as Map<String, dynamic>)
           .toList();
-      if (mounted) setState(() { _messages = msgs; _loading = false; });
+      if (mounted)
+        setState(() {
+          _messages = msgs;
+          _loading = false;
+        });
     } catch (_) {
-      if (mounted) setState(() { _loading = false; });
+      if (mounted)
+        setState(() {
+          _loading = false;
+        });
     }
   }
 
@@ -418,7 +480,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
     setState(() => _sending = true);
     try {
       final res = await http.post(
-        Uri.parse('$backendUrl/api/support/tickets/${widget.ticketId}/messages'),
+        Uri.parse(
+            '$backendUrl/api/support/tickets/${widget.ticketId}/messages'),
         headers: widget.headers,
         body: jsonEncode({'body': body}),
       );
@@ -428,8 +491,10 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       } else {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
-          PulsSnack.error(context,
-              data['error']?.toString() ?? 'Couldn\'t send message (${res.statusCode})');
+          PulsSnack.error(
+              context,
+              data['error']?.toString() ??
+                  'Couldn\'t send message (${res.statusCode})');
         }
       }
     } catch (e) {
@@ -446,7 +511,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: Text(widget.subject, style: TextStyle(color: t.text, fontWeight: FontWeight.w700, fontSize: 15)),
+        title: Text(widget.subject,
+            style: TextStyle(
+                color: t.text, fontWeight: FontWeight.w700, fontSize: 15)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -466,15 +533,21 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
                       final msg = _messages[i];
                       final isAdmin = msg['sender'] == 'admin';
                       return Align(
-                        alignment: isAdmin ? Alignment.centerLeft : Alignment.centerRight,
+                        alignment: isAdmin
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
                         child: Container(
-                          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
+                          constraints: BoxConstraints(
+                              maxWidth:
+                                  MediaQuery.sizeOf(context).width * 0.75),
                           margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: isAdmin ? t.surface : t.brand,
                             borderRadius: BorderRadius.circular(14),
-                            border: isAdmin ? Border.all(color: t.border) : null,
+                            border:
+                                isAdmin ? Border.all(color: t.border) : null,
                           ),
                           child: Text(
                             msg['body'] as String? ?? '',
@@ -514,7 +587,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: t.border),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       isDense: true,
                     ),
                   ),
@@ -523,14 +597,19 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
                 GestureDetector(
                   onTap: _sending ? null : _send,
                   child: Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: t.brand,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: _sending
-                        ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                        ? const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 18),
                   ),
                 ),
               ],
