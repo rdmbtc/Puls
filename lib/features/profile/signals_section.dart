@@ -6,6 +6,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
 import '../market/researched_sources.dart';
+import '../market/signal_extras.dart';
 import '../market/view_prediction_link.dart';
 
 /// The "Signals" segment of a creator profile.
@@ -273,6 +274,8 @@ class _SignalCard extends StatelessWidget {
           if (signal.hasMarketLink) ...[
             const SizedBox(height: 6),
             ViewPredictionLink(slug: signal.marketSlug!),
+            const SizedBox(height: 6),
+            SignalLiveOdds(signal: signal),
           ],
 
           // Confidence / edge / horizon chips
@@ -330,6 +333,15 @@ class _SignalCard extends StatelessWidget {
                 if (onArchive != null) _action(t, 'Archive', onArchive!, danger: true),
               ],
             ),
+          ],
+
+          if (signal.isPublished) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              SignalFreshness(publishedAt: signal.publishedAt),
+              const Spacer(),
+              ShareSignalButton(signal: signal),
+            ]),
           ],
         ],
       ),
