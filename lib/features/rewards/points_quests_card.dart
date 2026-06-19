@@ -24,6 +24,7 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
   Map<String, dynamic>? _points;
   List<Map<String, dynamic>> _quests = const [];
   bool _loading = true;
+  bool _failed = false;
   bool _play = false;
   String? _claiming;
 
@@ -34,8 +35,13 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
   }
 
   Future<void> _load() async {
+    final wallet = WalletServiceScope.of(context);
+    // Not signed in → nothing to show (quests/points are per-user).
+    if (wallet.state.userId == null) {
+      if (mounted) setState(() { _loading = false; _failed = true; });
+      return;
+    }
     try {
-      final wallet = WalletServiceScope.of(context);
       final results = await Future.wait([wallet.getPoints(), wallet.getQuests()]);
       if (!mounted) return;
       setState(() {
@@ -44,9 +50,10 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
             .map((e) => e as Map<String, dynamic>)
             .toList();
         _loading = false;
+        _failed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() { _loading = false; _failed = true; });
     }
   }
 
@@ -78,6 +85,9 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
     if (_loading) {
       return const SizedBox(height: 4);
     }
+    // Not signed in or load failed → don't render (avoids a misleading
+    // "all quests complete" empty state for anonymous users).
+    if (_failed) return const SizedBox.shrink();
     final p = _points ?? const {};
     final total = (p['total'] as num?)?.toInt() ?? 0;
     final level = (p['level'] as num?)?.toInt() ?? 1;
