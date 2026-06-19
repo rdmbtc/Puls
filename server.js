@@ -1823,6 +1823,18 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, 
         if ((count ?? 0) <= 1) {
           await awardPoints(userId, 'first_trade', { refId: 'first' });
           await awardPoints(userId, 'fund_wallet', { refId: 'funded' });
+          // Referral activation: if this user was invited, reward BOTH sides
+          // now that the invitee has genuinely activated (first real trade).
+          try {
+            const { data: ref } = await supabase
+              .from('referrals').select('referrer_user_id').eq('invitee_user_id', userId).maybeSingle();
+            if (ref?.referrer_user_id && ref.referrer_user_id !== userId) {
+              await awardPoints(ref.referrer_user_id, 'referral_activated', { refType: 'referral', refId: userId });
+              await awardPoints(userId, 'referral_activated', { refType: 'referral', refId: `self-${userId}` });
+              createNotification(ref.referrer_user_id, 'Your invite activated! 🎉',
+                'A friend you invited just made their first prediction — you both earned +60 XP.', 'referral_activated').catch(() => {});
+            }
+          } catch (_) {}
         }
       } catch (_) {}
     })();
@@ -2926,6 +2938,62 @@ registerSwap(app, {
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
+
+// ── Dynamic OG share image for a market (SVG) ─────────────────────────────────
+// Rich link previews when a prediction is shared: question + YES/NO odds on the
+// brand gradient. SVG = no image libs, instant, cacheable. Used as og:image by
+// the /m/<slug> share landing.
+app.get('/api/og/market/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '');
+    let question = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    let yes = 50;
+    try {
+      const r = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`, { headers: { Accept: 'application/json' } });
+      if (r.ok) {
+        const d = await r.json();
+        const m = Array.isArray(d) ? d[0] : null;
+        if (m) {
+          question = m.question || question;
+          try { yes = Math.round((parseFloat(JSON.parse(m.outcomePrices || '[]')[0]) || 0.5) * 100); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    const no = 100 - yes;
+    const esc = (s) => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    // wrap question to ~2 lines
+    const words = esc(question).split(' ');
+    const lines = []; let cur = '';
+    for (const w of words) { if ((cur + ' ' + w).length > 34) { lines.push(cur); cur = w; } else { cur = cur ? `${cur} ${w}` : w; } }
+    if (cur) lines.push(cur);
+    const qLines = lines.slice(0, 3);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A0E1A"/><stop offset="1" stop-color="#121829"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34E5C0"/><stop offset="1" stop-color="#F65FA9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="64" y="100" fill="url(#brand)" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="800">Puls</text>
+  <text x="1136" y="100" text-anchor="end" fill="#9AA6C0" font-family="system-ui,sans-serif" font-size="22" font-weight="600">prediction market · Arc</text>
+  ${qLines.map((l, i) => `<text x="64" y="${230 + i * 64}" fill="#EAF0FF" font-family="system-ui,sans-serif" font-size="52" font-weight="800">${l}</text>`).join('')}
+  <rect x="64" y="470" width="510" height="96" rx="18" fill="#102A2A" stroke="#2DD4BF" stroke-width="2"/>
+  <text x="92" y="512" fill="#2DD4BF" font-family="system-ui,sans-serif" font-size="22" font-weight="700">YES</text>
+  <text x="92" y="552" fill="#EAF0FF" font-family="system-ui,sans-serif" font-size="40" font-weight="900">${yes}¢</text>
+  <rect x="626" y="470" width="510" height="96" rx="18" fill="#3B0A2A" stroke="#F472B6" stroke-width="2"/>
+  <text x="654" y="512" fill="#F472B6" font-family="system-ui,sans-serif" font-size="22" font-weight="700">NO</text>
+  <text x="654" y="552" fill="#EAF0FF" font-family="system-ui,sans-serif" font-size="40" font-weight="900">${no}¢</text>
+</svg>`;
+    res.set('Content-Type', 'image/svg+xml');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(svg);
+  } catch (e) {
+    res.status(500).send('');
+  }
+});
 
 // Deep health check for demo-day readiness: pings every external dependency and
 // reports the treasury balance in one call. Returns 200 when all checks pass,
