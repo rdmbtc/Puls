@@ -19,7 +19,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
 import '../../core/widgets/count_up_text.dart';
-import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/skeleton.dart';
 
 import '../../core/config.dart' show backendUrl;
 const _backendUrl = backendUrl;
@@ -348,10 +348,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         ),
       );
     } else if (_loading) {
-      body = const Padding(
-        padding: EdgeInsets.all(60),
-        child: PulsLoader(label: 'Loading portfolio…'),
-      );
+      body = const PortfolioSkeleton();
     } else if (_error != null) {
       body = Padding(
         padding: const EdgeInsets.all(24),
@@ -447,6 +444,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                   message: 'No positions yet — swipe on a market to start.',
                                   sub: 'Buy YES or NO on any prediction to get started.',
                                   t: t,
+                                  ctaLabel: 'Browse markets',
+                                  ctaIcon: Icons.explore_rounded,
+                                  onCta: () => ShellNavScope.maybeOf(context)
+                                      ?.goToTab(PulsTab.feed),
                                 )
                               : ListView.separated(
                                   itemCount: _positions.length,
@@ -556,6 +557,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       sub: 'Buy YES or NO on any prediction to get started.',
                       t: t,
                       imageUrl: 'https://img.icons8.com/?id=4xcZGzia5Blf&format=png&size=256',
+                      ctaLabel: 'Browse markets',
+                      ctaIcon: Icons.explore_rounded,
+                      onCta: () =>
+                          ShellNavScope.maybeOf(context)?.goToTab(PulsTab.feed),
                     ),
                   ),
                 )

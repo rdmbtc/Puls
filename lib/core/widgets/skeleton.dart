@@ -254,3 +254,98 @@ class DiscoverCardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Skeleton mimicking the Portfolio layout (hero balance card + stat boxes +
+/// position rows) so the screen keeps its shape while data loads — instead of
+/// a bare centered spinner.
+class PortfolioSkeleton extends StatelessWidget {
+  const PortfolioSkeleton({super.key, this.rows = 3});
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero balance card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: t.border),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Skeleton(width: 120, height: 12, radius: 6),
+                SizedBox(height: 14),
+                Skeleton(width: 180, height: 34, radius: 8),
+                SizedBox(height: 14),
+                Skeleton(width: 100, height: 16, radius: 6),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Stat boxes row
+          const Row(
+            children: [
+              Expanded(child: Skeleton(height: 64, radius: 14)),
+              SizedBox(width: 10),
+              Expanded(child: Skeleton(height: 64, radius: 14)),
+              SizedBox(width: 10),
+              Expanded(child: Skeleton(height: 64, radius: 14)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Tab toggle
+          const Skeleton(width: 160, height: 36, radius: 12),
+          const SizedBox(height: 16),
+          // Position card rows
+          for (int i = 0; i < rows; i++) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: t.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: t.border),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Skeleton(width: 44, height: 44, radius: 10),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Skeleton(height: 12),
+                            SizedBox(height: 8),
+                            Skeleton(height: 12, width: 120),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Skeleton(width: 56, height: 24, radius: 8),
+                    ],
+                  ),
+                  SizedBox(height: 14),
+                  Skeleton(height: 10, radius: 6),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
