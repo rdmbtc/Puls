@@ -147,33 +147,29 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
             onExit: (_) {
               if (_items.isNotEmpty) _marquee.repeat();
             },
-            child: ShaderMask(
-              shaderCallback: (rect) => const LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  Colors.white,
-                  Colors.white,
-                  Colors.transparent,
-                ],
-                stops: [0.0, 0.08, 0.92, 1.0],
-              ).createShader(rect),
-              blendMode: BlendMode.dstIn,
-              child: SizedBox(
-                height: 76,
-                child: ClipRect(
-                  child: AnimatedBuilder(
-                    animation: _marquee,
-                    // Build the tape ONCE and pass it as `child` — the builder
-                    // only changes the translate offset, so there's no relayout
-                    // or image re-fetch per frame (that was the source of jank).
-                    child: Row(children: [row, row]),
-                    builder: (context, child) {
-                      return Transform.translate(
-                        offset: Offset(-_marquee.value * total, 0),
-                        child: child,
-                      );
-                    },
-                  ),
+            child: SizedBox(
+              height: 76,
+              child: ClipRect(
+                child: Stack(
+                  children: [
+                    // The moving tape on its own compositor layer (RepaintBoundary)
+                    // so scrolling never repaints siblings. Transform is paint-only.
+                    RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _marquee,
+                        child: Row(children: [row, row]),
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(-_marquee.value * total, 0),
+                            child: child,
+                          );
+                        },
+                      ),
+                    ),
+                    // Static edge fades (cheap — no per-frame saveLayer like ShaderMask).
+                    Positioned(left: 0, top: 0, bottom: 0, child: _EdgeFade(t: t, left: true)),
+                    Positioned(right: 0, top: 0, bottom: 0, child: _EdgeFade(t: t, left: false)),
+                  ],
                 ),
               ),
             ),
@@ -283,4 +279,28 @@ class _TickerChip extends StatelessWidget {
         color: t.brandSubtle,
         child: Icon(Icons.show_chart_rounded, size: 18, color: t.brand),
       );
+}
+
+/// Static gradient that fades the tape into the page background at each edge.
+/// Cheap (a plain gradient Container) — no per-frame saveLayer like ShaderMask.
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade({required this.t, required this.left});
+  final PulsThemeColors t;
+  final bool left;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: 48,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: left ? Alignment.centerLeft : Alignment.centerRight,
+            end: left ? Alignment.centerRight : Alignment.centerLeft,
+            colors: [t.bg, t.bg.withValues(alpha: 0.0)],
+          ),
+        ),
+      ),
+    );
+  }
 }
