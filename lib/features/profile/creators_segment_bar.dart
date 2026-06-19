@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/tactile.dart';
 
 /// Top-level segmented control for the merged "Creators" hub.
 ///
@@ -71,14 +72,16 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Tactile(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 9),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
+          color:
+              selected ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
           border: Border.all(
             color: selected ? t.brand : Colors.transparent,
