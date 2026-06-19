@@ -5,6 +5,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
 import 'market_detail_screen.dart';
+import 'researched_sources.dart';
 import 'view_prediction_link.dart';
 
 /// Signals Marketplace — a single live feed of EVERY published signal (from AI
@@ -218,6 +219,10 @@ class _MarketSignalCard extends StatelessWidget {
           else
             Text(signal.teaser ?? 'Premium analysis — unlock to read the full thesis.',
                 style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
+          if (signal.hasSources) ...[
+            const SizedBox(height: 12),
+            ResearchedSources(sources: signal.sources),
+          ],
           if (signal.onchain?.explorer != null) ...[
             const SizedBox(height: 12),
             GestureDetector(

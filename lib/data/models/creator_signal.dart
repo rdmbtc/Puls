@@ -11,6 +11,7 @@ class CreatorSignal {
     this.marketQuestion,
     this.marketSlug,
     this.marketLink,
+    this.sources = const [],
     this.confidence,
     this.edgeBps,
     this.horizon,
@@ -32,6 +33,7 @@ class CreatorSignal {
   final String? marketQuestion;
   final String? marketSlug;
   final String? marketLink;
+  final List<SignalSource> sources;
   final double? confidence; // 0..1
   final int? edgeBps;
   final String? horizon;
@@ -47,6 +49,7 @@ class CreatorSignal {
   bool get isDraft => status == 'draft';
   bool get hasThesis => thesis != null && thesis!.isNotEmpty;
   bool get hasMarketLink => (marketSlug != null && marketSlug!.isNotEmpty);
+  bool get hasSources => sources.isNotEmpty;
 
   factory CreatorSignal.fromJson(Map<String, dynamic> j) {
     return CreatorSignal(
@@ -59,6 +62,11 @@ class CreatorSignal {
       marketQuestion: j['marketQuestion'] as String?,
       marketSlug: j['marketSlug'] as String?,
       marketLink: j['marketLink'] as String?,
+      sources: (j['sources'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(SignalSource.fromJson)
+              .toList() ??
+          const [],
       confidence: (j['confidence'] as num?)?.toDouble(),
       edgeBps: (j['edgeBps'] as num?)?.toInt(),
       horizon: j['horizon'] as String?,
@@ -75,6 +83,23 @@ class CreatorSignal {
       publishedAt: DateTime.tryParse(j['publishedAt'] as String? ?? ''),
     );
   }
+}
+
+/// A live web source the creator researched for a signal (proof of grounding).
+class SignalSource {
+  const SignalSource({required this.title, required this.url, this.source});
+
+  final String title;
+  final String url;
+  final String? source; // hostname, e.g. "espn.com"
+
+  factory SignalSource.fromJson(Map<String, dynamic> j) => SignalSource(
+        title: (j['title'] as String?)?.trim().isNotEmpty == true
+            ? j['title'] as String
+            : (j['source'] as String? ?? j['url'] as String? ?? 'Source'),
+        url: j['url'] as String? ?? '',
+        source: j['source'] as String?,
+      );
 }
 
 /// On-chain attestation proof for a published signal.

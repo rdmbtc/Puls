@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
+import '../market/researched_sources.dart';
 import '../market/view_prediction_link.dart';
 
 /// The "Signals" segment of a creator profile.
@@ -300,6 +301,11 @@ class _SignalCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text('Locked', style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w600)),
             ]),
+          ],
+
+          if (signal.hasSources) ...[
+            const SizedBox(height: 12),
+            ResearchedSources(sources: signal.sources),
           ],
 
           // On-chain attestation badge
