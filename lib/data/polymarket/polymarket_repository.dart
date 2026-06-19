@@ -16,9 +16,16 @@ class PolymarketRepository {
     final results = await Future.wait([
       _fetch(50, off1),
       _fetch(50, off2),
+      _fetchWorldCup(),
     ]);
 
-    final markets = [...results[0], ...results[1]];
+    // Merge, de-duplicating by id/slug (a WC market may also be in the feed page).
+    final seen = <String>{};
+    final markets = <Market>[];
+    for (final m in [...results[0], ...results[1], ...results[2]]) {
+      final key = m.id.isNotEmpty ? m.id : m.slug;
+      if (key.isEmpty || seen.add(key)) markets.add(m);
+    }
     // Pin deployed (pre-warmed) markets first for instant sub-second trades
     markets.sort((a, b) {
       final aDep = a.contractAddress != null ? 1 : 0;
@@ -26,6 +33,41 @@ class PolymarketRepository {
       return bDep - aDep;
     });
     return markets;
+  }
+
+  /// Pulls live World Cup 2026 markets straight from Polymarket (real consensus
+  /// odds), so the dedicated "World Cup" feed category is always populated with
+  /// many YES/NO questions (winner per team, top scorer, etc.) — not just the
+  /// few that happen to land on the top-volume feed page.
+  Future<List<Market>> _fetchWorldCup() async {
+    const slugs = ['world-cup-winner'];
+    final out = <Market>[];
+    for (final slug in slugs) {
+      try {
+        final uri = Uri.parse('https://gamma-api.polymarket.com/events?slug=$slug');
+        final res = await http
+            .get(uri, headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 12));
+        if (res.statusCode != 200) continue;
+        final events = json.decode(res.body) as List<dynamic>;
+        if (events.isEmpty) continue;
+        final ev = events.first as Map<String, dynamic>;
+        final mkts = (ev['markets'] as List<dynamic>?) ?? const [];
+        for (final raw in mkts) {
+          final j = raw as Map<String, dynamic>;
+          // Skip closed/inactive/zero-liquidity placeholder team slots.
+          if (j['closed'] == true || j['active'] == false) continue;
+          final m = _parse(j);
+          if (m == null) continue;
+          // _parse already infers the "World Cup" category from the FIFA
+          // question text — just collect the parsed markets.
+          out.add(m);
+        }
+      } catch (_) {
+        // best-effort — never break the feed because of the WC fetch
+      }
+    }
+    return out;
   }
 
   /// Fetches a single market by slug — used for share deep links (/m/<slug>)
@@ -213,6 +255,8 @@ class PolymarketRepository {
   }
 
   String _titleToCategory(String text) {
+    // World Cup gets its own first-class category (real Polymarket markets).
+    if (text.contains('world cup') || text.contains('fifa')) { return 'World Cup'; }
     if (text.contains('bitcoin') || text.contains('crypto') || text.contains('eth') ||
         text.contains('btc') || text.contains('solana') || text.contains('token') ||
         text.contains('defi') || text.contains('nft')) { return 'Crypto'; }
