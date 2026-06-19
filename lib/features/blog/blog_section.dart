@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/puls_page_route.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../app/puls_app.dart';
@@ -38,16 +39,27 @@ class _BlogSectionState extends State<BlogSection> {
       final list = ((data['posts'] as List?) ?? [])
           .map((e) => BlogPost.fromJson(e as Map<String, dynamic>))
           .toList();
-      if (mounted) setState(() { _posts = list; _loading = false; });
+      if (mounted)
+        setState(() {
+          _posts = list;
+          _loading = false;
+        });
     } catch (_) {
-      if (mounted) setState(() { _failed = true; _loading = false; });
+      if (mounted)
+        setState(() {
+          _failed = true;
+          _loading = false;
+        });
     }
   }
 
   void _open(BlogPost p) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => BlogPostScreen(postId: p.id, preview: p),
-    )).then((_) => _fetch());
+    Navigator.of(context)
+        .push(pulsRoute<void>(
+          context,
+          builder: (_) => BlogPostScreen(postId: p.id, preview: p),
+        ))
+        .then((_) => _fetch());
   }
 
   Future<void> _compose() async {
@@ -76,12 +88,18 @@ class _BlogSectionState extends State<BlogSection> {
       Row(children: [
         Icon(Icons.auto_stories_rounded, color: t.brand, size: 20),
         const SizedBox(width: 8),
-        Text('Puls Journal', style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+        Text('Puls Journal',
+            style: TextStyle(
+                color: t.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3)),
         const Spacer(),
         TextButton.icon(
           onPressed: _compose,
           icon: Icon(Icons.edit_rounded, size: 15, color: t.brand),
-          label: Text('Write', style: TextStyle(color: t.brand, fontWeight: FontWeight.w800)),
+          label: Text('Write',
+              style: TextStyle(color: t.brand, fontWeight: FontWeight.w800)),
         ),
       ]),
       const SizedBox(height: 2),
