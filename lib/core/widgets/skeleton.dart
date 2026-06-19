@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion.dart';
 import '../theme/app_theme.dart';
 
 /// A shimmering placeholder block for loading states.
@@ -32,6 +33,17 @@ class _SkeletonState extends State<Skeleton>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Pause the shimmer sweep entirely when the user prefers reduced motion.
+    if (context.reduceMotion) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -40,6 +52,17 @@ class _SkeletonState extends State<Skeleton>
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    if (context.reduceMotion) {
+      // Static placeholder block — same footprint, no sweeping gradient.
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          color: t.border.withValues(alpha: 0.6),
+        ),
+      );
+    }
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion.dart';
 import '../theme/app_theme.dart';
 
 /// Claude-style "reasoning" indicator: a muted text label with a brighter
@@ -64,6 +65,16 @@ class _ShimmerTextState extends State<ShimmerText>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (context.reduceMotion) {
+      _shimmer.stop();
+    } else if (!_shimmer.isAnimating) {
+      _shimmer.repeat();
+    }
+  }
+
+  @override
   void dispose() {
     _shimmer.dispose();
     super.dispose();
@@ -81,6 +92,21 @@ class _ShimmerTextState extends State<ShimmerText>
               height: 1.2,
             ))
         .copyWith(color: base);
+
+    // Reduce-motion: no sweeping highlight or phrase cross-fade — show the
+    // current phrase plainly in the highlight color.
+    if (context.reduceMotion) {
+      final plain = Text(widget.phrases[_idx], style: style.copyWith(color: highlight));
+      if (!widget.leadingDot) return plain;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PulseDot(color: highlight),
+          const SizedBox(width: 8),
+          Flexible(child: plain),
+        ],
+      );
+    }
 
     final label = AnimatedBuilder(
       animation: _shimmer,
@@ -151,6 +177,16 @@ class _PulseDotState extends State<_PulseDot>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (context.reduceMotion) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
+  }
+
+  @override
   void dispose() {
     _c.dispose();
     super.dispose();
@@ -158,6 +194,16 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) {
+    if (context.reduceMotion) {
+      return Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color,
+        ),
+      );
+    }
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../motion.dart';
+
 /// A one-shot confetti burst, no external dependencies.
 /// Place in a [Stack] and set [play] to true to fire.
 class ConfettiBurst extends StatefulWidget {
@@ -18,6 +20,7 @@ class _ConfettiBurstState extends State<ConfettiBurst>
   late final AnimationController _ctrl;
   late List<_Particle> _particles;
   bool _fired = false;
+  bool _reduceMotion = false;
 
   static const _palette = [
     Color(0xFF2DD4BF), // mint
@@ -36,6 +39,14 @@ class _ConfettiBurstState extends State<ConfettiBurst>
       duration: const Duration(milliseconds: 1900),
     );
     _particles = _generate();
+    // Firing is deferred to didChangeDependencies so we can read the
+    // reduce-motion setting (MediaQuery isn't available in initState).
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = context.reduceMotion;
     if (widget.play) _fire();
   }
 
@@ -60,6 +71,8 @@ class _ConfettiBurstState extends State<ConfettiBurst>
   void _fire() {
     if (_fired) return;
     _fired = true;
+    // Honor reduce-motion: no flying particles.
+    if (_reduceMotion) return;
     _ctrl.forward(from: 0);
   }
 

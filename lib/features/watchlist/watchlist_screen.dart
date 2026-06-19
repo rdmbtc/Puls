@@ -5,6 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/trade_math.dart';
+import '../../core/widgets/state_views.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 
@@ -64,7 +65,7 @@ class WatchlistScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: FadeIn(
                     delay: const Duration(milliseconds: 200),
-                    child: _EmptyState(t: t),
+                    child: const _EmptyState(),
                   ),
                 ),
               )
@@ -280,38 +281,14 @@ class _WatchCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.t});
-  final PulsThemeColors t;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.border),
-      ),
-      child: Column(
-        children: [
-          Image.network(
-            'https://img.icons8.com/?id=QXkPT7U8Homg&format=png&size=256',
-            width: 80,
-            height: 80,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => Icon(Icons.bookmark_rounded, color: t.textSubtle, size: 32),
-          ),
-          const SizedBox(height: 12),
-          Text('No saved markets',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(
-            'Tap the bookmark on any market to watch it.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return const PulsEmptyState(
+      icon: Icons.bookmark_border_rounded,
+      title: 'No saved markets',
+      message: 'Tap the bookmark on any market to watch it here.',
     );
   }
 }
