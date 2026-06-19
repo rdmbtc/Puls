@@ -163,14 +163,14 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
                 child: ClipRect(
                   child: AnimatedBuilder(
                     animation: _marquee,
-                    builder: (context, _) {
-                      final dx = -_marquee.value * total;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned(left: dx, top: 0, child: row),
-                          Positioned(left: dx + total, top: 0, child: row),
-                        ],
+                    // Build the tape ONCE and pass it as `child` — the builder
+                    // only changes the translate offset, so there's no relayout
+                    // or image re-fetch per frame (that was the source of jank).
+                    child: Row(children: [row, row]),
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(-_marquee.value * total, 0),
+                        child: child,
                       );
                     },
                   ),
