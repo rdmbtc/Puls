@@ -19,6 +19,7 @@ import { registerCreatorSignals } from './lib/creator_signals.js';
 import { registerSwap } from './lib/swap.js';
 import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
+import { registerPoints } from './lib/points.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -1726,6 +1727,20 @@ app.post('/api/trade/buy', authenticateUser, requireVerifiedUser, tradeLimiter, 
       })
       .catch((err) => console.error('[copy] mirror dispatch error:', err.message));
 
+    // Points (Traction): reward the trade — fire-and-forget, never blocks.
+    (async () => {
+      try {
+        await touchStreak(userId);
+        await awardPoints(userId, 'trade', { refType: 'trade', refId: txId });
+        const { count } = await supabase
+          .from('trades').select('id', { count: 'exact', head: true }).eq('user_id', userId);
+        if ((count ?? 0) <= 1) {
+          await awardPoints(userId, 'first_trade', { refId: 'first' });
+          await awardPoints(userId, 'fund_wallet', { refId: 'funded' });
+        }
+      } catch (_) {}
+    })();
+
     res.json({ txId, state: txRes.data.state, side, balance: info.usdcBalance });
   } catch (e) {
     console.error('trade buy error:', e.message);
@@ -1809,6 +1824,11 @@ app.post('/api/trade/claim', authenticateUser, requireVerifiedUser, strictLimite
       abiParameters: [],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
     });
+
+    (async () => { try {
+      await touchStreak(userId);
+      await awardPoints(userId, 'win', { refType: 'claim', refId: `${contractAddress}-${txRes.data.id}` });
+    } catch (_) {} })();
 
     res.json({ txId: txRes.data.id, state: txRes.data.state });
   } catch (e) {
@@ -2632,6 +2652,16 @@ app.get('/api/x402/payments', async (req, res) => {
   }
 });
 
+// ── Points Engine + Onboarding Quests (Traction: activation + retention) ──────
+// Off-chain XP only (not a token, not redeemable). Helpers are hooked into the
+// confirmed-event handlers (trade/claim) and passed to tips/comments/signals.
+// Safe no-op until the migration (migrations/2026-06-19-points.sql) runs.
+const points = registerPoints(app, {
+  supabase, authenticateUser, requireVerifiedUser, strictLimiter, generalLimiter,
+});
+const awardPoints = points.awardPoints;
+const touchStreak = points.touchStreak;
+
 // ── Copy-trade creator layer (T1) ────────────────────────────────────────────
 // Followers mirror a leader's BUYs (scaled to a per-trade cap) and pay the leader
 // a per-event creator micro-fee. Live mirroring is gated by env COPY_TRADE_ENABLED.
@@ -2679,6 +2709,7 @@ registerTips(app, {
   authenticateUser,
   requireVerifiedUser,
   strictLimiter,
+  awardPoints,
 });
 
 // ── Comments (community layer, F1) ───────────────────────────────────────────
@@ -2692,6 +2723,7 @@ registerComments(app, {
   requireVerifiedUser,
   strictLimiter,
   createNotification,
+  awardPoints,
 });
 
 // ── Support tickets (in-app help desk, F5) ───────────────────────────────────
@@ -2739,6 +2771,7 @@ registerCreatorSignals(app, {
   publicClient,
   keccak256,
   toHex,
+  awardPoints,
 });
 
 // ── Token swap (Circle App Kit) — USDC <-> EURC on Arc ────────────────────────
