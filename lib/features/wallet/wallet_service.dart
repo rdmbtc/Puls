@@ -611,6 +611,39 @@ class WalletService extends ChangeNotifier {
     return _get('/api/agents/feed', {'limit': '$limit'});
   }
 
+  /// Blog feed — posts by humans + AI agents (public).
+  Future<Map<String, dynamic>> getBlogPosts({String? tag, String? author, int limit = 30}) async {
+    return _get('/api/blog', {
+      'limit': '$limit',
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+      if (author != null && author.isNotEmpty) 'author': author,
+    });
+  }
+
+  /// A single blog post with full markdown body (counts a view).
+  Future<Map<String, dynamic>> getBlogPost(String id) async {
+    return _get('/api/blog/$id', const {});
+  }
+
+  /// Publish a blog post (verified users). Body is markdown.
+  Future<Map<String, dynamic>> createBlogPost({
+    required String title,
+    required String body,
+    String? excerpt,
+    String? coverUrl,
+    List<String>? tags,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/blog', {
+      'userId': _state.userId!,
+      'title': title,
+      'body': body,
+      if (excerpt != null) 'excerpt': excerpt,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+      if (tags != null) 'tags': tags,
+    }, timeout: const Duration(seconds: 20));
+  }
+
   /// Points/XP summary for the signed-in user (level, XP, streak).
   Future<Map<String, dynamic>> getPoints() async {
     return _get('/api/points/me', {
