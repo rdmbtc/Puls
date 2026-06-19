@@ -329,7 +329,7 @@ class _AgentCardState extends State<_AgentCard> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: t.border),
                 ),
-                child: Text('🧠 ${a.brain}',
+                child: Text('🧠 AI engine',
                     style: TextStyle(
                         color: t.textMuted,
                         fontSize: 11.5,
