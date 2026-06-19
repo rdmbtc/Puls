@@ -133,11 +133,14 @@ class _EventCard extends StatelessWidget {
     final name = event['agentName'] as String? ?? 'Agent';
     final action = event['action'] as String? ?? '';
     final isGo = action == 'go';
+    final isCreate = action == 'create_market';
+    final isSell = action == 'sell';
     final side = event['side'] as String?;
     final amount = (event['amount'] as num?)?.toDouble();
     final question = event['question'] as String? ?? '';
     final reasoning = event['reasoning'] as String? ?? '';
     final brain = event['brain'] as String?;
+    final shift = event['sentimentShift'] as Map<String, dynamic>?;
     final review = event['signalReview'] as Map<String, dynamic>?;
     final alphaPaid = (event['alphaPaid'] as num?)?.toDouble();
     final alphaTxId = event['alphaTxId'] as String?;
@@ -165,7 +168,7 @@ class _EventCard extends StatelessWidget {
                 gradient: LinearGradient(colors: [PulsColors.brandMint, t.brand]),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16),
+              child: Icon(isCreate ? Icons.add_chart_rounded : isSell ? Icons.sell_rounded : isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 9),
             Expanded(
@@ -180,13 +183,29 @@ class _EventCard extends StatelessWidget {
                 border: Border.all(color: t.border),
               ),
               child: Text(
-                isGo ? 'BUY $side \$${amount?.toStringAsFixed(2) ?? ''}' : 'HOLD',
+                isCreate ? 'NEW MARKET'
+                    : isSell ? 'SOLD $side'
+                    : isGo ? 'BUY $side \$${amount?.toStringAsFixed(2) ?? ''}'
+                    : 'HOLD',
                 style: TextStyle(
-                    color: isGo ? (side == 'NO' ? t.no : t.yes) : t.textMuted,
+                    color: isCreate ? t.brand : isSell ? (side == 'NO' ? t.no : t.yes) : isGo ? (side == 'NO' ? t.no : t.yes) : t.textMuted,
                     fontSize: 10.5, fontWeight: FontWeight.w800),
               ),
             ),
           ]),
+          if (shift != null) ...[
+            const SizedBox(height: 9),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(color: t.brand.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.sync_alt_rounded, size: 13, color: t.brand),
+                const SizedBox(width: 5),
+                Flexible(child: Text('Sentiment shift: ${shift['from']} → ${shift['to']}',
+                    style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w800))),
+              ]),
+            ),
+          ],
           if (question.isNotEmpty) ...[
             const SizedBox(height: 9),
             Text(question, maxLines: 2, overflow: TextOverflow.ellipsis,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/tts.dart';
 import '../../app/puls_app.dart';
 import '../../core/widgets/simple_markdown.dart';
 import '../../data/models/blog_post.dart';
@@ -24,6 +25,26 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
   BlogPost? _post;
   bool _loading = true;
   bool _tipping = false;
+  bool _speaking = false;
+
+  @override
+  void dispose() {
+    if (_speaking) PulsTts.stop();
+    super.dispose();
+  }
+
+  void _toggleSpeak() {
+    final post = _post;
+    if (post == null) return;
+    if (_speaking) {
+      PulsTts.stop();
+      setState(() => _speaking = false);
+      return;
+    }
+    final text = '${post.title}. ${post.body ?? post.excerpt ?? ''}';
+    PulsTts.speak(text);
+    setState(() => _speaking = true);
+  }
 
   @override
   void initState() {
@@ -106,6 +127,22 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                 Text(post.title, style: TextStyle(color: t.text, fontSize: 24, fontWeight: FontWeight.w900, height: 1.2, letterSpacing: -0.5)),
                 const SizedBox(height: 14),
                 BlogAuthorRow(author: post.author, publishedAt: post.publishedAt, views: post.views),
+                if (PulsTts.isSupported) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _toggleSpeak,
+                      icon: Icon(_speaking ? Icons.stop_rounded : Icons.volume_up_rounded, size: 16, color: t.brand),
+                      label: Text(_speaking ? 'Stop' : 'Listen to this briefing',
+                          style: TextStyle(color: t.brand, fontWeight: FontWeight.w800, fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: t.brand.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Divider(color: t.border, height: 1),
                 const SizedBox(height: 16),
