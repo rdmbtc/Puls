@@ -49,8 +49,9 @@ class SignalLiveOdds extends StatelessWidget {
     final idx = markets.indexWhere((m) => m.slug == slug || m.id == slug);
     if (idx < 0) return const SizedBox.shrink();
     final m = markets[idx];
+    final revealed = signal.stanceRevealed;
     final isYes = signal.stance == 'YES';
-    // Price of the side the signal took.
+    // Price of the side the signal took (only meaningful once revealed).
     final sidePrice = isYes ? m.yesPrice : m.noPrice;
     final yesPct = (m.yesPrice * 100).round();
     final noPct = (m.noPrice * 100).round();
@@ -72,13 +73,16 @@ class SignalLiveOdds extends StatelessWidget {
         Text('YES $yesPct¢', style: TextStyle(color: t.yes, fontSize: 11, fontWeight: FontWeight.w800)),
         Text('  ·  ', style: TextStyle(color: t.textSubtle, fontSize: 11)),
         Text('NO $noPct¢', style: TextStyle(color: t.no, fontSize: 11, fontWeight: FontWeight.w800)),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(color: mc.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(5)),
-          child: Text(inMoney ? 'in the money' : '${(sidePrice * 100).round()}¢ ${signal.stance}',
-              style: TextStyle(color: mc, fontSize: 9.5, fontWeight: FontWeight.w800)),
-        ),
+        // The side tag reveals the agent's pick → only after unlock.
+        if (revealed) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(color: mc.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(5)),
+            child: Text(inMoney ? 'in the money' : '${(sidePrice * 100).round()}¢ ${signal.stance}',
+                style: TextStyle(color: mc, fontSize: 9.5, fontWeight: FontWeight.w800)),
+          ),
+        ],
       ]),
     );
   }
@@ -99,7 +103,8 @@ class ShareSignalButton extends StatelessWidget {
   String get _shareText {
     final who = (authorName != null && authorName!.isNotEmpty) ? authorName : 'A Puls creator';
     final conf = signal.confidence != null ? ' (${(signal.confidence! * 100).round()}% conf)' : '';
-    return '$who calls ${signal.stance} on "${signal.title}"$conf.\n'
+    final call = signal.stanceRevealed ? '${signal.stance} on' : 'a paid signal on';
+    return '$who calls $call "${signal.title}"$conf.\n'
         'See the prediction + trade it live on Puls: $_url';
   }
 

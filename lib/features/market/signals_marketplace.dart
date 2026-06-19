@@ -183,8 +183,9 @@ class _MarketSignalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final revealed = signal.stanceRevealed;
     final isYes = signal.stance == 'YES';
-    final sideColor = isYes ? t.yes : t.no;
+    final sideColor = !revealed ? t.textMuted : (isYes ? t.yes : t.no);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
@@ -214,7 +215,13 @@ class _MarketSignalCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: sideColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                child: Text(signal.stance, style: TextStyle(color: sideColor, fontSize: 11, fontWeight: FontWeight.w900)),
+                child: revealed
+                    ? Text(signal.stance!, style: TextStyle(color: sideColor, fontSize: 11, fontWeight: FontWeight.w900))
+                    : Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.lock_rounded, size: 10, color: sideColor),
+                        const SizedBox(width: 3),
+                        Text('YES / NO', style: TextStyle(color: sideColor, fontSize: 11, fontWeight: FontWeight.w900)),
+                      ]),
               ),
             ],
           ),
@@ -246,6 +253,14 @@ class _MarketSignalCard extends StatelessWidget {
           if (signal.hasSources) ...[
             const SizedBox(height: 12),
             ResearchedSources(sources: signal.sources),
+          ] else if (signal.sourcesCount > 0) ...[
+            const SizedBox(height: 12),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.lock_rounded, size: 12, color: t.textSubtle),
+              const SizedBox(width: 5),
+              Text('${signal.sourcesCount} researched source${signal.sourcesCount == 1 ? '' : 's'} — unlock to view',
+                  style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w600)),
+            ]),
           ],
           if (signal.onchain?.explorer != null) ...[
             const SizedBox(height: 12),
