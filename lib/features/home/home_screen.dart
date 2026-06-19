@@ -15,6 +15,7 @@ import '../onboarding/help_button.dart';
 import '../wallet/wallet_service.dart';
 import '../agent/agent_screen.dart' show agentSubTabRequest;
 import 'promo_carousel.dart';
+import '../rewards/points_quests_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -101,6 +102,8 @@ class _WebHomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _HomePromoCarousel(),
+              const SizedBox(height: 24),
+              const PointsQuestsCard(),
               const SizedBox(height: 24),
               _FeaturedHeroBanner(market: featuredMarket, t: t),
               const SizedBox(height: 28),

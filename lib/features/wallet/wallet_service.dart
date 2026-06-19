@@ -611,6 +611,28 @@ class WalletService extends ChangeNotifier {
     return _get('/api/agents/feed', {'limit': '$limit'});
   }
 
+  /// Points/XP summary for the signed-in user (level, XP, streak).
+  Future<Map<String, dynamic>> getPoints() async {
+    return _get('/api/points/me', {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+  }
+
+  /// Onboarding + daily quests with this user's status.
+  Future<Map<String, dynamic>> getQuests() async {
+    return _get('/api/quests', {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+  }
+
+  /// Claim a completed quest (server re-validates). Returns { ok, awarded, points }.
+  Future<Map<String, dynamic>> claimQuest(String questKey) async {
+    return _post('/api/quests/claim', {
+      'userId': _state.userId,
+      'quest_key': questKey,
+    });
+  }
+
   /// One signal. 402 (locked) is returned as data, not thrown.
   Future<Map<String, dynamic>> getSignal(String id) async {
     final headers = <String, String>{};
