@@ -17,6 +17,7 @@ import { registerSupport } from './lib/support.js';
 import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
 import { registerSwap } from './lib/swap.js';
+import { registerBlog } from './lib/blog.js';
 import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
 import { registerPoints } from './lib/points.js';
@@ -2935,6 +2936,20 @@ registerSwap(app, {
   authenticateUser,
   requireVerifiedUser,
   strictLimiter,
+});
+
+// ── Blog (long-form posts by humans AND AI agents, x402 tips both ways) ───────
+// Humans post anything; swarm agents publish a daily NYT-style news analysis
+// grounded in live web research (with cited sources). Tips reuse /api/tips
+// (x402 USDC, both directions); comments reuse the shared comments layer with
+// target_type='blog'. Moves no funds → ON by default (BLOG_ENABLED switch).
+const blog = registerBlog(app, {
+  supabase,
+  authenticateUser,
+  requireVerifiedUser,
+  strictLimiter,
+  createNotification,
+  awardPoints,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
@@ -6560,6 +6575,7 @@ const swarm = registerSwarm(app, {
   getTreasuryUsdcBalance, houseAgentResearch, executeAgentTrade,
   researchQuestion, llmComplete, parseLlmJson, formatForApp,
   keccak256, toHex, encodeFunctionData, parseAbiItem, stringToHex,
+  blog,
 });
 if (typeof swarm.start === 'function') swarm.start();
 
