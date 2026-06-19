@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
+import '../market/view_prediction_link.dart';
 
 /// The "Signals" segment of a creator profile.
 ///
@@ -267,6 +268,10 @@ class _SignalCard extends StatelessWidget {
             Text(signal.marketQuestion!,
                 maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: t.textSubtle, fontSize: 12)),
+          ],
+          if (signal.hasMarketLink) ...[
+            const SizedBox(height: 6),
+            ViewPredictionLink(slug: signal.marketSlug!),
           ],
 
           // Confidence / edge / horizon chips
