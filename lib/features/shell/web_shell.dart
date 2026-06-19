@@ -4,6 +4,7 @@ import 'package:picons/picons.dart';
 import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/lazy_indexed_stack.dart';
 import '../../core/widgets/puls_footer.dart';
 import '../discover/discover_screen.dart';
 import '../feed/feed_screen.dart';
@@ -183,7 +184,7 @@ class _WebShellState extends State<WebShell>
                       // Embedded pages set backgroundColor: Colors.transparent
                       // so the shell gradient above is the single background
                       // (fixes the double-background behind the island nav).
-                      child: IndexedStack(index: _index, children: _pages),
+                      child: LazyIndexedStack(index: _index, children: _pages),
                     ),
                   ),
                 ),
