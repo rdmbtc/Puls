@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_page_route.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
@@ -62,12 +63,18 @@ class _WebHomeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Markets are warming up — check back soon.',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: t.text),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(color: t.text),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Check back soon or activate a market to start trading.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textMuted),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: t.textMuted),
                 ),
               ],
             ),
@@ -92,7 +99,8 @@ class _WebHomeScreen extends StatelessWidget {
         .skip(trendingMarkets.length)
         .take(4)
         .toList();
-    final displayHot = hotMarkets.isNotEmpty ? hotMarkets : trendingMarkets.take(4).toList();
+    final displayHot =
+        hotMarkets.isNotEmpty ? hotMarkets : trendingMarkets.take(4).toList();
 
     final bodyContent = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +127,11 @@ class _WebHomeScreen extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => PulsStateScope.of(context).refresh(),
                     icon: Icon(Icons.refresh_rounded, size: 16, color: t.brand),
-                    label: Text('Refresh', style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.w600)),
+                    label: Text('Refresh',
+                        style: TextStyle(
+                            color: t.brand,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -134,7 +146,8 @@ class _WebHomeScreen extends StatelessWidget {
                   childAspectRatio: 1.45,
                 ),
                 itemCount: trendingMarkets.length,
-                itemBuilder: (context, i) => _WebTrendingCard(market: trendingMarkets[i], t: t),
+                itemBuilder: (context, i) =>
+                    _WebTrendingCard(market: trendingMarkets[i], t: t),
               ),
               const SizedBox(height: 28),
               const BlogSection(),
@@ -161,7 +174,8 @@ class _WebHomeScreen extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: displayHot.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) => _WebHotMarketCard(market: displayHot[i], t: t),
+                itemBuilder: (context, i) =>
+                    _WebHotMarketCard(market: displayHot[i], t: t),
               ),
             ],
           ),
@@ -202,7 +216,8 @@ class _WebHomeScreen extends StatelessWidget {
                         childAspectRatio: size.width > 600 ? 1.45 : 1.6,
                       ),
                       itemCount: trendingMarkets.length,
-                      itemBuilder: (context, i) => _WebTrendingCard(market: trendingMarkets[i], t: t),
+                      itemBuilder: (context, i) =>
+                          _WebTrendingCard(market: trendingMarkets[i], t: t),
                     ),
                     const SizedBox(height: 24),
                     Row(
@@ -291,14 +306,18 @@ class _FeaturedHeroBanner extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'Volume: ${market.volume}',
-                style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: t.textSubtle,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
               ),
             ],
           ),
           const SizedBox(height: 16),
           GestureDetector(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
+              pulsRoute(
+                context,
                 builder: (_) => MarketDetailScreen(marketId: market.id),
               ),
             ),
@@ -377,7 +396,8 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
+          pulsRoute(
+            context,
             builder: (_) => MarketDetailScreen(marketId: widget.market.id),
           ),
         ),
@@ -385,9 +405,11 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _hovered ? t.surfaceRaised : t.surface.withValues(alpha: 0.6),
+            color:
+                _hovered ? t.surfaceRaised : t.surface.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _hovered ? t.brand.withValues(alpha: 0.4) : t.border),
+            border: Border.all(
+                color: _hovered ? t.brand.withValues(alpha: 0.4) : t.border),
             boxShadow: _hovered
                 ? [
                     BoxShadow(
@@ -404,14 +426,18 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: t.brandSubtle,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       widget.market.category,
-                      style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          color: t.brand,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700),
                     ),
                   ),
                   const Spacer(),
@@ -438,7 +464,8 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
                             width: 40,
                             height: 40,
                             color: t.brandSubtle,
-                            child: Icon(Icons.show_chart_rounded, color: t.brand, size: 18),
+                            child: Icon(Icons.show_chart_rounded,
+                                color: t.brand, size: 18),
                           ),
                         ),
                       ),
@@ -447,7 +474,11 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
                     Expanded(
                       child: Text(
                         widget.market.question,
-                        style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w700, height: 1.3),
+                        style: TextStyle(
+                            color: t.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -472,7 +503,8 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
 }
 
 class _QuickPill extends StatelessWidget {
-  const _QuickPill({required this.label, required this.color, required this.bg});
+  const _QuickPill(
+      {required this.label, required this.color, required this.bg});
   final String label;
   final Color color;
   final Color bg;
@@ -487,21 +519,24 @@ class _QuickPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
 }
 
 class _WebWalletBox extends StatelessWidget {
-  const _WebWalletBox({required this.ws, required this.wallet, required this.t});
+  const _WebWalletBox(
+      {required this.ws, required this.wallet, required this.t});
   final WalletState ws;
   final WalletService wallet;
   final PulsThemeColors t;
 
   @override
   Widget build(BuildContext context) {
-    final balance = double.tryParse(ws.usdcBalance)?.toStringAsFixed(2) ?? ws.usdcBalance;
+    final balance =
+        double.tryParse(ws.usdcBalance)?.toStringAsFixed(2) ?? ws.usdcBalance;
     final isZero = (double.tryParse(ws.usdcBalance) ?? 0) == 0;
 
     return Container(
@@ -516,49 +551,68 @@ class _WebWalletBox extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance_wallet_rounded, color: t.brand, size: 20),
+              Icon(Icons.account_balance_wallet_rounded,
+                  color: t.brand, size: 20),
               const SizedBox(width: 8),
-              Text('Arc Wallet', style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w700)),
+              Text('Arc Wallet',
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700)),
               const Spacer(),
               if (ws.walletAddress != null && ws.walletAddress!.isNotEmpty)
                 Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(color: t.yes, shape: BoxShape.circle),
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: t.yes, shape: BoxShape.circle),
                 ),
             ],
           ),
           const SizedBox(height: 14),
           if (ws.userId == null) ...[
-            Text('Connect your wallet via the Profile tab to enable predicting on Arc Testnet.',
-                style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.5)),
+            Text(
+                'Connect your wallet via the Profile tab to enable predicting on Arc Testnet.',
+                style:
+                    TextStyle(color: t.textMuted, fontSize: 12, height: 1.5)),
           ] else ...[
-            Text('\$$balance USDC', style: TextStyle(color: t.text, fontSize: 24, fontWeight: FontWeight.w800)),
+            Text('\$$balance USDC',
+                style: TextStyle(
+                    color: t.text, fontSize: 24, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text(
               ws.walletAddress != null && ws.walletAddress!.isNotEmpty
                   ? '${ws.walletAddress!.substring(0, 6)}...${ws.walletAddress!.substring(ws.walletAddress!.length - 4)}'
                   : 'Generating address...',
-              style: TextStyle(color: t.textSubtle, fontSize: 11, fontFamily: 'monospace'),
+              style: TextStyle(
+                  color: t.textSubtle, fontSize: 11, fontFamily: 'monospace'),
             ),
             const SizedBox(height: 14),
             if (isZero) ...[
               GestureDetector(
-                onTap: () => launchUrl(Uri.parse('https://faucet.circle.com'), mode: LaunchMode.externalApplication),
+                onTap: () => launchUrl(Uri.parse('https://faucet.circle.com'),
+                    mode: LaunchMode.externalApplication),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: PulsColors.amberLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: PulsColors.amber.withValues(alpha: 0.2)),
+                    border: Border.all(
+                        color: PulsColors.amber.withValues(alpha: 0.2)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.water_drop_rounded, size: 14, color: PulsColors.amber),
+                      Icon(Icons.water_drop_rounded,
+                          size: 14, color: PulsColors.amber),
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Get testnet USDC faucet →',
-                          style: TextStyle(color: PulsColors.amber, fontSize: 11, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: PulsColors.amber,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -596,7 +650,8 @@ class _WebHotMarketCardState extends State<_WebHotMarketCard> {
       child: GestureDetector(
         onTap: () {
           Navigator.of(context).push(
-            MaterialPageRoute(
+            pulsRoute(
+              context,
               builder: (_) => MarketDetailScreen(marketId: widget.market.id),
             ),
           );
@@ -605,7 +660,8 @@ class _WebHotMarketCardState extends State<_WebHotMarketCard> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: _hovered ? t.surfaceRaised : t.surface.withValues(alpha: 0.5),
+            color:
+                _hovered ? t.surfaceRaised : t.surface.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _hovered ? t.brand : t.border),
           ),
@@ -615,7 +671,8 @@ class _WebHotMarketCardState extends State<_WebHotMarketCard> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: t.brandSubtle,
                       borderRadius: BorderRadius.circular(4),
@@ -727,18 +784,27 @@ class _TradingPillButton extends StatelessWidget {
         style: TextButton.styleFrom(
           backgroundColor: bg,
           foregroundColor: color,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            Text(label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
             Row(
               children: [
-                Text(pct, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                Text(pct,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 13)),
                 const SizedBox(width: 4),
-                Text('($price)', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 11, color: color.withValues(alpha: 0.7))),
+                Text('($price)',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        color: color.withValues(alpha: 0.7))),
               ],
             ),
           ],
@@ -747,7 +813,6 @@ class _TradingPillButton extends StatelessWidget {
     );
   }
 }
-
 
 /// Compact "Humans vs Agents" scoreboard for the Home right rail. Aggregates
 /// live win-rates from /api/leaderboard so judges immediately see the core
@@ -783,8 +848,9 @@ class _HumansVsAgentsCardState extends State<_HumansVsAgentsCard> {
             (row['trades'] as num?)?.toInt() ??
             0;
         if (trades <= 0) continue;
-        final win = double.tryParse(
-                row['winRate']?.toString() ?? row['win_rate']?.toString() ?? '') ??
+        final win = double.tryParse(row['winRate']?.toString() ??
+                row['win_rate']?.toString() ??
+                '') ??
             0;
         if (row['isAgent'] == true) {
           aSum += win;
@@ -834,7 +900,9 @@ class _HumansVsAgentsCardState extends State<_HumansVsAgentsCard> {
               const SizedBox(width: 6),
               Text('Humans vs Agents',
                   style: TextStyle(
-                      color: t.text, fontSize: 14, fontWeight: FontWeight.w800)),
+                      color: t.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800)),
             ],
           ),
           const SizedBox(height: 4),
@@ -905,7 +973,9 @@ class _ScorePill extends StatelessWidget {
         children: [
           Text('$emoji $label',
               style: TextStyle(
-                  color: t.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
+                  color: t.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text(value,
               style: TextStyle(
@@ -917,7 +987,6 @@ class _ScorePill extends StatelessWidget {
     );
   }
 }
-
 
 /// Home promo carousel — HD banner slides (text overlaid in-app, not baked into
 /// the image) for referral, World Cup, social, and the paid-alpha narrative.
@@ -946,7 +1015,8 @@ class _HomePromoCarousel extends StatelessWidget {
       PromoSlide(
         imageAsset: 'assets/promo/alpha.png',
         title: 'Paid alpha',
-        subtitle: 'Read top forecasts for \$0.001 — paid straight to the creator',
+        subtitle:
+            'Read top forecasts for \$0.001 — paid straight to the creator',
         cta: 'Explore Alpha →',
         onTap: () {
           agentSubTabRequest.value = 3; // Signals (AI Alpha Market) sub-tab

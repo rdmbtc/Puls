@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/puls_page_route.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -58,15 +59,24 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   String _getCategoryEmoji(String category) {
     switch (category.toLowerCase()) {
-      case 'all': return '🌍';
-      case 'politics': return '🗳️';
-      case 'crypto': return '🪙';
-      case 'sports': return '⚽';
-      case 'pop culture': return '🎬';
-      case 'science': return '🧪';
-      case 'tech': return '💻';
-      case 'finance': return '💼';
-      default: return '🔮';
+      case 'all':
+        return '🌍';
+      case 'politics':
+        return '🗳️';
+      case 'crypto':
+        return '🪙';
+      case 'sports':
+        return '⚽';
+      case 'pop culture':
+        return '🎬';
+      case 'science':
+        return '🧪';
+      case 'tech':
+        return '💻';
+      case 'finance':
+        return '💼';
+      default:
+        return '🔮';
     }
   }
 
@@ -110,9 +120,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ],
                   Text('Discover',
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.0,
-                      )),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.0,
+                          )),
                   const Spacer(),
                   const HelpButton(tab: PulsTab.discover),
                   const SizedBox(width: 8),
@@ -128,12 +138,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     },
                     child: Container(
                       height: 38,
-                      padding: EdgeInsets.symmetric(horizontal: kIsWeb ? 12 : 9),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: kIsWeb ? 12 : 9),
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         color: t.brandSubtle,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+                        border:
+                            Border.all(color: t.brand.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -160,7 +172,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: t.border),
                     ),
-                    child: Icon(Icons.tune_rounded, color: t.textMuted, size: 17),
+                    child:
+                        Icon(Icons.tune_rounded, color: t.textMuted, size: 17),
                   ),
                 ],
               ),
@@ -186,13 +199,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   focusNode: _focusNode,
                   style: TextStyle(color: t.text, fontSize: 14),
                   decoration: InputDecoration(
-                    hintText: 'Search prediction markets (e.g., Bitcoin, Election)...',
+                    hintText:
+                        'Search prediction markets (e.g., Bitcoin, Election)...',
                     hintStyle: TextStyle(color: t.textSubtle, fontSize: 14),
                     prefixIcon: Icon(Icons.search_rounded,
-                        color: _searchFocused ? t.brand : t.textSubtle, size: 20),
+                        color: _searchFocused ? t.brand : t.textSubtle,
+                        size: 20),
                     filled: true,
                     fillColor: _searchFocused ? t.surfaceRaised : t.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide(color: t.border),
@@ -228,8 +244,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         decoration: BoxDecoration(
                           color: sel ? t.brand : t.surface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: sel ? t.brand : t.border),
+                          border: Border.all(color: sel ? t.brand : t.border),
                           boxShadow: [
                             if (sel)
                               BoxShadow(
@@ -266,18 +281,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 children: [
                   Text('Trending Markets',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      )),
+                            fontWeight: FontWeight.w800,
+                          )),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: t.surfaceRaised,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: t.border),
                     ),
-                    child: Text(isInitialLoading ? 'Searching…' : '${markets.length} found',
-                        style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+                    child: Text(
+                        isInitialLoading
+                            ? 'Searching…'
+                            : '${markets.length} found',
+                        style: TextStyle(
+                            color: t.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -296,7 +318,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           onClear: hasFilters ? _clearFilters : null,
           trending: hasFilters
               ? (appState.markets.toList()
-                  ..sort((a, b) => b.volume24hr.compareTo(a.volume24hr)))
+                    ..sort((a, b) => b.volume24hr.compareTo(a.volume24hr)))
                   .take(3)
                   .toList()
               : const [],
@@ -348,7 +370,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               isWatchlisted: appState.isWatchlisted(markets[i].id),
               onWatchlist: () => appState.toggleWatchlist(markets[i].id),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
+                pulsRoute(
+                  context,
                   builder: (_) => MarketDetailScreen(marketId: markets[i].id),
                 ),
               ),
@@ -377,7 +400,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             isWatchlisted: appState.isWatchlisted(markets[i].id),
             onWatchlist: () => appState.toggleWatchlist(markets[i].id),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
+              pulsRoute(
+                context,
                 builder: (_) => MarketDetailScreen(marketId: markets[i].id),
               ),
             ),
@@ -467,7 +491,9 @@ class _MarketCardState extends State<_MarketCard> {
           curve: Curves.easeOutCubic,
           transform: Matrix4.translationValues(0, _hovered ? -4.0 : 0.0, 0),
           decoration: BoxDecoration(
-            color: _hovered ? t.surfaceRaised : t.surfaceRaised.withValues(alpha: 0.8),
+            color: _hovered
+                ? t.surfaceRaised
+                : t.surfaceRaised.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _hovered ? t.brand.withValues(alpha: 0.4) : t.border,
@@ -516,7 +542,9 @@ class _MarketCardState extends State<_MarketCard> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: widget.isWatchlisted ? PulsColors.amberLight : Colors.transparent,
+                            color: widget.isWatchlisted
+                                ? PulsColors.amberLight
+                                : Colors.transparent,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -586,7 +614,8 @@ class _MarketCardState extends State<_MarketCard> {
                             ),
                           )
                         : _sparkline.length >= 2
-                            ? _MiniSparkline(prices: _sparkline, isUp: trendPositive)
+                            ? _MiniSparkline(
+                                prices: _sparkline, isUp: trendPositive)
                             : Container(),
                   ),
                   const SizedBox(height: 10),
@@ -654,7 +683,9 @@ class _MiniSparkline extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.puls;
     final color = isUp ? t.yes : t.no;
-    final spots = prices.asMap().entries
+    final spots = prices
+        .asMap()
+        .entries
         .map((e) => FlSpot(e.key.toDouble(), e.value))
         .toList();
     final minY = prices.reduce((a, b) => a < b ? a : b);
@@ -718,8 +749,7 @@ class _BuyBtn extends StatelessWidget {
         style: TextButton.styleFrom(
           backgroundColor: bg,
           foregroundColor: fg,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
         child: Row(
@@ -727,12 +757,16 @@ class _BuyBtn extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: fg),
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 11, color: fg),
             ),
             const SizedBox(width: 4),
             Text(
               price,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 10, color: fg.withValues(alpha: 0.75)),
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                  color: fg.withValues(alpha: 0.75)),
             ),
           ],
         ),
@@ -762,7 +796,8 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.search_off_rounded, color: t.textSubtle, size: 40),
           const SizedBox(height: 16),
           Text('Nothing matches — try a different search or clear filters.',
-              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
+              style: TextStyle(
+                  color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('Try searching for another keyword or selection.',
               style: TextStyle(color: t.textMuted, fontSize: 13),
@@ -788,41 +823,53 @@ class _EmptyState extends StatelessWidget {
           if (trending.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text('Trending now',
-                style: TextStyle(color: t.textSubtle, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                style: TextStyle(
+                    color: t.textSubtle,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2)),
             const SizedBox(height: 12),
             ...trending.take(3).map((m) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => MarketDetailScreen(marketId: m.id)),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: t.surfaceRaised,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: t.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          m.question,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      pulsRoute(context,
+                          builder: (_) => MarketDetailScreen(marketId: m.id)),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: t.surfaceRaised,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: t.border),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(m.yesPrice * 100).toStringAsFixed(0)}¢',
-                        style: TextStyle(color: t.yes, fontSize: 13, fontWeight: FontWeight.w800),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              m.question,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: t.text,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(m.yesPrice * 100).toStringAsFixed(0)}¢',
+                            style: TextStyle(
+                                color: t.yes,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            )),
+                )),
           ],
         ],
       ),

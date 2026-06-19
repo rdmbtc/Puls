@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/widgets/puls_page_route.dart';
 import '../data/mock/mock_market_repository.dart';
 import '../features/market/market_detail_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -53,7 +54,8 @@ class _PulsAppState extends State<PulsApp> {
       _pendingDeepLinkSlug = null;
       if (market == null) return; // unknown slug — stay on the feed
       _navigatorKey.currentState?.push(
-        MaterialPageRoute<void>(
+        pulsRoute<void>(
+          _navigatorKey.currentContext,
           builder: (_) => MarketDetailScreen(marketId: market.id),
         ),
       );
@@ -71,9 +73,9 @@ class _PulsAppState extends State<PulsApp> {
     return AnimatedBuilder(
       animation: Listenable.merge([_state, _walletService]),
       builder: (context, _) {
-        final shellVisible =
-            _state.onboardingComplete || _walletService.state.userId != null
-            || _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app
+        final shellVisible = _state.onboardingComplete ||
+            _walletService.state.userId != null ||
+            _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app
         _maybeOpenDeepLink(shellVisible);
         return WalletServiceScope(
           service: _walletService,

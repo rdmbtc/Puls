@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/puls_page_route.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -30,7 +31,8 @@ class _ViewPredictionLinkState extends State<ViewPredictionLink> {
     if (!mounted) return;
     setState(() => _opening = false);
     if (market != null) {
-      navigator.push(MaterialPageRoute<void>(
+      navigator.push(pulsRoute<void>(
+        context,
         builder: (_) => MarketDetailScreen(marketId: market.id),
       ));
     } else {
@@ -51,7 +53,8 @@ class _ViewPredictionLinkState extends State<ViewPredictionLink> {
           Icon(Icons.show_chart_rounded, size: 13, color: t.brand),
           const SizedBox(width: 5),
           Text(_opening ? 'Opening…' : 'View prediction',
-              style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w800)),
+              style: TextStyle(
+                  color: t.brand, fontSize: 12, fontWeight: FontWeight.w800)),
           const SizedBox(width: 3),
           Icon(Icons.arrow_forward_rounded, size: 12, color: t.brand),
         ]),

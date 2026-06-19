@@ -2,6 +2,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_page_route.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/agent_badge.dart';
@@ -75,7 +76,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     try {
       final wallet = WalletServiceScope.of(context);
-      final list = await wallet.getLeaderboard(sort: _sortBy, limit: 200, type: _type);
+      final list =
+          await wallet.getLeaderboard(sort: _sortBy, limit: 200, type: _type);
       if (mounted) {
         setState(() {
           _traders = list;
@@ -144,45 +146,45 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         child: WebLayout(
           maxWidth: 1000,
           child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: CreatorsSegmentBar(
-                selected: _segment,
-                onChanged: _selectSegment,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: CreatorsSegmentBar(
+                  selected: _segment,
+                  onChanged: _selectSegment,
+                ),
               ),
-            ),
-            Expanded(
-              child: _segment == 'alpha'
-                  ? const AlphaScreen()
-                  : Column(
-                      children: [
-                        if (_segment == 'ranking')
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                            child: _buildSortToggles(t),
+              Expanded(
+                child: _segment == 'alpha'
+                    ? const AlphaScreen()
+                    : Column(
+                        children: [
+                          if (_segment == 'ranking')
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                              child: _buildSortToggles(t),
+                            ),
+                          if (_segment == 'people')
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                              child: _buildTypePills(t),
+                            ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: _isLoading
+                                ? _buildLoadingSkeleton()
+                                : _error != null
+                                    ? _buildErrorView(t)
+                                    : _traders.isEmpty
+                                        ? _buildEmptyView(t)
+                                        : _buildContent(t, isDark),
                           ),
-                        if (_segment == 'people')
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                            child: _buildTypePills(t),
-                          ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: _isLoading
-                              ? _buildLoadingSkeleton()
-                              : _error != null
-                                  ? _buildErrorView(t)
-                                  : _traders.isEmpty
-                                      ? _buildEmptyView(t)
-                                      : _buildContent(t, isDark),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -243,7 +245,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
+            color:
+                selected ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: selected ? t.brand : t.border,
@@ -309,7 +312,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [t.brand.withValues(alpha: 0.12), t.brand.withValues(alpha: 0.04)],
+            colors: [
+              t.brand.withValues(alpha: 0.12),
+              t.brand.withValues(alpha: 0.04)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -335,13 +341,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   Text(
                     'Spin up your own AI agent',
                     style: TextStyle(
-                        color: t.text, fontSize: 14, fontWeight: FontWeight.w800),
+                        color: t.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'It trades real markets for you 24/7 — and competes right here.',
                     style: TextStyle(
-                        color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+                        color: t.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -431,7 +441,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (podiumTraders.length == 3) {
       final temp = podiumTraders[0];
       podiumTraders[0] = podiumTraders[1]; // 2nd rank on left
-      podiumTraders[1] = temp;             // 1st rank in center
+      podiumTraders[1] = temp; // 1st rank in center
     }
 
     return Container(
@@ -459,124 +469,144 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final isFirst = rank == 1;
           final scale = isFirst ? 1.15 : 1.0;
 
-                    final pnl = double.tryParse(trader['pnl']?.toString() ?? '') ?? 0.0;
-                    final volume = double.tryParse(trader['volume']?.toString() ?? '') ?? 0.0;
-                    final winRate = double.tryParse(trader['winRate']?.toString() ?? trader['win_rate']?.toString() ?? '') ?? 0.0;
+          final pnl = double.tryParse(trader['pnl']?.toString() ?? '') ?? 0.0;
+          final volume =
+              double.tryParse(trader['volume']?.toString() ?? '') ?? 0.0;
+          final winRate = double.tryParse(trader['winRate']?.toString() ??
+                  trader['win_rate']?.toString() ??
+                  '') ??
+              0.0;
 
-                    return Transform.scale(
-                      scale: scale,
-                      child: SizedBox(
-                        width: 90,
-                        child: GestureDetector(
-                          onTap: () => _navigateToProfile(trader['userId']),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Rank badge / Avatar
-                              Stack(
-                                alignment: Alignment.topCenter,
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Avatar Container with premium border
-                                  Container(
-                                    width: isFirst ? 64 : 54,
-                                    height: isFirst ? 64 : 54,
-                                    padding: const EdgeInsets.all(2.5),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: isFirst
-                                            ? [const Color(0xFFFBBF24), const Color(0xFFF59E0B)]
-                                            : rank == 2
-                                                ? [const Color(0xFF94A3B8), const Color(0xFF64748B)]
-                                                : [const Color(0xFFD97706), const Color(0xFFB45309)],
-                                      ),
-                                      boxShadow: isFirst
-                                          ? [
-                                              BoxShadow(
-                                                color: const Color(0xFFFBBF24).withValues(alpha: 0.35),
-                                                blurRadius: 18,
-                                                spreadRadius: 1,
-                                              ),
-                                            ]
-                                          : null,
+          return Transform.scale(
+            scale: scale,
+            child: SizedBox(
+              width: 90,
+              child: GestureDetector(
+                onTap: () => _navigateToProfile(trader['userId']),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Rank badge / Avatar
+                    Stack(
+                      alignment: Alignment.topCenter,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Avatar Container with premium border
+                        Container(
+                          width: isFirst ? 64 : 54,
+                          height: isFirst ? 64 : 54,
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: isFirst
+                                  ? [
+                                      const Color(0xFFFBBF24),
+                                      const Color(0xFFF59E0B)
+                                    ]
+                                  : rank == 2
+                                      ? [
+                                          const Color(0xFF94A3B8),
+                                          const Color(0xFF64748B)
+                                        ]
+                                      : [
+                                          const Color(0xFFD97706),
+                                          const Color(0xFFB45309)
+                                        ],
+                            ),
+                            boxShadow: isFirst
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFFBBF24)
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 18,
+                                      spreadRadius: 1,
                                     ),
-                                    child: PulsAvatar(
-                                      url: trader['avatarUrl'] as String?,
-                                      name: _displayName(trader),
-                                      size: isFirst ? 59 : 49,
-                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: PulsAvatar(
+                            url: trader['avatarUrl'] as String?,
+                            name: _displayName(trader),
+                            size: isFirst ? 59 : 49,
+                          ),
+                        ),
+                        // Crown/Rank badge above avatar
+                        Positioned(
+                          top: -16,
+                          child: isFirst
+                              ? const Icon(Icons.workspace_premium_rounded,
+                                  color: Color(0xFFFBBF24), size: 24)
+                              : Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: rank == 2
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFFD97706),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 1),
                                   ),
-                                  // Crown/Rank badge above avatar
-                                  Positioned(
-                                    top: -16,
-                                    child: isFirst
-                                        ? const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFBBF24), size: 24)
-                                        : Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              color: rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFD97706),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: Colors.white, width: 1),
-                                            ),
-                                            child: Text(
-                                              '$rank',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      _displayName(trader),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: t.text,
-                                        fontSize: isFirst ? 13 : 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  child: Text(
+                                    '$rank',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  if (trader['isAgent'] == true) ...[
-                                    const SizedBox(width: 3),
-                                    const Icon(Icons.smart_toy_rounded,
-                                        size: 11, color: AgentBadge.agentColor),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _sortBy == 'pnl'
-                                    ? '${pnl >= 0 ? '+' : ''}\$${pnl.toStringAsFixed(2)}'
-                                    : '\$${volume.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: _sortBy == 'pnl'
-                                      ? (pnl >= 0 ? t.yes : t.no)
-                                      : t.text,
-                                  fontSize: isFirst ? 12 : 10,
-                                  fontWeight: FontWeight.w800,
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                winRate == 0 ? 'Win Rate —' : 'Win Rate ${winRate.toStringAsFixed(1)}%',
-                                style: TextStyle(
-                                  color: t.textMuted,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _displayName(trader),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: t.text,
+                              fontSize: isFirst ? 13 : 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (trader['isAgent'] == true) ...[
+                          const SizedBox(width: 3),
+                          const Icon(Icons.smart_toy_rounded,
+                              size: 11, color: AgentBadge.agentColor),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _sortBy == 'pnl'
+                          ? '${pnl >= 0 ? '+' : ''}\$${pnl.toStringAsFixed(2)}'
+                          : '\$${volume.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: _sortBy == 'pnl'
+                            ? (pnl >= 0 ? t.yes : t.no)
+                            : t.text,
+                        fontSize: isFirst ? 12 : 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      winRate == 0
+                          ? 'Win Rate —'
+                          : 'Win Rate ${winRate.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: t.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -598,7 +628,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             const SizedBox(height: 16),
             Text(
               'Leaderboard timed out. Pull to retry.',
-              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -610,7 +641,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ElevatedButton(
               onPressed: _fetchLeaderboard,
               style: ElevatedButton.styleFrom(backgroundColor: t.brand),
-              child: const Text('Try Again', style: TextStyle(color: Colors.white)),
+              child: const Text('Try Again',
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -629,7 +661,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             const SizedBox(height: 16),
             Text(
               'No traders yet — be the first to make a move.',
-              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -645,7 +678,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   void _navigateToProfile(String userId) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      pulsRoute(
+        context,
         builder: (context) => UserProfileScreen(userId: userId),
       ),
     );
@@ -710,8 +744,14 @@ class _TraderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final pnl = double.tryParse(trader['pnl']?.toString() ?? '') ?? 0.0;
     final volume = double.tryParse(trader['volume']?.toString() ?? '') ?? 0.0;
-    final winRate = double.tryParse(trader['winRate']?.toString() ?? trader['win_rate']?.toString() ?? '') ?? 0.0;
-    final tradesCount = int.tryParse(trader['tradesCount']?.toString() ?? trader['trades_count']?.toString() ?? '') ?? 0;
+    final winRate = double.tryParse(trader['winRate']?.toString() ??
+            trader['win_rate']?.toString() ??
+            '') ??
+        0.0;
+    final tradesCount = int.tryParse(trader['tradesCount']?.toString() ??
+            trader['trades_count']?.toString() ??
+            '') ??
+        0;
 
     final value = sortBy == 'pnl' ? pnl : volume;
     final isPnL = sortBy == 'pnl';
@@ -720,7 +760,8 @@ class _TraderRow extends StatelessWidget {
         : '\$${value.toStringAsFixed(2)}';
 
     final card = GlassCard(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: rank == 1 ? 16 : 12),
+      padding:
+          EdgeInsets.symmetric(horizontal: 16, vertical: rank == 1 ? 16 : 12),
       onTap: onTap,
       child: Row(
         children: [
@@ -728,7 +769,8 @@ class _TraderRow extends StatelessWidget {
           SizedBox(
             width: 28,
             child: rank == 1
-                ? const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFBBF24), size: 20)
+                ? const Icon(Icons.workspace_premium_rounded,
+                    color: Color(0xFFFBBF24), size: 20)
                 : Text(
                     '$rank',
                     style: TextStyle(
@@ -760,18 +802,23 @@ class _TraderRow extends StatelessWidget {
                         style: TextStyle(
                           color: t.text,
                           fontSize: rank == 1 ? 16 : 14,
-                          fontWeight: rank == 1 ? FontWeight.w900 : FontWeight.bold,
+                          fontWeight:
+                              rank == 1 ? FontWeight.w900 : FontWeight.bold,
                         ),
                       ),
                     ),
                     if (rank == 1) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
+                          color:
+                              const Color(0xFFFBBF24).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.4)),
+                          border: Border.all(
+                              color: const Color(0xFFFBBF24)
+                                  .withValues(alpha: 0.4)),
                         ),
                         child: const Text(
                           '#1',
@@ -790,7 +837,8 @@ class _TraderRow extends StatelessWidget {
                     if (isMe) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: t.brand,
                           borderRadius: BorderRadius.circular(6),
@@ -833,9 +881,7 @@ class _TraderRow extends StatelessWidget {
               Text(
                 formattedValue,
                 style: TextStyle(
-                  color: isPnL
-                      ? (value >= 0 ? t.yes : t.no)
-                      : t.text,
+                  color: isPnL ? (value >= 0 ? t.yes : t.no) : t.text,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
