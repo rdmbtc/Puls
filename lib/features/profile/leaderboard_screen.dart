@@ -7,6 +7,7 @@ import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/agent_badge.dart';
 import '../alpha/alpha_screen.dart';
 import '../shell/shell_nav.dart';
+import '../shell/web_layout.dart';
 import '../onboarding/help_button.dart';
 import 'creators_segment_bar.dart';
 import 'user_profile_screen.dart';
@@ -139,7 +140,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: WebLayout(
+          maxWidth: 1000,
+          child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -178,6 +181,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
