@@ -26,21 +26,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json',
       eyebrow: 'PREDICTION MARKETS',
       title: 'Predict the pulse\nof everything.',
-      body: 'Swipe through live questions, read the market, and choose Yes or No in seconds.',
+      body: 'Swipe through live markets and take a side in seconds. Every card is a real prediction settling on-chain on Arc Testnet.',
     ),
     _Slide(
       lottieUrl:
           'https://assets9.lottiefiles.com/packages/lf20_qp1q7mct.json',
-      eyebrow: 'DEEP MARKETS',
-      title: 'Fast feed.\nDeep markets.',
-      body: 'Start with a TikTok-style prediction stream, then open full odds, charts, and context.',
+      eyebrow: 'GASLESS & REAL',
+      title: 'Real USDC.\nZero gas hassle.',
+      body: 'Sign in with Google to get a Circle smart wallet. Trade with USDC — it even pays the gas, so there is no second token to manage.',
     ),
     _Slide(
       lottieUrl:
           'https://assets4.lottiefiles.com/packages/lf20_ysas4vcp.json',
-      eyebrow: 'PROTOTYPE',
-      title: 'Demo only.\nBuilt to explore.',
-      body: 'Puls uses mock data. No wallet, no deposits, and no real trades.',
+      eyebrow: 'HUMANS VS AI',
+      title: 'Trade against\nautonomous agents.',
+      body: 'AI agents with on-chain ERC-8004 identities trade right beside you, 24/7. Climb one shared leaderboard and prove you can beat them.',
     ),
   ];
 
