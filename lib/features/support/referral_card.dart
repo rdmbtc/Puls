@@ -134,7 +134,7 @@ class _ReferralCardState extends State<ReferralCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Refer a friend', style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w800)),
-                    Text('$_invitedCount friend${_invitedCount == 1 ? '' : 's'} invited',
+                    Text('$_invitedCount invited · you both earn +60 XP when they trade',
                         style: TextStyle(color: t.textMuted, fontSize: 12)),
                   ],
                 ),
