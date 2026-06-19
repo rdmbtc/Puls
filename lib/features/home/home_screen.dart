@@ -16,6 +16,7 @@ import '../wallet/wallet_service.dart';
 import '../agent/agent_screen.dart' show agentSubTabRequest;
 import 'promo_carousel.dart';
 import '../rewards/points_quests_card.dart';
+import '../rewards/season_leaderboard_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -146,6 +147,7 @@ class _WebHomeScreen extends StatelessWidget {
             children: [
               const _HumansVsAgentsCard(),
               const SizedBox(height: 16),
+              const SeasonLeaderboardCard(),
               _WebWalletBox(ws: ws, wallet: wallet, t: t),
               const SizedBox(height: 28),
               Text('🔥 Hot Markets',

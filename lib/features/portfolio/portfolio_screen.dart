@@ -42,8 +42,73 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   String? _lastUserId;
   bool _initialized = false;
   bool _newestFirst = true;
+  bool _claimingAll = false;
   final _supabase = Supabase.instance.client;
   final http.Client _client = http.Client();
+
+  /// Positions that are resolved, won, and not yet claimed.
+  int get _claimableCount => _positions.where((p) {
+        final resolved = p['resolved'] as bool? ?? false;
+        final claimed = p['claimed'] as bool? ?? false;
+        final outcome = p['outcome'] as bool? ?? false;
+        final isYes = p['side'] == 'YES';
+        return resolved && !claimed && (outcome == isYes);
+      }).length;
+
+  Future<void> _claimAll() async {
+    if (_claimingAll) return;
+    setState(() => _claimingAll = true);
+    final wallet = WalletServiceScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await wallet.claimAllWinnings();
+      final n = (res['claimed'] as num?)?.toInt() ?? 0;
+      messenger.showSnackBar(SnackBar(content: Text(
+        n > 0 ? '✅ Claiming $n winning position${n == 1 ? '' : 's'} — balance updates shortly.'
+              : 'No claimable winnings right now.')));
+      _load(silent: true);
+      Future.delayed(const Duration(seconds: 8), () { if (mounted) _load(silent: true); });
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('❌ ${e.toString().replaceAll('Exception: ', '')}')));
+    } finally {
+      if (mounted) setState(() => _claimingAll = false);
+    }
+  }
+
+  Widget _claimAllBar(PulsThemeColors t) {
+    final n = _claimableCount;
+    if (n < 1) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: _claimingAll ? null : _claimAll,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [t.yes.withValues(alpha: 0.18), t.surface]),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.yes.withValues(alpha: 0.5)),
+          ),
+          child: Row(children: [
+            Icon(Icons.redeem_rounded, color: t.yes, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('You have $n winning position${n == 1 ? '' : 's'} to claim 🎉',
+                  style: TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(color: t.yes, borderRadius: BorderRadius.circular(10)),
+              child: _claimingAll
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Claim all', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w900)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -415,6 +480,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
+                    if (!_showOrdersTab) _claimAllBar(t),
                     Expanded(
                       child: _showOrdersTab
                           ? _limitOrders.isEmpty
@@ -565,6 +631,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   ),
                 )
               else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  sliver: SliverToBoxAdapter(child: _claimAllBar(t)),
+                ),
+            if (!_showOrdersTab && _positions.isNotEmpty)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                   sliver: SliverList.builder(

@@ -633,6 +633,21 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  /// Batch-claim every resolved+won+unclaimed position. Returns { ok, claimed }.
+  Future<Map<String, dynamic>> claimAllWinnings() async {
+    return _post('/api/trade/claim-all', {'userId': _state.userId},
+        timeout: const Duration(seconds: 40));
+  }
+
+  /// Points/season leaderboard (humans vs agents).
+  Future<List<dynamic>> getPointsLeaderboard({String type = 'all'}) async {
+    final uri = Uri.parse('$_backendUrl/api/points/leaderboard')
+        .replace(queryParameters: {'type': type, 'limit': '20'});
+    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return [];
+    return jsonDecode(res.body) as List<dynamic>;
+  }
+
   /// One signal. 402 (locked) is returned as data, not thrown.
   Future<Map<String, dynamic>> getSignal(String id) async {
     final headers = <String, String>{};
