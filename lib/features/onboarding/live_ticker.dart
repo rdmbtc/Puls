@@ -26,16 +26,25 @@ class _TickerItem {
 class _LiveMarketTickerState extends State<LiveMarketTicker>
     with TickerProviderStateMixin {
   List<_TickerItem> _items = const [];
+  Widget? _tape;          // the [row,row] tape, built ONCE per data load
+  double _total = 0;      // width of a single row (px)
+  double _chipW = 330;
   late final AnimationController _marquee;
   late final AnimationController _pulse;
+
+  // Constant scroll speed (px/sec). Time-based so it never depends on `total`.
+  static const double _pxPerSec = 55;
+  // Long fixed period; we read elapsed seconds = value * _periodSec and wrap
+  // with modulo, so the loop is mathematically seamless (no boundary snap).
+  static const int _periodSec = 100000;
 
   @override
   void initState() {
     super.initState();
     _marquee = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 55),
-    );
+      duration: const Duration(seconds: _periodSec),
+    )..repeat();
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
@@ -70,8 +79,7 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
       final items =
           (lively.length >= 6 ? lively : all).take(12).toList();
       if (!mounted || items.length < 4) return;
-      setState(() => _items = items);
-      _marquee.repeat();
+      setState(() => _items = items); // _tape rebuilt lazily in build()
     } catch (_) {
       // Landing page must never break because of the ticker.
     }
@@ -89,18 +97,22 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
     if (_items.isEmpty) return const SizedBox.shrink();
     final t = context.puls;
     final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
-    final chipW = isMobile ? 280.0 : 330.0;
-    final total = _items.length * chipW;
+    final chipW = w < 600 ? 280.0 : 330.0;
 
-    final row = SizedBox(
-      width: total,
-      child: Row(
-        children: [
-          for (final m in _items) _TickerChip(item: m, width: chipW),
-        ],
-      ),
-    );
+    // Build the tape ONCE (and only when items or chip width actually change),
+    // so the Image.network chips are never re-created on animation frames.
+    if (_tape == null || chipW != _chipW) {
+      _chipW = chipW;
+      _total = _items.length * chipW;
+      final row = SizedBox(
+        width: _total,
+        child: Row(
+          children: [for (final m in _items) _TickerChip(item: m, width: chipW)],
+        ),
+      );
+      _tape = Row(mainAxisSize: MainAxisSize.min, children: [row, row]);
+    }
+    final total = _total;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
@@ -143,10 +155,8 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
           const SizedBox(height: 16),
           // ── Marquee tape ──────────────────────────────────────────────
           MouseRegion(
-            onEnter: (_) => _marquee.stop(),
-            onExit: (_) {
-              if (_items.isNotEmpty) _marquee.repeat();
-            },
+            onEnter: (_) { if (_marquee.isAnimating) _marquee.stop(canceled: false); },
+            onExit: (_) { if (_items.isNotEmpty && !_marquee.isAnimating) _marquee.repeat(); },
             child: SizedBox(
               height: 76,
               child: ClipRect(
@@ -157,10 +167,15 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
                     RepaintBoundary(
                       child: AnimatedBuilder(
                         animation: _marquee,
-                        child: Row(children: [row, row]),
+                        child: _tape,
                         builder: (context, child) {
+                          // Time-based, modulo'd offset → constant speed and a
+                          // mathematically seamless loop, independent of `total`
+                          // and immune to rebuilds (no back-and-forth snap).
+                          final elapsed = _marquee.value * _periodSec; // seconds
+                          final dx = total > 0 ? -((elapsed * _pxPerSec) % total) : 0.0;
                           return Transform.translate(
-                            offset: Offset(-_marquee.value * total, 0),
+                            offset: Offset(dx, 0),
                             child: child,
                           );
                         },
