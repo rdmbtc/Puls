@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/lazy_indexed_stack.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../discover/discover_screen.dart';
 import '../feed/feed_screen.dart';
@@ -148,7 +149,7 @@ class _PulsShellState extends State<_MobileShell> {
 
     // Stack: [browse surface (swappable)] + the 4 fixed pages.
     final pages = <Widget>[
-      IndexedStack(index: _browse, children: _browsePages),
+      LazyIndexedStack(index: _browse, children: _browsePages),
       ..._fixedPages,
     ];
 
@@ -161,7 +162,7 @@ class _PulsShellState extends State<_MobileShell> {
       child: Scaffold(
         backgroundColor: t.bg,
         extendBody: true,
-        body: IndexedStack(index: _index, children: pages),
+        body: LazyIndexedStack(index: _index, children: pages),
         bottomNavigationBar: PulsBottomNav(
           index: _index,
           isDark: !isLight,
