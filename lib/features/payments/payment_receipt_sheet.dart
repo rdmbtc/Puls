@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -173,13 +174,8 @@ class _ReceiptChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           Clipboard.setData(ClipboardData(text: receiptId));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Circle receipt copied'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          PulsSnack.show(context, 'Circle receipt copied',
+              duration: const Duration(seconds: 2));
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

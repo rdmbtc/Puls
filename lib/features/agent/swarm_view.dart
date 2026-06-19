@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import 'colony_feed.dart';
 
 /// "Swarm" — the in-app home of the autonomous AI agent colony.
@@ -65,7 +66,7 @@ class _SwarmViewState extends State<SwarmView> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     if (_agents.isEmpty) {
       return Center(

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../core/utils/image_util.dart';
 import '../../core/widgets/market_hero.dart';
 import '../../core/widgets/animated_count.dart';
@@ -431,7 +432,7 @@ class _ChartSectionState extends State<_ChartSection> {
     
     Widget chartWidget;
     if (widget.loading) {
-      chartWidget = Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2));
+      chartWidget = const PulsLoader();
     } else if (widget.history.isEmpty) {
       chartWidget = Center(child: Text('Chart data unavailable for this market.', style: TextStyle(color: t.textSubtle, fontSize: 13)));
     } else {

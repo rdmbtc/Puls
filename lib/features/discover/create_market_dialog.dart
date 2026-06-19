@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:puls/core/theme/app_theme.dart';
 import 'package:puls/app/puls_app.dart';
 
@@ -84,6 +85,7 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
       time.minute,
     );
 
+    final snack = PulsSnack.of(context);
     try {
       final deadlineUnix = finalDeadline.millisecondsSinceEpoch ~/ 1000;
       await wallet.createCustomMarket(
@@ -95,12 +97,8 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
       
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: context.puls.yes,
-            content: const Text('🎉 Custom market deployed and funded successfully on Arc Testnet!'),
-          ),
-        );
+        snack.success(
+            '🎉 Custom market deployed and funded successfully on Arc Testnet!');
       }
     } catch (e) {
       if (mounted) {

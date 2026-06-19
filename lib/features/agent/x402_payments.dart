@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 /// Creator Earnings — the in-app proof feed for x402 nanopayments.
 ///
@@ -128,9 +130,8 @@ class _X402PaymentsState extends State<X402Payments> {
   void _copy(String value, String label) {
     Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label copied'), duration: const Duration(seconds: 2)),
-    );
+    PulsSnack.show(context, '$label copied',
+        duration: const Duration(seconds: 2));
   }
 
   void _openSeller() {
@@ -142,7 +143,7 @@ class _X402PaymentsState extends State<X402Payments> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     return RefreshIndicator(
       color: t.brand,

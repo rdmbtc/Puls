@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
@@ -253,12 +254,8 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                           final wallet = WalletServiceScope.of(context).state;
                           final supportsLimit = wallet.userId != null && wallet.hasWallet && !wallet.isExternalWallet;
                           if (!supportsLimit) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Limit orders are only available with email-authenticated Puls custodial wallets.'),
-                                backgroundColor: t.no,
-                              ),
-                            );
+                            PulsSnack.error(context,
+                                'Limit orders are only available with email-authenticated Puls custodial wallets.');
                           } else {
                             setState(() => _isLimit = true);
                           }
@@ -511,6 +508,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                 child: TextButton(
                   onPressed: (_amount > 0 && !_isExecuting)
                       ? () async {
+                          final snack = PulsSnack.of(context);
                           setState(() => _isExecuting = true);
                           try {
                             if (hasRealWallet) {
@@ -527,12 +525,8 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                                 );
                                 if (!context.mounted) return;
                                 Navigator.of(context).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('🎯 Limit order placed to ${_isBuy ? "buy" : "sell"} $sideLabel at \$${_limitPrice.toStringAsFixed(2)}'),
-                                    backgroundColor: t.brand,
-                                  ),
-                                );
+                                snack.show(
+                                    '🎯 Limit order placed to ${_isBuy ? "buy" : "sell"} $sideLabel at \$${_limitPrice.toStringAsFixed(2)}');
                               } else {
                                 if (_isBuy) {
                                   result = await walletService.buyPosition(
@@ -581,24 +575,17 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                               }
                               if (!context.mounted) return;
                               Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(_isBuy 
-                                      ? 'Added demo ${isYes ? 'Yes' : 'No'} position.'
-                                      : 'Sold demo ${isYes ? 'Yes' : 'No'} position.'),
-                                ),
-                              );
+                              snack.show(_isBuy
+                                  ? 'Added demo ${isYes ? 'Yes' : 'No'} position.'
+                                  : 'Sold demo ${isYes ? 'Yes' : 'No'} position.');
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString().contains('Insufficient')
+                              snack.error(
+                                  e.toString().contains('Insufficient')
                                       ? e.toString().replaceFirst('Exception: ', '')
-                                      : 'Trade failed: $e'),
-                                  duration: const Duration(seconds: 5),
-                                ),
-                              );
+                                      : 'Trade failed: $e',
+                                  duration: const Duration(seconds: 5));
                             }
                           } finally {
                             if (mounted) {

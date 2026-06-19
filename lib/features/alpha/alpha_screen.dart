@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../payments/payment_receipt.dart';
 import '../payments/payment_receipt_sheet.dart';
 import '../profile/profile_screen.dart' show GlassCard;
@@ -69,9 +72,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-    );
+    PulsSnack.show(context, msg, duration: const Duration(seconds: 3));
   }
 
   Future<void> _viewUnlocked(String id) async {
@@ -151,6 +152,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
     }
     final handle = '@${sig['creatorHandle'] ?? 'puls'}';
     final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     messenger.clearSnackBars();
 
     final tip = DeferredTip(
@@ -171,13 +173,10 @@ class _AlphaScreenState extends State<AlphaScreen> {
       onUndo: () => messenger.hideCurrentSnackBar(),
     )..start();
 
-    messenger.showSnackBar(
-      SnackBar(
+    snack.show('Tipping \$${_kTipAmount.toStringAsFixed(2)} to $handle',
         duration: const Duration(seconds: 5),
-        content: Text('Tipping \$${_kTipAmount.toStringAsFixed(2)} to $handle'),
-        action: SnackBarAction(label: 'Undo', onPressed: tip.cancel),
-      ),
-    );
+        actionLabel: 'Undo',
+        onAction: tip.cancel);
   }
 
   Future<bool?> _confirmUnlock(PulsThemeColors t, String title, double price) {
@@ -244,25 +243,12 @@ class _AlphaScreenState extends State<AlphaScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) return Center(child: CircularProgressIndicator(color: t.brand));
+    if (_loading) return const PulsLoader();
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline_rounded, color: t.no, size: 40),
-              const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: t.textMuted, fontSize: 13)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _load,
-                style: ElevatedButton.styleFrom(backgroundColor: t.brand),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
+          child: PulsErrorState(message: _error!, onRetry: _load),
         ),
       );
     }

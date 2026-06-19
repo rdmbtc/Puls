@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 /// Economy Explorer — a live, verifiable feed of on-chain USDC activity in the
 /// Puls economy (treasury + house agent). Every row links to its Arc Blockscout
@@ -117,7 +118,7 @@ class _EconomyFeedState extends State<EconomyFeed> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     return RefreshIndicator(
       color: t.brand,

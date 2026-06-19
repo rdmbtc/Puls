@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,7 +25,7 @@ class _ViewPredictionLinkState extends State<ViewPredictionLink> {
     setState(() => _opening = true);
     final appState = PulsStateScope.of(context);
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     final market = await appState.ensureMarketBySlug(widget.slug);
     if (!mounted) return;
     setState(() => _opening = false);
@@ -33,9 +34,8 @@ class _ViewPredictionLinkState extends State<ViewPredictionLink> {
         builder: (_) => MarketDetailScreen(marketId: market.id),
       ));
     } else {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Market not available right now'), duration: Duration(seconds: 2)),
-      );
+      snack.error('Market not available right now',
+          duration: const Duration(seconds: 2));
     }
   }
 

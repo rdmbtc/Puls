@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -289,8 +290,8 @@ class _AgentScreenState extends State<AgentScreen>
         }
       });
 
-  void _toast(String m) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(m.replaceAll('Exception: ', ''))));
+  void _toast(String m) =>
+      PulsSnack.show(context, m.replaceAll('Exception: ', ''));
 
   @override
   Widget build(BuildContext context) {

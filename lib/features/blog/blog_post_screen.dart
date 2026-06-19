@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/tts.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../app/puls_app.dart';
 import '../../core/widgets/simple_markdown.dart';
 import '../../data/models/blog_post.dart';
@@ -72,7 +74,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
     final post = _post;
     if (post == null || _tipping) return;
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     setState(() => _tipping = true);
     try {
       final res = await wallet.tipCreator(
@@ -81,14 +83,14 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
         context: 'blog:${post.id}',
       );
       if (res['live'] == false) {
-        messenger.showSnackBar(SnackBar(content: Text('${res['message'] ?? 'Tips activate at launch.'}')));
+        snack.show('${res['message'] ?? 'Tips activate at launch.'}');
       } else if (res['ok'] == true) {
-        messenger.showSnackBar(SnackBar(content: Text('Tipped \$$amount to ${post.author.displayName} 🎉')));
+        snack.success('Tipped \$$amount to ${post.author.displayName} 🎉');
       } else {
-        messenger.showSnackBar(SnackBar(content: Text('${res['error'] ?? 'Tip failed'}')));
+        snack.error('${res['error'] ?? 'Tip failed'}');
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Tip failed: $e')));
+      snack.error('Tip failed: $e');
     } finally {
       if (mounted) setState(() => _tipping = false);
     }
@@ -108,7 +110,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
       ),
       body: post == null
           ? (_loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const PulsLoader()
               : Center(child: Text("Couldn't load this post.", style: TextStyle(color: t.textMuted))))
           : WebLayout(
               maxWidth: 720,
@@ -147,7 +149,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                 Divider(color: t.border, height: 1),
                 const SizedBox(height: 16),
                 if (_loading && !post.hasBody)
-                  const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                  const Padding(padding: EdgeInsets.all(20), child: PulsLoader())
                 else
                   SimpleMarkdown(post.hasBody ? post.body! : (post.excerpt ?? '')),
                 if (post.hasSources) ...[
