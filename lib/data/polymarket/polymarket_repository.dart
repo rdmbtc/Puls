@@ -196,6 +196,7 @@ class PolymarketRepository {
         clobTokenId: _firstClobToken(j['clobTokenIds']),
         liquidityNum: liqNum,
         competitive: (j['competitive'] as num?)?.toDouble() ?? 0,
+        createdByAgent: j['createdByAgent'] == true,
       );
     } catch (_) {
       return null;
