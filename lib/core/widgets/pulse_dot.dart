@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion.dart';
 import '../theme/app_theme.dart';
 
 /// A small "live" dot that emits a soft expanding halo — the visual heartbeat
@@ -37,6 +38,16 @@ class _PulseDotState extends State<PulseDot>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (context.reduceMotion) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -46,6 +57,20 @@ class _PulseDotState extends State<PulseDot>
   Widget build(BuildContext context) {
     final color = widget.color ?? context.puls.brand;
     final s = widget.size;
+    if (context.reduceMotion) {
+      // Just the solid core dot, no expanding halo, same footprint.
+      return SizedBox(
+        width: s * 3,
+        height: s * 3,
+        child: Center(
+          child: Container(
+            width: s,
+            height: s,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       width: s * 3,
       height: s * 3,

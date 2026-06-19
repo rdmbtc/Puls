@@ -19,6 +19,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
 import '../../core/widgets/count_up_text.dart';
+import '../../core/widgets/puls_loader.dart';
 
 import '../../core/config.dart' show backendUrl;
 const _backendUrl = backendUrl;
@@ -347,11 +348,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         ),
       );
     } else if (_loading) {
-      body = const Center(
-        child: Padding(
-          padding: EdgeInsets.all(60),
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+      body = const Padding(
+        padding: EdgeInsets.all(60),
+        child: PulsLoader(label: 'Loading portfolio…'),
       );
     } else if (_error != null) {
       body = Padding(
