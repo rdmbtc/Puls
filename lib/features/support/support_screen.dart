@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -140,7 +141,7 @@ class _SupportScreenState extends State<SupportScreen> {
         label: const Text('New Ticket', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: t.brand))
+          ? const PulsLoader()
           : _error != null
               ? Center(child: Text('Couldn\'t load tickets. Pull to retry.', style: TextStyle(color: t.textMuted)))
               : RefreshIndicator(
@@ -462,7 +463,7 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
         children: [
           Expanded(
             child: _loading
-                ? Center(child: CircularProgressIndicator(color: t.brand))
+                ? const PulsLoader()
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _messages.length,

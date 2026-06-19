@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:puls/core/theme/app_theme.dart';
+import 'package:puls/core/widgets/puls_loader.dart';
 import 'package:puls/app/puls_app.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -104,7 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: t.brand,
           onRefresh: _load,
           child: _loading
-              ? Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2))
+              ? const PulsLoader(label: 'Loading notifications…')
               : _error != null
                   ? Center(
                       child: Column(

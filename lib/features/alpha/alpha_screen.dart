@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../payments/payment_receipt.dart';
 import '../payments/payment_receipt_sheet.dart';
 import '../profile/profile_screen.dart' show GlassCard;
@@ -244,7 +245,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) return Center(child: CircularProgressIndicator(color: t.brand));
+    if (_loading) return const PulsLoader(label: 'Loading alpha…');
     if (_error != null) {
       return Center(
         child: Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import 'circle_web_view.dart';
 
 void openUrlInNewTab(String url) {
@@ -98,11 +99,7 @@ class _NativeWebViewBodyState extends State<_NativeWebViewBody> {
             child: Stack(
               children: [
                 WebViewWidget(controller: _ctrl),
-                if (_loading)
-                  Center(
-                    child: CircularProgressIndicator(
-                        color: t.brand, strokeWidth: 2),
-                  ),
+                if (_loading) const PulsLoader(),
               ],
             ),
           ),

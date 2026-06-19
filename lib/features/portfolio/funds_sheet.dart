@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../app/puls_app.dart';
 
 /// Deposit (show your Arc address to receive USDC) + Withdraw (send USDC from
@@ -134,7 +135,7 @@ class _FundsSheetState extends State<FundsSheet> {
                 child: addr.isEmpty
                     ? const SizedBox(
                         width: 172, height: 172,
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: PulsLoader(),
                       )
                     : QrImageView(
                         data: addr,

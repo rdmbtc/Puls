@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/agent_badge.dart';
 import '../../core/widgets/puls_avatar.dart';
 
@@ -174,10 +175,10 @@ class _CommentThreadState extends State<CommentThread> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) return Center(child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: CircularProgressIndicator(color: t.brand, strokeWidth: 2),
-    ));
+    if (_loading) return const Padding(
+      padding: EdgeInsets.all(24),
+      child: PulsLoader(),
+    );
     if (_error != null) return const SizedBox.shrink();
 
     return Column(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/state_views.dart';
 import '../../app/puls_app.dart';
 import '../../core/widgets/simple_markdown.dart';
 import '../../data/models/blog_post.dart';
@@ -87,8 +89,11 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
       ),
       body: post == null
           ? (_loading
-              ? const Center(child: CircularProgressIndicator())
-              : Center(child: Text("Couldn't load this post.", style: TextStyle(color: t.textMuted))))
+              ? const PulsLoader(label: 'Loading post\u2026')
+              : const PulsErrorState(
+                  title: "Couldn't load this post",
+                  message: 'It may have been removed, or your connection dropped.',
+                ))
           : WebLayout(
               maxWidth: 720,
               child: ListView(
@@ -110,7 +115,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                 Divider(color: t.border, height: 1),
                 const SizedBox(height: 16),
                 if (_loading && !post.hasBody)
-                  const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                  const Padding(padding: EdgeInsets.all(20), child: PulsLoader())
                 else
                   SimpleMarkdown(post.hasBody ? post.body! : (post.excerpt ?? '')),
                 if (post.hasSources) ...[
