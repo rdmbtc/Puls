@@ -20,6 +20,7 @@ import 'advanced_charts.dart';
 import 'ai_insight_card.dart';
 import 'resolution_panel.dart';
 import 'market_detail_tabs.dart';
+import 'ai_oracle_panel.dart';
 
 class MarketDetailScreen extends StatefulWidget {
   const MarketDetailScreen({required this.marketId, super.key});
@@ -127,6 +128,9 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           value: _fmtDate(market.deadline),
           t: t,
         ),
+
+        // ── AI Oracle Panel (crowd vs AI swarm + ask-agent + correlations) ──
+        AiOraclePanel(slug: market.slug.isNotEmpty ? market.slug : market.id, question: market.question),
 
         // ── Discussion / comments / activity ────────────────────────────
         const SizedBox(height: 24),

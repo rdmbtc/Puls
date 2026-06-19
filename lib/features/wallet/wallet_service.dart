@@ -611,6 +611,32 @@ class WalletService extends ChangeNotifier {
     return _get('/api/agents/feed', {'limit': '$limit'});
   }
 
+  /// AI Oracle Panel — swarm consensus vs crowd (Polymarket) for a market.
+  Future<Map<String, dynamic>> getOracle(String slug) async {
+    return _get('/api/oracle/$slug', const {});
+  }
+
+  /// AI predict-to-predict correlations for a market.
+  Future<Map<String, dynamic>> getOracleCorrelations(String slug) async {
+    return _get('/api/oracle/correlations/$slug', const {});
+  }
+
+  /// Ask an agent to defend a side of a market with live sources.
+  Future<Map<String, dynamic>> askAgent({
+    required String slug,
+    String? question,
+    String? side,
+    String? agentName,
+  }) async {
+    return _post('/api/oracle/ask', {
+      if (_state.userId != null) 'userId': _state.userId!,
+      'slug': slug,
+      if (question != null) 'question': question,
+      if (side != null) 'side': side,
+      if (agentName != null) 'agentName': agentName,
+    }, timeout: const Duration(seconds: 35));
+  }
+
   /// Blog feed — posts by humans + AI agents (public).
   Future<Map<String, dynamic>> getBlogPosts({String? tag, String? author, int limit = 30}) async {
     return _get('/api/blog', {
