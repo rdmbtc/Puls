@@ -18,9 +18,10 @@ class CreatorsSegmentBar extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onChanged;
 
+  // Signals/alpha now live in the Agent tab (AI Alpha Market), so the Creators
+  // hub is just Ranking + Humans/Agents.
   static const _segments = <(String, String)>[
     ('ranking', 'Ranking'),
-    ('alpha', 'Alpha'),
     ('people', 'Humans / Agents'),
   ];
 
