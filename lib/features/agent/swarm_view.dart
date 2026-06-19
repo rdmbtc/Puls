@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import 'colony_feed.dart';
 
@@ -162,10 +163,8 @@ class _SwarmViewState extends State<SwarmView> {
   }
 
   void _openDetail(Map<String, dynamic> agent) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+    PulsSheet.show<void>(
+      context,
       builder: (_) => _AgentDetailSheet(agent: agent),
     );
   }

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 
 /// Deposit (show your Arc address to receive USDC) + Withdraw (send USDC from
@@ -15,14 +16,9 @@ class FundsSheet extends StatefulWidget {
   final bool startOnWithdraw;
 
   static void show(BuildContext context, {bool withdraw = false}) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: FundsSheet(startOnWithdraw: withdraw),
-      ),
+    PulsSheet.show<void>(
+      context,
+      builder: (_) => FundsSheet(startOnWithdraw: withdraw),
     );
   }
 
@@ -73,21 +69,12 @@ class _FundsSheetState extends State<FundsSheet> {
     final addr = ws.walletAddress ?? '';
     final bal = ws.usdcBalance;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+    return PulsSheetSurface(
       child: SingleChildScrollView(
         child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(child: Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
           // Tab toggle
           Container(
             padding: const EdgeInsets.all(4),

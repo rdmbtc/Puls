@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 import '../wallet/web3_wallet_bridge.dart';
 
@@ -13,15 +14,7 @@ class BridgeSheet extends StatefulWidget {
   const BridgeSheet({super.key});
 
   static void show(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: const BridgeSheet(),
-      ),
-    );
+    PulsSheet.show<void>(context, builder: (_) => const BridgeSheet());
   }
 
   @override
@@ -111,23 +104,12 @@ class _BridgeSheetState extends State<BridgeSheet> {
     final t = context.puls;
     final hasWallet = hasBrowserWallet();
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-      ),
+    return PulsSheetSurface(
+      scrollable: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               Icon(Icons.swap_horiz_rounded, color: t.brand, size: 20),
