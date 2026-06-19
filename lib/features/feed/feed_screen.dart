@@ -12,6 +12,7 @@ import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
@@ -1173,16 +1174,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                     const SizedBox(height: 16),
                     Expanded(
                       child: _isLoadingActivities
-                          ? Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: t.brand,
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
+                          ? const PulsLoader(size: 24, strokeWidth: 2)
                           : AnimatedList(
                               key: _listKey,
                               initialItemCount: _activities.length,

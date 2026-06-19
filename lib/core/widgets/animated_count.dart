@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion.dart';
 import '../theme/app_theme.dart';
 
 /// Smoothly rolls a number from its previous value to the new one whenever
@@ -42,7 +43,8 @@ class AnimatedCount extends StatelessWidget {
     );
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: value, end: value),
-      duration: duration,
+      // Reduce-motion: jump straight to the value, no roll.
+      duration: context.motionDuration(duration),
       curve: curve,
       builder: (context, v, _) => Text(
         formatter(v),
