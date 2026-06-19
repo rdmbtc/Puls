@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:picons/picons.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/tactile.dart';
 import '../feed/feed_screen.dart';
+import 'puls_bottom_nav.dart';
 import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profile/leaderboard_screen.dart';
@@ -86,15 +85,16 @@ class _PulsShellState extends State<_MobileShell> {
         backgroundColor: t.bg,
         extendBody: true,
         body: IndexedStack(index: _index, children: _pages),
-        bottomNavigationBar: _DynamicIslandNav(
+        bottomNavigationBar: PulsBottomNav(
           index: _index,
-          t: t,
           isDark: !isLight,
           onTap: (i) {
-          if (i == _index && i == 0) {
-            // Tapping Feed tab while already on Feed → refresh
-            PulsStateScope.of(context).refresh();
+          if (i == _index) {
+            // Tapping the active tab again → refresh the feed (only meaningful there).
+            if (i == 0) PulsStateScope.of(context).refresh();
+            return;
           }
+          HapticFeedback.selectionClick();
           setState(() => _index = i);
         },
         ),
@@ -102,118 +102,4 @@ class _PulsShellState extends State<_MobileShell> {
       ),
     );
   }
-}
-
-class _DynamicIslandNav extends StatelessWidget {
-  const _DynamicIslandNav({
-    required this.index,
-    required this.t,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final int index;
-  final PulsThemeColors t;
-  final bool isDark;
-  final ValueChanged<int> onTap;
-
-  static final _items = [
-    _Item(Picons.lightning, 'Feed'),
-    _Item(Picons.chartBar, 'Portfolio'),
-    _Item(Picons.star, 'Creators'),
-    _Item(Picons.robot, 'Agent'),
-    _Item(Picons.userCircle, 'Profile'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isDark
-        ? const Color(0xFF0E1322)
-        : const Color(0xFFFFFFFF);
-    final shadow = isDark
-        ? const Color(0xFFEC4899).withValues(alpha: 0.3)
-        : const Color(0xFFEC4899).withValues(alpha: 0.08);
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-        child: Container(
-          height: 64,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [
-              BoxShadow(
-                color: shadow,
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: shadow.withValues(alpha: 0.06),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: List.generate(_items.length, (i) {
-              final item = _items[i];
-              final selected = i == index;
-              return Expanded(
-                child: Tactile(
-                  onTap: () => onTap(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: selected ? PulsColors.pulseGradient : null,
-                      color: selected ? null : Colors.transparent,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AnimatedScale(
-                          scale: selected ? 1.1 : 1.0,
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                          child: Picon(
-                            item.icon,
-                            size: 20,
-                            color: selected
-                                ? Colors.white
-                                : (isDark ? const Color(0xFF8181AA) : const Color(0xFF9A9A94)),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 220),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                            color: selected
-                                ? Colors.white
-                                : (isDark ? const Color(0xFF6565A0) : const Color(0xFFB0B0C0)),
-                          ),
-                          child: Text(item.label),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Item {
-  _Item(this.icon, this.label);
-  final PiconData icon;
-  final String label;
 }
