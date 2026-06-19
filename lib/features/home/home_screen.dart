@@ -190,12 +190,17 @@ class _WebHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: size.width < 900
               ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _HomePromoCarousel(),
+                    const SizedBox(height: 20),
+                    const PointsQuestsCard(),
                     const SizedBox(height: 20),
                     _FeaturedHeroBanner(market: featuredMarket, t: t),
                     const SizedBox(height: 16),
                     const _HumansVsAgentsCard(),
+                    const SizedBox(height: 16),
+                    const SeasonLeaderboardCard(),
                     const SizedBox(height: 16),
                     _WebWalletBox(ws: ws, wallet: wallet, t: t),
                     const SizedBox(height: 24),
@@ -203,6 +208,13 @@ class _WebHomeScreen extends StatelessWidget {
                       children: [
                         Text('Trending Predictions',
                             style: Theme.of(context).textTheme.titleLarge),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => PulsStateScope.of(context).refresh(),
+                          icon: Icon(Icons.refresh_rounded, size: 16, color: t.brand),
+                          label: Text('Refresh',
+                              style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -220,12 +232,8 @@ class _WebHomeScreen extends StatelessWidget {
                           _WebTrendingCard(market: trendingMarkets[i], t: t),
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Text('🔥 Hot Markets',
-                            style: Theme.of(context).textTheme.titleLarge),
-                      ],
-                    ),
+                    Text('🔥 Hot Markets',
+                        style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 140,
@@ -239,6 +247,9 @@ class _WebHomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 28),
+                    // The Puls Journal — humans + AI agents — now on mobile too.
+                    const BlogSection(),
                   ],
                 )
               : bodyContent,
