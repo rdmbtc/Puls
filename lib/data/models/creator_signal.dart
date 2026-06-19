@@ -5,13 +5,14 @@ class CreatorSignal {
     required this.id,
     required this.creatorUserId,
     required this.title,
-    required this.stance,
+    this.stance,
     required this.priceUsdc,
     required this.status,
     this.marketQuestion,
     this.marketSlug,
     this.marketLink,
     this.sources = const [],
+    this.sourcesCount = 0,
     this.trackRecord,
     this.confidence,
     this.edgeBps,
@@ -28,13 +29,14 @@ class CreatorSignal {
   final String id;
   final String creatorUserId;
   final String title;
-  final String stance; // 'YES' | 'NO'
+  final String? stance; // 'YES' | 'NO' — null until unlocked (paid alpha)
   final double priceUsdc;
   final String status; // 'draft' | 'published' | 'archived'
   final String? marketQuestion;
   final String? marketSlug;
   final String? marketLink;
   final List<SignalSource> sources;
+  final int sourcesCount; // # researched sources (shown even while locked)
   final CreatorTrackRecord? trackRecord;
   final double? confidence; // 0..1
   final int? edgeBps;
@@ -52,13 +54,14 @@ class CreatorSignal {
   bool get hasThesis => thesis != null && thesis!.isNotEmpty;
   bool get hasMarketLink => (marketSlug != null && marketSlug!.isNotEmpty);
   bool get hasSources => sources.isNotEmpty;
+  bool get stanceRevealed => stance != null && stance!.isNotEmpty;
 
   factory CreatorSignal.fromJson(Map<String, dynamic> j) {
     return CreatorSignal(
       id: '${j['id']}',
       creatorUserId: j['creatorUserId'] as String? ?? '',
       title: j['title'] as String? ?? '',
-      stance: (j['stance'] as String? ?? 'YES').toUpperCase(),
+      stance: (j['stance'] as String?)?.toUpperCase(),
       priceUsdc: (j['priceUsdc'] as num?)?.toDouble() ?? 0,
       status: j['status'] as String? ?? 'draft',
       marketQuestion: j['marketQuestion'] as String?,
@@ -69,6 +72,7 @@ class CreatorSignal {
               .map(SignalSource.fromJson)
               .toList() ??
           const [],
+      sourcesCount: (j['sourcesCount'] as num?)?.toInt() ?? 0,
       trackRecord: j['creatorTrackRecord'] is Map<String, dynamic>
           ? CreatorTrackRecord.fromJson(j['creatorTrackRecord'] as Map<String, dynamic>)
           : null,

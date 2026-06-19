@@ -230,8 +230,9 @@ class _SignalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final revealed = signal.stanceRevealed;
     final isYes = signal.stance == 'YES';
-    final sideColor = isYes ? t.yes : t.no;
+    final sideColor = !revealed ? t.textMuted : (isYes ? t.yes : t.no);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -252,7 +253,7 @@ class _SignalCard extends StatelessWidget {
                   color: sideColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(signal.stance,
+                child: Text(revealed ? signal.stance! : '🔒 YES / NO',
                     style: TextStyle(color: sideColor, fontSize: 11, fontWeight: FontWeight.w900)),
               ),
               const SizedBox(width: 8),
