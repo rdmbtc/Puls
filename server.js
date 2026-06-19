@@ -1320,17 +1320,14 @@ const PRICE_LIQUIDITY_FULL = 50; // USDC of on-chain pool at which we fully trus
 function displayPrices(onchainYes, pmYes, totalVolume) {
   const pm = (typeof pmYes === 'number' && pmYes >= 0 && pmYes <= 1) ? pmYes : null;
   const oc = (typeof onchainYes === 'number' && onchainYes >= 0 && onchainYes <= 1) ? onchainYes : null;
-  // No on-chain market yet → pure Polymarket (or 0.5 if unknown).
-  if (oc === null) {
-    const y = pm ?? 0.5;
-    return { yes: y, no: 1 - y };
-  }
-  // No consensus to anchor to → on-chain as-is.
-  if (pm === null) return { yes: oc, no: 1 - oc };
-  // Blend: weight on-chain by how much real liquidity exists.
-  const w = Math.max(0, Math.min(1, (Number(totalVolume) || 0) / PRICE_LIQUIDITY_FULL));
-  const y = pm * (1 - w) + oc * w;
-  return { yes: y, no: 1 - y };
+  // Always quote the Polymarket consensus when we have it. The on-chain LMSR
+  // price only governs actual share payouts; on a low-liquidity testnet it can
+  // drift far from consensus, which looks broken (e.g. PM 2¢ vs Arc 50¢) and
+  // even makes our own agents distrust Arc. So the PRICE users and agents see
+  // tracks Polymarket 1:1; on-chain is used only when there's no consensus.
+  if (pm !== null) return { yes: pm, no: 1 - pm };
+  if (oc !== null) return { yes: oc, no: 1 - oc };
+  return { yes: 0.5, no: 0.5 };
 }
 
 app.get('/api/markets', async (req, res) => {
@@ -5538,52 +5535,29 @@ async function executeArbitrageStrategy(userId, agentWalletId, balance) {
     
     const pmYesPrice = parseFloat(pmMarket.outcomePrices?.[0] || pmMarket.yesPrice);
     if (isNaN(pmYesPrice)) continue;
-    
-    let onChainYesPrice = 0.5;
-    try {
-      const info = await publicClient.readContract({
-        address: market.contractAddress,
-        abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
-          { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
-          { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
-          { name: '_yesOutstanding', type: 'uint256' }, { name: '_noOutstanding', type: 'uint256' } ] }],
-        functionName: 'getMarketInfo',
-      });
-      const poolYes = Number(info[4]) / 1_000_000;
-      const poolNo = Number(info[5]) / 1_000_000;
-      const bVal = 10;
-      const maxQ = Math.max(poolYes, poolNo);
-      const expYes = Math.exp((poolYes - maxQ) / bVal);
-      const expNo = Math.exp((poolNo - maxQ) / bVal);
-      onChainYesPrice = expYes / (expYes + expNo);
-    } catch (_) {
-      continue;
-    }
-    
-    const yesDiff = pmYesPrice - onChainYesPrice;
-    const noDiff = (1 - pmYesPrice) - (1 - onChainYesPrice);
-    
+
+    // Puls quotes the Polymarket consensus 1:1, so there's no venue price gap to
+    // arbitrage. This preset now backs the consensus favourite when it's a
+    // confident call (conviction = distance from a coin-flip), instead of
+    // trading an on-chain-vs-Polymarket difference that would be a testnet
+    // artifact and look broken.
+    const conviction = Math.abs(pmYesPrice - 0.5) * 2; // 0…1
     let sideToBuy = null;
-    let priceDiff = 0;
-    
-    if (yesDiff > 0.06) {
-      sideToBuy = 'YES';
-      priceDiff = yesDiff;
-    } else if (noDiff > 0.06) {
-      sideToBuy = 'NO';
-      priceDiff = noDiff;
+    if (conviction >= 0.3) {
+      sideToBuy = pmYesPrice >= 0.5 ? 'YES' : 'NO';
     }
-    
+
     if (sideToBuy) {
       const buyAmount = 1.0;
-      console.log(`Arbitrage Opportunity: ${market.slug} ${sideToBuy} is undervalued on-chain by ${priceDiff.toFixed(2)} (On-chain: ${onChainYesPrice.toFixed(2)}, PM: ${pmYesPrice.toFixed(2)}). Buying $1.`);
-      
+      const consensus = sideToBuy === 'YES' ? pmYesPrice : 1 - pmYesPrice;
+      console.log(`Consensus trade: ${market.slug} ${sideToBuy} (consensus ${(consensus * 100).toFixed(0)}¢, conviction ${(conviction * 100).toFixed(0)}%). Buying $1.`);
+
       const success = await executeAgentTrade(userId, agentWalletId, market.contractAddress, sideToBuy, buyAmount, market.slug);
       if (success) {
         createNotification(
           userId,
-          'Arbitrage Executed 🤖📈',
-          `Your agent bought $1.00 of ${sideToBuy} on "${pmMarket.question || market.slug}" because on-chain price was ${sideToBuy === 'YES' ? onChainYesPrice.toFixed(2) : (1-onChainYesPrice).toFixed(2)} vs Polymarket ${sideToBuy === 'YES' ? pmYesPrice.toFixed(2) : (1-pmYesPrice).toFixed(2)}.`,
+          'Agent Trade 🤖📈',
+          `Your agent bought $1.00 of ${sideToBuy} on "${pmMarket.question || market.slug}" — consensus backs ${sideToBuy} at ${(consensus * 100).toFixed(0)}¢.`,
           'trade'
         ).catch(console.error);
         return;
@@ -6068,34 +6042,21 @@ async function houseAgentResearch() {
     let pmYes;
     try { pmYes = parseFloat(JSON.parse(pm.outcomePrices || '[]')[0]); } catch { continue; }
     if (Number.isNaN(pmYes)) continue;
-    let onChainYes;
-    try {
-      const info = await publicClient.readContract({
-        address: m.contractAddress,
-        abi: [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
-          { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
-          { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
-          { name: '_yesOutstanding', type: 'uint256' }, { name: '_noOutstanding', type: 'uint256' } ] }],
-        functionName: 'getMarketInfo',
-      });
-      const poolYes = Number(info[4]) / 1_000_000;
-      const poolNo = Number(info[5]) / 1_000_000;
-      const bVal = 10;
-      const maxQ = Math.max(poolYes, poolNo);
-      const expYes = Math.exp((poolYes - maxQ) / bVal);
-      const expNo = Math.exp((poolNo - maxQ) / bVal);
-      onChainYes = expYes / (expYes + expNo);
-    } catch { continue; }
-
-    const yesEdge = pmYes - onChainYes;          // >0: YES cheap on Arc
-    const noEdge = onChainYes - pmYes;           // >0: NO cheap on Arc
-    const side = yesEdge >= noEdge ? 'YES' : 'NO';
-    const edge = Math.max(yesEdge, noEdge);
+    // Puls quotes the Polymarket consensus 1:1 (see displayPrices) — we do NOT
+    // trade an on-chain-vs-consensus "arb", which would be a testnet artifact and
+    // makes agents distrust Arc. Instead each agent backs the side that live web
+    // research + the consensus support. "Conviction" = how far consensus leans
+    // from a coin-flip; the agent's web brief decides whether to ride it.
+    const side = pmYes >= 0.5 ? 'YES' : 'NO';
+    const conviction = Math.abs(pmYes - 0.5) * 2; // 0 (toss-up) … 1 (near-certain)
     candidates.push({
       slug: m.slug,
       question: pm.question || m.slug.replace(/-/g, ' '),
       contractAddress: m.contractAddress,
-      pmYes, onChainYes, side, edge,
+      pmYes,
+      side,
+      edge: conviction,       // kept as the ranking signal (consensus conviction)
+      conviction,
     });
     if (candidates.length >= 25) break;
   }
@@ -6157,9 +6118,9 @@ async function houseAgentDecide(candidates, balance, alpha = null, research = nu
   }
 
   try {
-    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). You receive mispricing candidates: Polymarket consensus probability vs the on-chain LMSR price on Arc.${alpha ? ' You just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (below) — weigh it.' : ''}${research && research.brief ? ' You also researched the open web (live news/sentiment below) — use it to sanity-check the edge.' : ''} Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the concrete prices, the web finding if relevant, and why the edge exists>"}`;
+    const sys = `You are Pulse, an autonomous value trader on the Puls prediction market (Arc Testnet). Puls prices mirror the Polymarket consensus 1:1 — you do NOT trade venue price gaps. You receive candidates with the consensus probability and a conviction score, and decide whether live research + the consensus justify backing a side.${alpha ? ' You just PAID a forecaster ' + alpha.cost + ' USDC for a premium alpha signal (below) — weigh it.' : ''}${research && research.brief ? ' You also researched the open web (live news/sentiment below) — use it to ground the call.' : ''} Pick the single best trade. Respond with STRICT JSON only: {"slug": "...", "side": "YES"|"NO", "reasoning": "<2-3 sentences, cite the consensus probability and the web finding; never compare on-chain vs Polymarket prices>"}`;
     const candidateText = top.map((c, i) =>
-      `${i + 1}. ${c.question}\n   slug: ${c.slug} | Polymarket YES: ${(c.pmYes * 100).toFixed(0)}¢ | Arc on-chain YES: ${(c.onChainYes * 100).toFixed(0)}¢ | cheap side on Arc: ${c.side} (edge ${(c.edge * 100).toFixed(1)}¢)`
+      `${i + 1}. ${c.question}\n   slug: ${c.slug} | consensus YES: ${(c.pmYes * 100).toFixed(0)}¢ | conviction ${((c.conviction ?? c.edge) * 100).toFixed(0)}% (leans ${c.side})`
     ).join('\n');
     const alphaText = alpha
       ? `\n\nPaid alpha signal (you spent ${alpha.cost} USDC on this):\n${JSON.stringify(alpha.signal, null, 2)}`
@@ -6177,7 +6138,6 @@ async function houseAgentDecide(candidates, balance, alpha = null, research = nu
     return { ...chosen, action: 'go', side, amount, evaluated, streak: houseRisk.streak, reasoning: formatForApp(String(parsed.reasoning || '').slice(0, 500)), brain: 'llm', sources };
   } catch (e) {
     const c = top[0];
-    const cheapPrice = c.side === 'YES' ? c.onChainYes : 1 - c.onChainYes;
     const consensus = c.side === 'YES' ? c.pmYes : 1 - c.pmYes;
     return {
       ...c,
@@ -6185,7 +6145,7 @@ async function houseAgentDecide(candidates, balance, alpha = null, research = nu
       amount,
       evaluated,
       streak: houseRisk.streak,
-      reasoning: `${c.side} trades at ${(cheapPrice * 100).toFixed(0)}¢ on Arc while Polymarket consensus implies ${(consensus * 100).toFixed(0)}¢ — a ${(c.edge * 100).toFixed(1)}¢ edge. Sizing ${(c.amount ?? 0)} at ${houseRisk.streak >= 2 ? 'elevated (win-streak)' : 'base'} risk; buying ${c.side} to capture the convergence.`,
+      reasoning: `Consensus puts ${c.side} at ${(consensus * 100).toFixed(0)}¢ with ${((c.conviction ?? c.edge) * 100).toFixed(0)}% conviction. Sizing ${(c.amount ?? 0)} at ${houseRisk.streak >= 2 ? 'elevated (win-streak)' : 'base'} risk; backing ${c.side}.`,
       brain: 'quant',
       sources,
     };
