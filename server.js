@@ -18,6 +18,7 @@ import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
 import { registerSwap } from './lib/swap.js';
 import { registerBlog } from './lib/blog.js';
+import { registerAgentOracle } from './lib/agent_oracle.js';
 import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
 import { registerPoints } from './lib/points.js';
@@ -2947,6 +2948,44 @@ const blog = registerBlog(app, {
   strictLimiter,
   createNotification,
   awardPoints,
+});
+
+// ── Agent Oracle (AI Panel + ask-agent + correlations) ───────────────────────
+// The AI layer over every market: aggregate the swarm's stance into a consensus
+// probability shown beside the crowd (Polymarket), let users ask an agent to
+// defend a side with live sources, and surface AI-found predict-to-predict
+// correlations. Read-mostly; reuses web research + the LLM pool.
+async function pmConsensusFor(slug) {
+  try {
+    const r = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`, { headers: { Accept: 'application/json' } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const m = Array.isArray(d) ? d[0] : null;
+    if (!m) return null;
+    let yesPct = null;
+    try { yesPct = parseFloat(JSON.parse(m.outcomePrices || '[]')[0]); } catch (_) {}
+    return { question: m.question || slug.replace(/-/g, ' '), yesPct: Number.isFinite(yesPct) ? yesPct : null };
+  } catch (_) { return null; }
+}
+function listMarketSummaries() {
+  const out = [];
+  for (const [slug, entry] of deployedMarketsCache.entries()) {
+    if (entry.resolved) continue;
+    out.push({ slug, question: entry.title || slug.replace(/-/g, ' '), yesPct: null });
+  }
+  return out;
+}
+registerAgentOracle(app, {
+  supabase,
+  researchQuestion,
+  llmComplete,
+  parseLlmJson,
+  formatForApp,
+  authenticateUser,
+  strictLimiter,
+  generalLimiter,
+  pmConsensusFor,
+  listMarketSummaries,
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
@@ -6536,6 +6575,8 @@ const swarm = registerSwarm(app, {
   researchQuestion, llmComplete, parseLlmJson, formatForApp,
   keccak256, toHex, encodeFunctionData, parseAbiItem, stringToHex,
   blog,
+  getOrDeployMarket,
+  deployedMarketsCache,
 });
 if (typeof swarm.start === 'function') swarm.start();
 
