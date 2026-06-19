@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
 import 'market_detail_screen.dart';
 import 'researched_sources.dart';
+import 'signal_extras.dart';
 import 'view_prediction_link.dart';
 
 /// Signals Marketplace — a single live feed of EVERY published signal (from AI
@@ -188,6 +189,10 @@ class _MarketSignalCard extends StatelessWidget {
                   Text(author.name, style: TextStyle(color: author.isAgent ? t.brand : t.textMuted, fontSize: 11, fontWeight: FontWeight.w800)),
                 ]),
               ),
+              if (signal.trackRecord != null) ...[
+                const SizedBox(width: 6),
+                _trackRecordBadge(t, signal.trackRecord!),
+              ],
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -205,6 +210,8 @@ class _MarketSignalCard extends StatelessWidget {
           if (signal.hasMarketLink) ...[
             const SizedBox(height: 6),
             ViewPredictionLink(slug: signal.marketSlug!),
+            const SizedBox(height: 6),
+            SignalLiveOdds(signal: signal),
           ],
           const SizedBox(height: 10),
           Wrap(spacing: 6, runSpacing: 6, children: [
@@ -256,6 +263,12 @@ class _MarketSignalCard extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Row(children: [
+            SignalFreshness(publishedAt: signal.publishedAt),
+            const Spacer(),
+            ShareSignalButton(signal: signal, authorName: author.name),
+          ]),
         ],
       ),
     );
@@ -266,4 +279,27 @@ class _MarketSignalCard extends StatelessWidget {
         decoration: BoxDecoration(color: t.surfaceRaised, borderRadius: BorderRadius.circular(6), border: Border.all(color: t.border)),
         child: Text(label, style: TextStyle(color: t.textMuted, fontSize: 10.5, fontWeight: FontWeight.w600)),
       );
+
+  Widget _trackRecordBadge(PulsThemeColors t, CreatorTrackRecord tr) {
+    if (!tr.hasRecord) {
+      // Nothing resolved yet — honest "new" tag, not a fake win-rate.
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: t.surfaceRaised, borderRadius: BorderRadius.circular(5), border: Border.all(color: t.border)),
+        child: Text('new', style: TextStyle(color: t.textSubtle, fontSize: 9.5, fontWeight: FontWeight.w700)),
+      );
+    }
+    final pct = (tr.winRate! * 100).round();
+    final good = pct >= 50;
+    final c = good ? t.yes : t.no;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(5)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.military_tech_rounded, size: 10, color: c),
+        const SizedBox(width: 3),
+        Text('$pct% · ${tr.correct}/${tr.resolved}', style: TextStyle(color: c, fontSize: 9.5, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
 }

@@ -12,6 +12,7 @@ class CreatorSignal {
     this.marketSlug,
     this.marketLink,
     this.sources = const [],
+    this.trackRecord,
     this.confidence,
     this.edgeBps,
     this.horizon,
@@ -34,6 +35,7 @@ class CreatorSignal {
   final String? marketSlug;
   final String? marketLink;
   final List<SignalSource> sources;
+  final CreatorTrackRecord? trackRecord;
   final double? confidence; // 0..1
   final int? edgeBps;
   final String? horizon;
@@ -67,6 +69,9 @@ class CreatorSignal {
               .map(SignalSource.fromJson)
               .toList() ??
           const [],
+      trackRecord: j['creatorTrackRecord'] is Map<String, dynamic>
+          ? CreatorTrackRecord.fromJson(j['creatorTrackRecord'] as Map<String, dynamic>)
+          : null,
       confidence: (j['confidence'] as num?)?.toDouble(),
       edgeBps: (j['edgeBps'] as num?)?.toInt(),
       horizon: j['horizon'] as String?,
@@ -99,6 +104,31 @@ class SignalSource {
             : (j['source'] as String? ?? j['url'] as String? ?? 'Source'),
         url: j['url'] as String? ?? '',
         source: j['source'] as String?,
+      );
+}
+
+/// A creator's honest track record: win-rate over signals whose linked market
+/// has resolved. [winRate] is null when nothing has resolved yet.
+class CreatorTrackRecord {
+  const CreatorTrackRecord({
+    required this.resolved,
+    required this.correct,
+    required this.published,
+    this.winRate,
+  });
+
+  final int resolved;
+  final int correct;
+  final int published;
+  final double? winRate; // 0..1, null if nothing resolved yet
+
+  bool get hasRecord => resolved > 0 && winRate != null;
+
+  factory CreatorTrackRecord.fromJson(Map<String, dynamic> j) => CreatorTrackRecord(
+        resolved: (j['resolved'] as num?)?.toInt() ?? 0,
+        correct: (j['correct'] as num?)?.toInt() ?? 0,
+        published: (j['published'] as num?)?.toInt() ?? 0,
+        winRate: (j['winRate'] as num?)?.toDouble(),
       );
 }
 
