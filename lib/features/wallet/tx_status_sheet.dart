@@ -10,7 +10,7 @@ import '../../core/widgets/confetti_burst.dart';
 import '../onboarding/onboarding_flags.dart';
 import 'wallet_service.dart';
 
-import '../../core/config.dart' show backendUrl;
+import '../../core/config.dart' show backendUrl, appBaseUrl;
 const _backendUrl = backendUrl;
 
 enum TxStatus { pending, complete, failed }
@@ -135,6 +135,18 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
     // Timeout
     if (mounted) setState(() => _status = TxStatus.failed);
     _timer?.cancel();
+  }
+
+  Future<void> _shareOnX() async {
+    final secs =
+        _elapsedSeconds != null ? _elapsedSeconds!.toStringAsFixed(2) : '0.45';
+    final text = widget.isBuy
+        ? 'I just went ${widget.side} with \$${widget.amount.toStringAsFixed(2)} USDC on Puls 👀\n'
+            'Confirmed on Arc Testnet in ${secs}s — gas paid in USDC, no ETH. 🚀'
+        : 'Just closed a ${widget.side} position on Puls — settled on Arc Testnet in ${secs}s. 🚀';
+    final intent = Uri.parse('https://twitter.com/intent/tweet'
+        '?text=${Uri.encodeComponent(text)}&url=${Uri.encodeComponent(appBaseUrl)}');
+    await launchUrl(intent, mode: LaunchMode.externalApplication);
   }
 
   String _formatShares(double shares) {
@@ -315,6 +327,29 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
                 style: TextStyle(color: t.textSubtle, fontSize: 11)),
           ],
           const SizedBox(height: 24),
+          if (_status == TxStatus.complete && widget.isBuy) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: TextButton.icon(
+                onPressed: _shareOnX,
+                style: TextButton.styleFrom(
+                  backgroundColor: t.brandSubtle,
+                  foregroundColor: t.brand,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: t.brand.withValues(alpha: 0.3)),
+                  ),
+                ),
+                icon: const Text('𝕏',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                label: const Text('Share on X',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           SizedBox(
             width: double.infinity,
             height: 50,
