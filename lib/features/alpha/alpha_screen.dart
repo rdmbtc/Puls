@@ -156,6 +156,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
     final tip = DeferredTip(
       delay: const Duration(seconds: 5),
       onFire: () async {
+        messenger.hideCurrentSnackBar(); // clear the "Tipping…" bar before the receipt
         try {
           final res = await wallet.tipCreator(amountUsdc: _kTipAmount, context: 'alpha:$id');
           if (!mounted) return;
@@ -167,6 +168,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
           _snack(e.toString().replaceAll('Exception:', '').trim());
         }
       },
+      onUndo: () => messenger.hideCurrentSnackBar(),
     )..start();
 
     messenger.showSnackBar(

@@ -75,6 +75,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final tip = DeferredTip(
       delay: const Duration(seconds: 5),
       onFire: () async {
+        messenger.hideCurrentSnackBar(); // clear the "Tipping…" bar before the receipt
         try {
           final res = await wallet.tipCreator(
             amountUsdc: 0.05,
@@ -93,6 +94,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           );
         }
       },
+      onUndo: () => messenger.hideCurrentSnackBar(),
     )..start();
     messenger.showSnackBar(
       SnackBar(
