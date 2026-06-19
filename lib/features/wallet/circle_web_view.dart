@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 // webview_flutter is not supported on web — conditionally import
 import 'circle_web_view_native.dart' if (dart.library.html) 'circle_web_view_stub.dart';
+import '../../core/widgets/puls_sheet.dart';
 
 /// Opens Circle's hosted challenge UI in a bottom sheet WebView.
 /// On web, falls back to opening the URL in a new browser tab.
@@ -31,10 +32,8 @@ class CircleWebView extends StatefulWidget {
       onComplete();
       return Future.value();
     }
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    return PulsSheet.show(
+      context,
       builder: (_) => CircleWebView(
         challengeUrl: challengeUrl,
         onComplete: onComplete,

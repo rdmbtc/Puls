@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_loader.dart';
 
@@ -77,10 +78,8 @@ class _SupportScreenState extends State<SupportScreen> {
   void _newTicket() async {
     final headers = await _authHeaders();
     if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    PulsSheet.show(
+      context,
       builder: (_) => _NewTicketSheet(
         headers: headers,
         onCreated: () { _fetch(); },

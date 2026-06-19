@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../data/models/creator_signal.dart';
 import '../market/researched_sources.dart';
@@ -52,10 +53,8 @@ class _SignalsSectionState extends State<SignalsSection> {
   }
 
   Future<void> _openEditor({CreatorSignal? existing}) async {
-    final changed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    final changed = await PulsSheet.show<bool>(
+      context,
       builder: (_) => SignalEditorSheet(existing: existing),
     );
     if (changed == true) {
@@ -118,9 +117,8 @@ class _SignalsSectionState extends State<SignalsSection> {
   }
 
   void _showAnalytics(CreatorSignal s) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
+    PulsSheet.show(
+      context,
       builder: (_) => _AnalyticsSheet(signal: s),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 import '../../data/models/blog_post.dart';
 import '../wallet/wallet_service.dart';
@@ -57,10 +58,8 @@ class _BlogSectionState extends State<BlogSection> {
       );
       return;
     }
-    final published = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    final published = await PulsSheet.show<bool>(
+      context,
       builder: (_) => const BlogComposeSheet(),
     );
     if (published == true) _fetch();

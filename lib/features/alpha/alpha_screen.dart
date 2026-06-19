@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../payments/payment_receipt.dart';
@@ -183,26 +184,14 @@ class _AlphaScreenState extends State<AlphaScreen> {
   }
 
   Future<bool?> _confirmUnlock(PulsThemeColors t, String title, double price) {
-    return showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: t.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
+    return PulsSheet.show<bool>(
+      context,
+      builder: (ctx) => PulsSheetSurface(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 18),
             Text('Unlock analysis',
                 style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),

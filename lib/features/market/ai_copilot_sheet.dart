@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/shimmer_text.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../data/models/market.dart';
 import 'trade_preview_sheet.dart';
@@ -27,16 +28,11 @@ class AiCopilotSheet extends StatefulWidget {
   final Market market;
 
   static void show(BuildContext context, Market market) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: FractionallySizedBox(
-          heightFactor: 0.85,
-          child: AiCopilotSheet(market: market),
-        ),
+    PulsSheet.show<void>(
+      context,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: AiCopilotSheet(market: market),
       ),
     );
   }
@@ -151,16 +147,7 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
         children: [
           // Drag handle
           const SizedBox(height: 10),
-          Center(
-            child: Container(
-              width: 38,
-              height: 4.5,
-              decoration: BoxDecoration(
-                color: t.borderStrong.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
+          const PulsDragHandle(),
           const SizedBox(height: 12),
           
           // Header info

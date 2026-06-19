@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/confetti_burst.dart';
+import '../../core/widgets/puls_sheet.dart';
 import 'payment_receipt.dart';
 
 /// A single celebratory bottom sheet shared by every creator payment flow
@@ -20,10 +21,8 @@ class PaymentReceiptSheet extends StatelessWidget {
   final PaymentReceipt receipt;
 
   static Future<void> show(BuildContext context, PaymentReceipt receipt) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    return PulsSheet.show<void>(
+      context,
       builder: (_) => PaymentReceiptSheet(receipt: receipt),
     );
   }
@@ -39,13 +38,9 @@ class PaymentReceiptSheet extends StatelessWidget {
     final t = context.puls;
     final showProof = receipt.live && receipt.hasProof;
 
-    return Container(
+    return PulsSheetSurface(
+      raised: true,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 36),
-      decoration: BoxDecoration(
-        color: t.surfaceRaised,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: t.border)),
-      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -56,15 +51,6 @@ class PaymentReceiptSheet extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: t.borderStrong,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
               // Success ring with indigo glow
               Container(
                 width: 72,

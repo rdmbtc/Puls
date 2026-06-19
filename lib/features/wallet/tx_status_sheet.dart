@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/confetti_burst.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../onboarding/onboarding_flags.dart';
 import 'wallet_service.dart';
 
@@ -39,10 +40,10 @@ class TxStatusSheet extends StatefulWidget {
     bool isBuy = true,
     WalletService? walletService,
   }) {
-    return showModalBottomSheet(
-      context: context,
+    return PulsSheet.show(
+      context,
       isDismissible: false,
-      backgroundColor: Colors.transparent,
+      enableDrag: false,
       builder: (_) => TxStatusSheet(
         txId: txId,
         side: side,
@@ -163,15 +164,10 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.puls;
-
-    return Container(
+    return PulsSheetSurface(
+      raised: true,
+      showHandle: false,
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-      decoration: BoxDecoration(
-        color: t.surfaceRaised,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: t.border)),
-      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -195,10 +191,7 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle
-          Container(
-            width: 36, height: 4,
-            decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(2)),
-          ),
+          const PulsDragHandle(),
           const SizedBox(height: 24),
           // Status icon
           AnimatedSwitcher(
