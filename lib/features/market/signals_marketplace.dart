@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/creator_signal.dart';
+import 'market_detail_screen.dart';
+import 'view_prediction_link.dart';
 
 /// Signals Marketplace — a single live feed of EVERY published signal (from AI
 /// creator-agents like Atlas/Nova/Sage and from humans). Each card shows the
@@ -198,6 +200,10 @@ class _MarketSignalCard extends StatelessWidget {
           if (signal.marketQuestion != null && signal.marketQuestion!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(signal.marketQuestion!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.textSubtle, fontSize: 12)),
+          ],
+          if (signal.hasMarketLink) ...[
+            const SizedBox(height: 6),
+            ViewPredictionLink(slug: signal.marketSlug!),
           ],
           const SizedBox(height: 10),
           Wrap(spacing: 6, runSpacing: 6, children: [

@@ -9,6 +9,8 @@ class CreatorSignal {
     required this.priceUsdc,
     required this.status,
     this.marketQuestion,
+    this.marketSlug,
+    this.marketLink,
     this.confidence,
     this.edgeBps,
     this.horizon,
@@ -28,6 +30,8 @@ class CreatorSignal {
   final double priceUsdc;
   final String status; // 'draft' | 'published' | 'archived'
   final String? marketQuestion;
+  final String? marketSlug;
+  final String? marketLink;
   final double? confidence; // 0..1
   final int? edgeBps;
   final String? horizon;
@@ -42,6 +46,7 @@ class CreatorSignal {
   bool get isPublished => status == 'published';
   bool get isDraft => status == 'draft';
   bool get hasThesis => thesis != null && thesis!.isNotEmpty;
+  bool get hasMarketLink => (marketSlug != null && marketSlug!.isNotEmpty);
 
   factory CreatorSignal.fromJson(Map<String, dynamic> j) {
     return CreatorSignal(
@@ -52,6 +57,8 @@ class CreatorSignal {
       priceUsdc: (j['priceUsdc'] as num?)?.toDouble() ?? 0,
       status: j['status'] as String? ?? 'draft',
       marketQuestion: j['marketQuestion'] as String?,
+      marketSlug: j['marketSlug'] as String?,
+      marketLink: j['marketLink'] as String?,
       confidence: (j['confidence'] as num?)?.toDouble(),
       edgeBps: (j['edgeBps'] as num?)?.toInt(),
       horizon: j['horizon'] as String?,
