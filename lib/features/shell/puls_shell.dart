@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
+import '../discover/discover_screen.dart';
 import '../feed/feed_screen.dart';
+import '../home/home_screen.dart';
 import 'puls_bottom_nav.dart';
 import '../portfolio/portfolio_screen.dart';
 import '../profile/profile_screen.dart';
@@ -37,7 +40,12 @@ class _MobileShell extends StatefulWidget {
 }
 
 class _PulsShellState extends State<_MobileShell> {
+  // Nav cell index in the bottom bar (5 cells): 0=Browse, 1=Portfolio,
+  // 2=Creators, 3=Agent, 4=Profile.
   int _index = 0;
+  // Which browse surface is active inside the Browse cell: 0=Feed, 1=Discover,
+  // 2=Home. Lets all three fit on mobile without crowding the dynamic island.
+  int _browse = 0;
 
   @override
   void initState() {
@@ -45,35 +53,104 @@ class _PulsShellState extends State<_MobileShell> {
     maybeShowWelcome(this);
   }
 
-  static const _pages = [
+  // The Browse cell swaps between these three surfaces via a dropdown.
+  static const _browsePages = [
     FeedScreen(),
+    DiscoverScreen(),
+    HomeScreen(),
+  ];
+  static const _browseLabels = ['Feed', 'Discover', 'Home'];
+
+  // The four fixed destinations after Browse.
+  static const _fixedPages = [
     PortfolioScreen(),
     LeaderboardScreen(),
     AgentScreen(),
     ProfileScreen(),
   ];
 
-  // Map shell-independent tab ids → this shell's page index.
-  static const _tabIndex = {
-    PulsTab.feed: 0,
-    PulsTab.portfolio: 1,
-    PulsTab.leaderboard: 2,
-    PulsTab.agent: 3,
-    PulsTab.profile: 4,
-    // Mobile shell has no Discover/Home tabs → fall back to Feed.
-    PulsTab.discover: 0,
-    PulsTab.home: 0,
-  };
-
+  // Map shell-independent tab ids → (navIndex, browseIndex?).
   void _goToTab(PulsTab tab) {
-    final i = _tabIndex[tab] ?? 0;
-    if (i != _index) setState(() => _index = i);
+    switch (tab) {
+      case PulsTab.feed:
+        setState(() { _index = 0; _browse = 0; });
+        break;
+      case PulsTab.discover:
+        setState(() { _index = 0; _browse = 1; });
+        break;
+      case PulsTab.home:
+        setState(() { _index = 0; _browse = 2; });
+        break;
+      case PulsTab.portfolio:
+        setState(() => _index = 1);
+        break;
+      case PulsTab.leaderboard:
+        setState(() => _index = 2);
+        break;
+      case PulsTab.agent:
+        setState(() => _index = 3);
+        break;
+      case PulsTab.profile:
+        setState(() => _index = 4);
+        break;
+    }
+  }
+
+  // Open the Browse dropdown to pick Feed / Discover / Home.
+  Future<void> _openBrowsePicker() async {
+    final t = context.puls;
+    final picked = await PulsSheet.show<int>(
+      context,
+      builder: (_) => PulsSheetSurface(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+              child: Text('Browse', style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
+            ),
+            for (var i = 0; i < _browsePages.length; i++)
+              _BrowseOption(
+                icon: PulsBottomNav.browseIcons[i],
+                label: _browseLabels[i],
+                selected: _browse == i,
+                t: t,
+                onTap: () => Navigator.of(context).pop(i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() { _index = 0; _browse = picked; });
+  }
+
+  void _onNavTap(int i) {
+    if (i == 0) {
+      // Browse cell: if already here, open the picker; else jump to Browse.
+      if (_index == 0) {
+        _openBrowsePicker();
+      } else {
+        setState(() => _index = 0);
+        HapticFeedback.selectionClick();
+      }
+      return;
+    }
+    if (i == _index) return;
+    HapticFeedback.selectionClick();
+    setState(() => _index = i);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
     final isLight = !context.isDark;
+
+    // Stack: [browse surface (swappable)] + the 4 fixed pages.
+    final pages = <Widget>[
+      IndexedStack(index: _browse, children: _browsePages),
+      ..._fixedPages,
+    ];
 
     return ShellNavScope(
       goToTab: _goToTab,
@@ -84,21 +161,56 @@ class _PulsShellState extends State<_MobileShell> {
       child: Scaffold(
         backgroundColor: t.bg,
         extendBody: true,
-        body: IndexedStack(index: _index, children: _pages),
+        body: IndexedStack(index: _index, children: pages),
         bottomNavigationBar: PulsBottomNav(
           index: _index,
           isDark: !isLight,
-          onTap: (i) {
-          if (i == _index) {
-            // Tapping the active tab again → refresh the feed (only meaningful there).
-            if (i == 0) PulsStateScope.of(context).refresh();
-            return;
-          }
-          HapticFeedback.selectionClick();
-          setState(() => _index = i);
-        },
+          browseLabel: _browseLabels[_browse],
+          browseIcon: PulsBottomNav.browseIcons[_browse],
+          onTap: _onNavTap,
         ),
       ),
+      ),
+    );
+  }
+}
+
+/// One row in the Browse dropdown sheet.
+class _BrowseOption extends StatelessWidget {
+  const _BrowseOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.t,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final PulsThemeColors t;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? t.brand.withValues(alpha: 0.12) : t.surfaceRaised.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: selected ? t.brand.withValues(alpha: 0.4) : t.border),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 20, color: selected ? t.brand : t.textMuted),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(color: selected ? t.brand : t.text, fontSize: 15, fontWeight: FontWeight.w700)),
+          const Spacer(),
+          if (selected) Icon(Icons.check_rounded, size: 18, color: t.brand),
+        ]),
       ),
     );
   }
