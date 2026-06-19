@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter_web_scroll/flutter_web_scroll.dart';
 
 import 'hero_market_stack.dart';
@@ -1218,9 +1219,7 @@ class _CopyButtonState extends State<_CopyButton> {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) setState(() => _copied = false);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address copied to clipboard!')),
-        );
+        PulsSnack.show(context, 'Address copied to clipboard!');
       },
       icon: Icon(
         _copied ? Icons.check_circle_outline_rounded : Icons.copy_rounded,

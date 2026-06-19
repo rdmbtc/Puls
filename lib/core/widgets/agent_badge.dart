@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -77,9 +78,8 @@ class OnchainAddress extends StatelessWidget {
         onTap: _isExplorable ? _open : null,
         onLongPress: () {
           Clipboard.setData(ClipboardData(text: _clean));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Address copied'), duration: Duration(seconds: 1)),
-          );
+          PulsSnack.show(context, 'Address copied',
+              duration: const Duration(seconds: 1));
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(

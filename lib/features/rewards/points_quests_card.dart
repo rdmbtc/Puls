@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
@@ -61,19 +62,19 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
     if (_claiming != null) return;
     setState(() => _claiming = key);
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     try {
       final res = await wallet.claimQuest(key);
       if (res['ok'] == true) {
         setState(() => _play = true);
         Future.delayed(const Duration(milliseconds: 1400), () { if (mounted) setState(() => _play = false); });
-        messenger.showSnackBar(SnackBar(content: Text('+${res['points'] ?? ''} XP claimed 🎉')));
+        snack.success('+${res['points'] ?? ''} XP claimed 🎉');
         await _load();
       } else {
-        messenger.showSnackBar(SnackBar(content: Text('${res['error'] ?? 'Not claimable yet'}')));
+        snack.show('${res['error'] ?? 'Not claimable yet'}');
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Claim failed: $e')));
+      snack.error('Claim failed: $e');
     } finally {
       if (mounted) setState(() => _claiming = null);
     }

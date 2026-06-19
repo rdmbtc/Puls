@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../app/puls_app.dart';
@@ -52,9 +53,7 @@ class _BlogSectionState extends State<BlogSection> {
   Future<void> _compose() async {
     final wallet = WalletServiceScope.of(context);
     if (wallet.state.userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to publish a post')),
-      );
+      PulsSnack.error(context, 'Sign in to publish a post');
       return;
     }
     final published = await showModalBottomSheet<bool>(

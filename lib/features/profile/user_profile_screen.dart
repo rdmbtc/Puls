@@ -1,5 +1,6 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
@@ -65,12 +66,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void _tipCreator(String handle) {
     final wallet = WalletServiceScope.of(context);
     if (wallet.state.userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to tip creators.')),
-      );
+      PulsSnack.error(context, 'Sign in to tip creators.');
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     messenger.clearSnackBars();
     final tip = DeferredTip(
       delay: const Duration(seconds: 5),
@@ -89,20 +89,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           );
         } catch (e) {
           if (!mounted) return;
-          messenger.showSnackBar(
-            SnackBar(content: Text(e.toString().replaceAll('Exception:', '').trim())),
-          );
+          snack.error(e.toString().replaceAll('Exception:', '').trim());
         }
       },
       onUndo: () => messenger.hideCurrentSnackBar(),
     )..start();
-    messenger.showSnackBar(
-      SnackBar(
+    snack.show('Tipping \$0.05 to $handle',
         duration: const Duration(seconds: 5),
-        content: Text('Tipping \$0.05 to $handle'),
-        action: SnackBarAction(label: 'Undo', onPressed: tip.cancel),
-      ),
-    );
+        actionLabel: 'Undo',
+        onAction: tip.cancel);
   }
 
   Future<void> _fetchProfile() async {
@@ -289,9 +284,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     GestureDetector(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: address!));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Address copied to clipboard'), duration: Duration(seconds: 2)),
-                        );
+                        PulsSnack.show(context, 'Address copied to clipboard',
+                            duration: const Duration(seconds: 2));
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -698,9 +692,7 @@ class _CopyTraderCardState extends State<_CopyTraderCard> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+    PulsSnack.show(context, msg, duration: const Duration(seconds: 2));
   }
 
   Future<void> _startCopying(PulsThemeColors t) async {

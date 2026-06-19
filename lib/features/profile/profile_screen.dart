@@ -1,6 +1,7 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -202,22 +203,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(width: 12),
                         ElevatedButton(
                           onPressed: () async {
+                            final snack = PulsSnack.of(context);
                             final newName = nameController.text.trim();
                             final newBio = bioController.text.trim();
                             final newAvatar = avatarController.text.trim();
 
                             if (newName.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Name cannot be empty')),
-                              );
+                              snack.error('Name cannot be empty');
                               return;
                             }
 
                             Navigator.of(context).pop();
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Updating profile...'), duration: Duration(seconds: 1)),
-                            );
+                            snack.show('Updating profile…',
+                                duration: const Duration(seconds: 1));
 
                             try {
                               await wallet.updateProfile(
@@ -239,17 +238,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                               await _loadProfileData();
 
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Profile updated successfully!')),
-                                );
-                              }
+                              snack.success('Profile updated successfully!');
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Couldn\'t save — $e')),
-                                );
-                              }
+                              snack.error('Couldn\'t save — $e');
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -1279,9 +1270,7 @@ class _WalletCard extends StatelessWidget {
                       await wallet.signInWithExternalWallet();
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Connection failed: $e')),
-                        );
+                        PulsSnack.error(context, 'Connection failed: $e');
                       }
                     }
                   },
@@ -1347,9 +1336,8 @@ class _WalletCard extends StatelessWidget {
                       GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: ws.walletAddress!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Address copied to clipboard'), duration: Duration(seconds: 2)),
-                          );
+                          PulsSnack.show(context, 'Address copied to clipboard',
+                              duration: const Duration(seconds: 2));
                         },
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1432,9 +1420,8 @@ class _WalletCard extends StatelessWidget {
             GestureDetector(
               onTap: () {
                 Clipboard.setData(ClipboardData(text: ws.walletAddress!));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Address copied to clipboard'), duration: Duration(seconds: 2)),
-                );
+                PulsSnack.show(context, 'Address copied to clipboard',
+                    duration: const Duration(seconds: 2));
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1580,10 +1567,9 @@ class _WalletCard extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: ws.walletAddress!));
+                  final snack = PulsSnack.of(context);
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Address copied!')),
-                  );
+                  snack.show('Address copied!');
                 },
                 child: Container(
                   padding: const EdgeInsets.all(12),

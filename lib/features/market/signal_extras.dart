@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
@@ -111,9 +112,8 @@ class ShareSignalButton extends StatelessWidget {
   Future<void> _share(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _shareText));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Signal post copied — paste it on X!'), behavior: SnackBarBehavior.floating, duration: Duration(seconds: 2)),
-      );
+      PulsSnack.success(context, 'Signal post copied — paste it on X!',
+          duration: const Duration(seconds: 2));
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/config.dart' show appBaseUrl;
@@ -33,10 +34,9 @@ class ShareMarketSheet extends StatelessWidget {
   Future<void> _copy(BuildContext context, String text, String toast) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (context.mounted) {
+      final snack = PulsSnack.of(context);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(toast), behavior: SnackBarBehavior.floating),
-      );
+      snack.success(toast);
     }
   }
 
