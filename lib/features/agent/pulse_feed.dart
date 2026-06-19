@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 /// Public feed of "Pulse" — the autonomous house AI trader agent.
 /// Shows its on-chain identity (Circle wallet, ERC-8004 id, reputation)
@@ -106,7 +107,7 @@ class _PulseFeedState extends State<PulseFeed> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     return ListView(
       padding: const EdgeInsets.all(20),

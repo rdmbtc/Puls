@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:puls/core/theme/app_theme.dart';
+import 'package:puls/core/widgets/state_views.dart';
+import 'package:puls/core/widgets/puls_loader.dart';
 import 'package:puls/app/puls_app.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -104,40 +106,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: t.brand,
           onRefresh: _load,
           child: _loading
-              ? Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2))
+              ? const PulsLoader()
               : _error != null
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off_rounded, color: t.textSubtle, size: 32),
-                          const SizedBox(height: 12),
-                          Text('Couldn\'t load notifications', style: TextStyle(color: t.text, fontWeight: FontWeight.bold, fontSize: 14)),
-                          const SizedBox(height: 4),
-                          Text('Pull to retry', style: TextStyle(color: t.textSubtle, fontSize: 12)),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: PulsErrorState(
+                          title: 'Couldn\'t load notifications',
+                          message: 'Pull down to retry.',
+                          onRetry: _load,
+                        ),
                       ),
                     )
                   : _notifications.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  color: t.surface,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: t.border),
-                                ),
-                                child: Icon(Icons.notifications_none_rounded, color: t.textSubtle, size: 28),
-                              ),
-                              const SizedBox(height: 16),
-                              Text('All Caught Up!', style: TextStyle(color: t.text, fontWeight: FontWeight.bold, fontSize: 16)),
-                              const SizedBox(height: 6),
-                              Text('No new notifications right now.', style: TextStyle(color: t.textSubtle, fontSize: 12)),
-                            ],
+                      ? const Center(
+                          child: PulsEmptyState(
+                            icon: Icons.notifications_none_rounded,
+                            title: 'All caught up!',
+                            message: 'No new notifications right now.',
                           ),
                         )
                       : ListView.separated(

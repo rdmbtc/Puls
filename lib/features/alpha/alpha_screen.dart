@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../payments/payment_receipt.dart';
 import '../payments/payment_receipt_sheet.dart';
 import '../profile/profile_screen.dart' show GlassCard;
@@ -244,25 +246,12 @@ class _AlphaScreenState extends State<AlphaScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) return Center(child: CircularProgressIndicator(color: t.brand));
+    if (_loading) return const PulsLoader();
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline_rounded, color: t.no, size: 40),
-              const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: t.textMuted, fontSize: 13)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _load,
-                style: ElevatedButton.styleFrom(backgroundColor: t.brand),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
+          child: PulsErrorState(message: _error!, onRetry: _load),
         ),
       );
     }

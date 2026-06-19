@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../comments/comment_thread.dart';
 
 /// Tabbed section for Market Detail: Activity, Top Holders, Positions, Comments.
@@ -140,7 +141,7 @@ class _ActivityTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2));
+    if (loading) return const PulsLoader();
     if (trades.isEmpty) {
       return Center(
         child: Column(
@@ -262,7 +263,7 @@ class _HoldersTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2));
+      return const PulsLoader();
     }
 
     // userId -> { yes, no } net USDC
@@ -370,7 +371,7 @@ class _PositionsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand, strokeWidth: 2));
+      return const PulsLoader();
     }
 
     double yes = 0, no = 0;

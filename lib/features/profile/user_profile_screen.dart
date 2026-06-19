@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import '../comments/comment_thread.dart';
@@ -141,9 +142,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     Widget body;
     if (_isLoading) {
-      body = Center(
-        child: CircularProgressIndicator(color: t.brand),
-      );
+      body = const PulsLoader();
     } else if (_error != null) {
       body = _buildErrorView(t);
     } else {

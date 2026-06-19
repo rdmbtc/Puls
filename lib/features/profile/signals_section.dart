@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../data/models/creator_signal.dart';
 import '../market/researched_sources.dart';
 import '../market/signal_extras.dart';
@@ -131,7 +132,7 @@ class _SignalsSectionState extends State<SignalsSection> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator()),
+        child: PulsLoader(),
       );
     }
 
