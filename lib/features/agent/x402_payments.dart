@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 /// Creator Earnings — the in-app proof feed for x402 nanopayments.
 ///
@@ -142,7 +143,7 @@ class _X402PaymentsState extends State<X402Payments> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     return RefreshIndicator(
       color: t.brand,

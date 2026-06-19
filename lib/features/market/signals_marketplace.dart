@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 import '../../data/models/creator_signal.dart';
 import 'market_detail_screen.dart';
 import 'researched_sources.dart';
@@ -103,7 +104,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+      return const Padding(padding: EdgeInsets.all(40), child: PulsLoader());
     }
     return RefreshIndicator(
       onRefresh: _fetch,

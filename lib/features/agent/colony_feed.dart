@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_loader.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
 /// actions. Each event reads like a story: 🔍 researched → 💸 paid a peer for
@@ -69,7 +70,7 @@ class _ColonyFeedState extends State<ColonyFeed> {
   Widget build(BuildContext context) {
     final t = context.puls;
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: t.brand));
+      return const PulsLoader();
     }
     return RefreshIndicator(
       onRefresh: _load,
