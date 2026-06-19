@@ -1076,13 +1076,99 @@ app.post('/api/wallet/get-or-create', authenticateUser, requireVerifiedUser, str
       userIdToAddressCache.set(userId, lowerAddress);
       walletAddressCache.set(wallet.id, wallet.address);
     }
-    
+
+    // Welcome bonus: brand-new VERIFIED users get a small USDC float so they can
+    // immediately make a real prediction/payment (converts a visit into a tx).
+    // Fire-and-forget — never blocks wallet creation. Anti-abuse: only
+    // supabase_<uuid> verified ids, one-time per user (deduped on-chain by a
+    // marker row), treasury floor + global daily cap.
+    if (wallet.address) sendWelcomeBonus(userId, wallet.address).catch(() => {});
+
     res.json(await getWalletInfo(wallet.id));
   } catch (e) {
     console.error('get-or-create:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
+
+// One-time welcome USDC bonus for new verified users. Guards:
+//  • only verified supabase_<uuid> ids (no eth_/agent_/guest),
+//  • idempotent: a `welcome_grants` row (unique user_id) is the dedupe key,
+//  • treasury must hold > floor, and a global daily cap limits total spend.
+const WELCOME_BONUS_USDC = parseFloat(process.env.WELCOME_BONUS_USDC || '0.5');
+const WELCOME_BONUS_ENABLED = (process.env.WELCOME_BONUS_ENABLED || 'true') === 'true';
+const WELCOME_TREASURY_FLOOR = parseFloat(process.env.WELCOME_TREASURY_FLOOR || '5');
+const WELCOME_DAILY_CAP_USDC = parseFloat(process.env.WELCOME_DAILY_CAP_USDC || '20');
+async function sendWelcomeBonus(userId, toAddress) {
+  if (!WELCOME_BONUS_ENABLED) return;
+  if (!userId.startsWith('supabase_')) return;              // verified humans only
+  if (!walletClient || !adminAccount) return;
+  try {
+    // Idempotency: reserve a grant row first (unique user_id). If it exists, stop.
+    const { error: resErr } = await supabase
+      .from('welcome_grants')
+      .insert({ user_id: userId, amount_usdc: WELCOME_BONUS_USDC, address: toAddress });
+    if (resErr) {
+      if (/relation .* does not exist/i.test(resErr.message)) {
+        console.warn('[welcome] welcome_grants table missing — skipping (run migration)');
+      }
+      return; // duplicate (already granted) or table missing → no send
+    }
+    // Global daily cap.
+    const since = new Date().toISOString().slice(0, 10) + 'T00:00:00Z';
+    const { count } = await supabase
+      .from('welcome_grants').select('id', { count: 'exact', head: true }).gte('created_at', since);
+    if ((count ?? 0) * WELCOME_BONUS_USDC > WELCOME_DAILY_CAP_USDC) {
+      console.warn('[welcome] daily cap reached — skipping bonus');
+      await supabase.from('welcome_grants').delete().eq('user_id', userId); // release reservation
+      return;
+    }
+    // Treasury floor.
+    const treasury = await getTreasuryUsdcBalance();
+    if (treasury != null && treasury < WELCOME_TREASURY_FLOOR + WELCOME_BONUS_USDC) {
+      console.warn(`[welcome] treasury too low (${treasury}) — skipping bonus`);
+      await supabase.from('welcome_grants').delete().eq('user_id', userId);
+      return;
+    }
+    // Send with an on-chain memo (reason = welcome:<userId>).
+    const micro = BigInt(Math.round(WELCOME_BONUS_USDC * 1_000_000));
+    const innerData = encodeFunctionData({
+      abi: [parseAbiItem('function transfer(address,uint256) returns (bool)')],
+      functionName: 'transfer', args: [toAddress, micro],
+    });
+    let txHash = null;
+    try {
+      txHash = await walletClient.writeContract({
+        address: MEMO_CONTRACT,
+        abi: [{ name: 'memo', type: 'function', stateMutability: 'nonpayable', inputs: [
+          { name: 'target', type: 'address' }, { name: 'data', type: 'bytes' },
+          { name: 'memoId', type: 'bytes32' }, { name: 'memoData', type: 'bytes' } ], outputs: [] }],
+        functionName: 'memo',
+        args: [USDC, innerData, keccak256(toHex(`welcome:${userId}`)),
+          stringToHex(JSON.stringify({ kind: 'welcome_bonus', usdc: WELCOME_BONUS_USDC }))],
+      });
+    } catch (_) {
+      // Memo path failed — fall back to a plain transfer so the user still gets funded.
+      txHash = await walletClient.writeContract({
+        address: USDC,
+        abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
+          inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }], outputs: [{ type: 'bool' }] }],
+        functionName: 'transfer', args: [toAddress, micro],
+      });
+    }
+    await supabase.from('welcome_grants').update({ tx_hash: txHash }).eq('user_id', userId);
+    console.log(`[welcome] sent ${WELCOME_BONUS_USDC} USDC to ${userId} (${toAddress}) tx ${txHash}`);
+    // Bonus also closes the fund_wallet quest + points.
+    if (typeof awardPoints === 'function') {
+      awardPoints(userId, 'fund_wallet', { refId: 'welcome' }).catch(() => {});
+    }
+  } catch (e) {
+    console.error('[welcome] error:', e.message);
+  }
+}
+
+// MEMO_CONTRACT shared with the agent swarm (Arc predeployed Memo contract).
+const MEMO_CONTRACT = '0x5294E9927c3306DcBaDb03fe70b92e01cCede505';
 
 // GET /api/wallet/balance
 app.get('/api/wallet/balance', authenticateUser, async (req, res) => {
@@ -1797,6 +1883,60 @@ app.post('/api/trade/sell', authenticateUser, requireVerifiedUser, tradeLimiter,
     res.json({ txId, state: txRes.data.state, side });
   } catch (e) {
     console.error('sell trade error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Batch-claim every resolved + won + unclaimed position for the user. One tap
+// → multiple on-chain claim() txs, a powerful "come back and collect" hook.
+app.post('/api/trade/claim-all', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Missing fields' });
+    const walletId = await getWalletId(userId);
+    if (!walletId) return res.status(400).json({ error: 'No wallet' });
+    const addr = userIdToAddressCache.get(userId) || (walletId ? (await getWalletInfo(walletId)).address : null);
+    if (!addr) return res.status(400).json({ error: 'No wallet address' });
+
+    // Candidate markets: ones the user has traded.
+    const { data: rows } = await supabase
+      .from('trades').select('market_id').eq('user_id', userId).eq('state', 'COMPLETE');
+    const markets = [...new Set((rows || []).map(r => r.market_id).filter(m => m && m.startsWith('0x')))];
+
+    const posAbi = [{ name: 'getUserPosition', type: 'function', stateMutability: 'view',
+      inputs: [{ name: 'user', type: 'address' }],
+      outputs: [{ name: '_yes', type: 'uint256' }, { name: '_no', type: 'uint256' }, { name: '_claimed', type: 'bool' }] }];
+    const infoAbi = [{ name: 'getMarketInfo', type: 'function', stateMutability: 'view', inputs: [], outputs: [
+      { name: '_slug', type: 'string' }, { name: '_deadline', type: 'uint256' },
+      { name: '_resolved', type: 'bool' }, { name: '_outcome', type: 'bool' },
+      { name: '_y', type: 'uint256' }, { name: '_n', type: 'uint256' } ] }];
+
+    const claimed = [];
+    for (const m of markets) {
+      try {
+        const [pos, info] = await Promise.all([
+          publicClient.readContract({ address: m, abi: posAbi, functionName: 'getUserPosition', args: [addr] }),
+          publicClient.readContract({ address: m, abi: infoAbi, functionName: 'getMarketInfo' }),
+        ]);
+        const yes = Number(pos[0]) / 1e6, no = Number(pos[1]) / 1e6, isClaimed = pos[2];
+        const resolved = info[2], outcome = info[3];
+        if (!resolved || isClaimed) continue;
+        const won = outcome ? yes > 0.0001 : no > 0.0001;
+        if (!won) continue;
+        const txRes = await circle.createContractExecutionTransaction({
+          walletId, contractAddress: m, abiFunctionSignature: 'claim()', abiParameters: [],
+          fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+        });
+        claimed.push({ market: m, txId: txRes.data.id });
+        awardPoints(userId, 'win', { refType: 'claim', refId: `${m}-${txRes.data.id}` }).catch(() => {});
+      } catch (e) {
+        console.warn(`[claim-all] ${m} skipped:`, e.message);
+      }
+    }
+    if (claimed.length) touchStreak(userId).catch(() => {});
+    res.json({ ok: true, claimed: claimed.length, items: claimed });
+  } catch (e) {
+    console.error('claim-all error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
