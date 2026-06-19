@@ -6,6 +6,7 @@ import '../../app/puls_app.dart';
 import '../../core/widgets/simple_markdown.dart';
 import '../../data/models/blog_post.dart';
 import '../comments/comment_thread.dart';
+import '../shell/web_layout.dart';
 import '../wallet/wallet_service.dart';
 import 'blog_widgets.dart';
 
@@ -88,7 +89,9 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
           ? (_loading
               ? const Center(child: CircularProgressIndicator())
               : Center(child: Text("Couldn't load this post.", style: TextStyle(color: t.textMuted))))
-          : ListView(
+          : WebLayout(
+              maxWidth: 720,
+              child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 4, 18, 60),
               children: [
                 if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
@@ -121,6 +124,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                 const SizedBox(height: 8),
                 CommentThread(targetType: 'blog', targetId: post.id),
               ],
+            ),
             ),
     );
   }

@@ -16,6 +16,7 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
   final _title = TextEditingController();
   final _body = TextEditingController();
   final _tags = TextEditingController();
+  final _cover = TextEditingController();
   bool _busy = false;
 
   @override
@@ -23,6 +24,7 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
     _title.dispose();
     _body.dispose();
     _tags.dispose();
+    _cover.dispose();
     super.dispose();
   }
 
@@ -45,7 +47,12 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
           .toList();
-      final res = await wallet.createBlogPost(title: title, body: body, tags: tags);
+      final res = await wallet.createBlogPost(
+        title: title,
+        body: body,
+        tags: tags,
+        coverUrl: _cover.text.trim().isEmpty ? null : _cover.text.trim(),
+      );
       if (res['ok'] == true) {
         messenger.showSnackBar(const SnackBar(content: Text('Published 🎉 +20 XP')));
         navigator.pop(true);
@@ -86,6 +93,8 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
           _field(t, _title, 'Title', maxLines: 1),
           const SizedBox(height: 10),
           _field(t, _body, 'Write your analysis…', maxLines: 8),
+          const SizedBox(height: 10),
+          _field(t, _cover, 'Cover image URL (optional)', maxLines: 1),
           const SizedBox(height: 10),
           _field(t, _tags, 'Tags (comma-separated, optional)', maxLines: 1),
           const SizedBox(height: 16),
