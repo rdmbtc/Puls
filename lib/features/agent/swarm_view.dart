@@ -306,7 +306,7 @@ class _AgentCard extends StatelessWidget {
                 Icon(Icons.memory_rounded, size: 11, color: t.textSubtle),
                 const SizedBox(width: 3),
                 Expanded(
-                  child: Text(brain,
+                  child: Text('AI engine',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600)),
@@ -409,7 +409,7 @@ class _AgentDetailSheet extends StatelessWidget {
                         style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: [
-                    if (brain.isNotEmpty) _chip(t, Icons.memory_rounded, brain),
+                    if (brain.isNotEmpty) _chip(t, Icons.memory_rounded, 'AI engine'),
                     _chip(t, Icons.workspace_premium_rounded, role),
                     _chip(t, Icons.attach_money_rounded, '${balance.toStringAsFixed(2)} USDC'),
                     if (erc != null && erc.isNotEmpty)

@@ -201,7 +201,7 @@ class _EventCard extends StatelessWidget {
                   '${review['verdict'] == 'buy' ? 'bought' : 'skipped'} ${_shortName(review['creator'])}\'s signal'),
             if (alphaPaid != null && alphaPaid > 0)
               _step(t, '💸', 'paid \$${alphaPaid.toStringAsFixed(3)} for alpha'),
-            if (brain != null && brain.isNotEmpty) _step(t, '🧠', 'reasoned ($brain)'),
+            if (brain != null && brain.isNotEmpty) _step(t, '🧠', 'reasoned with AI'),
             if (isGo) _step(t, '⚡', 'traded $side on Arc'),
           ]),
           if (reasoning.isNotEmpty) ...[
