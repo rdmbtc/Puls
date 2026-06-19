@@ -910,14 +910,37 @@ class WalletService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Public: a valid access token (refreshes a stale/cold session). Use this in
+  /// screens that build their own http requests so they self-heal on cold load.
+  Future<String?> freshAccessToken() => _freshAccessToken();
+
+  /// Returns a valid access token, refreshing the Supabase session when it's
+  /// missing or about to expire. On a cold web load `currentSession` may not be
+  /// restored yet (or the JWT is stale) — sending that makes the server reject
+  /// with 401 ("token invalid"). Refreshing here means every request self-heals,
+  /// so users never have to hit Retry/Reload.
+  Future<String?> _freshAccessToken() async {
+    final auth = _supabase.auth;
+    var s = auth.currentSession;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final needsRefresh = s == null || (s.expiresAt != null && s.expiresAt! - nowSec < 60);
+    if (needsRefresh) {
+      try {
+        final res = await auth.refreshSession();
+        s = res.session ?? auth.currentSession;
+      } catch (_) {
+        s = auth.currentSession;
+      }
+    }
+    return s?.accessToken;
+  }
+
   Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body, {Duration? timeout}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
-    final session = _supabase.auth.currentSession;
-    if (session != null) {
-      headers['Authorization'] = 'Bearer ${session.accessToken}';
-    }
+    final token = await _freshAccessToken();
+    if (token != null) headers['Authorization'] = 'Bearer $token';
     final res = await _client.post(
       Uri.parse('$_backendUrl$path'),
       headers: headers,
@@ -931,10 +954,8 @@ class WalletService extends ChangeNotifier {
   Future<Map<String, dynamic>> _get(String path, Map<String, String> params) async {
     final uri = Uri.parse('$_backendUrl$path').replace(queryParameters: params);
     final headers = <String, String>{};
-    final session = _supabase.auth.currentSession;
-    if (session != null) {
-      headers['Authorization'] = 'Bearer ${session.accessToken}';
-    }
+    final token = await _freshAccessToken();
+    if (token != null) headers['Authorization'] = 'Bearer $token';
     final res = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Request failed');
@@ -943,10 +964,8 @@ class WalletService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> _patch(String path, Map<String, dynamic> body, {Duration? timeout}) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
-    final session = _supabase.auth.currentSession;
-    if (session != null) {
-      headers['Authorization'] = 'Bearer ${session.accessToken}';
-    }
+    final token = await _freshAccessToken();
+    if (token != null) headers['Authorization'] = 'Bearer $token';
     final res = await _client.patch(
       Uri.parse('$_backendUrl$path'),
       headers: headers,
