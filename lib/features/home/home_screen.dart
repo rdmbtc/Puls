@@ -391,6 +391,7 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
     final noPct = 100 - yesPct;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
@@ -643,6 +644,7 @@ class _WebHotMarketCardState extends State<_WebHotMarketCard> {
     final t = widget.t;
     final yesPct = (widget.market.yesPrice * 100).round();
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(

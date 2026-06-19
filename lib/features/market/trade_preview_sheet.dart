@@ -4,6 +4,7 @@ import '../../core/widgets/puls_snack.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../wallet/tx_status_sheet.dart';
@@ -16,10 +17,8 @@ Future<void> showTradePreviewSheet({
   double? maxShares,
   String owner = 'user',
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+  return PulsSheet.show<void>(
+    context,
     builder: (_) => TradePreviewSheet(
       market: market,
       side: side,
@@ -112,37 +111,13 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
     
     final hasRealWallet = ws.userId != null && ws.hasWallet;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: t.surfaceRaised,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: t.border),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
+    return PulsSheetSurface(
+      raised: true,
+      scrollable: true,
+      child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: t.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              
               // BUY/SELL Tabs
               Container(
                 decoration: BoxDecoration(
@@ -637,8 +612,6 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

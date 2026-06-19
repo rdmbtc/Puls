@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/config.dart' show appBaseUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 
@@ -16,10 +17,8 @@ class ShareMarketSheet extends StatelessWidget {
   final Market market;
 
   static void show(BuildContext context, Market market) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+    PulsSheet.show<void>(
+      context,
       builder: (_) => ShareMarketSheet(market: market),
     );
   }
@@ -44,29 +43,11 @@ class ShareMarketSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.puls;
 
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        decoration: BoxDecoration(
-          color: t.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: t.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: t.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return PulsSheetSurface(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             Text(
               'Share this market',
               style: TextStyle(
@@ -136,7 +117,6 @@ class ShareMarketSheet extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

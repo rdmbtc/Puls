@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
@@ -733,32 +734,17 @@ class _CopyTraderCardState extends State<_CopyTraderCard> {
 
   Future<double?> _pickSpendCap(PulsThemeColors t) {
     double temp = _maxPerTrade.clamp(0.1, 10.0).toDouble();
-    return showModalBottomSheet<double>(
-      context: context,
-      backgroundColor: t.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return PulsSheet.show<double>(
+      context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSheet) {
-            return Padding(
+            return PulsSheetSurface(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: t.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
                   Text('Copy ${widget.leaderName}',
                       style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 6),

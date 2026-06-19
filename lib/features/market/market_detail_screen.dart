@@ -73,6 +73,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           children: [
             _Chip(label: market.category, t: t),
             if (market.isFeatured) _Chip(label: '⭐ Featured', t: t, highlight: true),
+            if (market.createdByAgent) _Chip(label: '🤖 Created by agent', t: t, highlight: true),
           ],
         ),
         const SizedBox(height: 12),

@@ -9,8 +9,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
+import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_avatar.dart';
+import '../../core/widgets/tactile.dart';
 import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
@@ -837,7 +840,7 @@ class _GlassCardState extends State<GlassCard> {
     );
 
     Widget container = AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: context.motionDuration(const Duration(milliseconds: 200)),
       curve: Curves.easeInOut,
       padding: widget.padding,
       decoration: BoxDecoration(
@@ -866,11 +869,14 @@ class _GlassCardState extends State<GlassCard> {
     );
 
     if (widget.onTap != null) {
+      // Outer MouseRegion drives the hover decoration (border/glow); Tactile
+      // adds the press-scale feedback + click cursor so the card feels
+      // responsive on tap and pointer-aware on desktop.
       return MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
+        child: Tactile(
+          onTap: widget.onTap!,
           child: container,
         ),
       );
@@ -1782,33 +1788,18 @@ class _WalletCard extends StatelessWidget {
     );
   }
 
-  void _showWalletInfo(BuildContext context, WalletState ws,
-      WalletService wallet, PulsThemeColors t) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
+  void _showWalletInfo(BuildContext context, WalletState ws, WalletService wallet, PulsThemeColors t) {
+    PulsSheet.show(
+      context,
+      builder: (_) => PulsSheetSurface(
+        raised: true,
+        scrollable: true,
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-        decoration: BoxDecoration(
-          color: t.surfaceRaised,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border(top: BorderSide(color: t.border)),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: t.border, borderRadius: BorderRadius.circular(2))),
-            ),
-            const SizedBox(height: 20),
-            Text('Technical Details',
-                style: TextStyle(
-                    color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('Technical Details', style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             _InfoRow('Target Network', 'Arc Testnet L1', t),
             _InfoRow('Chain ID', '5042002', t),

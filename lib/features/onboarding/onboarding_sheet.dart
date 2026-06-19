@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_sheet.dart';
 import '../shell/shell_nav.dart';
 import '../portfolio/funds_sheet.dart';
 import 'onboarding_content.dart';
@@ -41,10 +42,8 @@ class OnboardingSheet extends StatelessWidget {
       OnboardingFlags.markWelcomeSeen();
     }
     OnboardingFlags.markTabSeen(tab);
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+    return PulsSheet.show<void>(
+      context,
       builder: (_) => OnboardingSheet(tab: tab, isWelcome: isWelcome),
     );
   }
@@ -118,17 +117,8 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: t.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+          const PulsDragHandle(),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
