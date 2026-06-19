@@ -16,6 +16,8 @@ class PulsBottomNav extends StatelessWidget {
     required this.index,
     required this.isDark,
     required this.onTap,
+    required this.browseLabel,
+    required this.browseIcon,
     super.key,
   });
 
@@ -23,13 +25,32 @@ class PulsBottomNav extends StatelessWidget {
   final bool isDark;
   final ValueChanged<int> onTap;
 
-  static final items = <PulsNavItem>[
-    PulsNavItem(Picons.lightning, 'Feed'),
+  /// The label + icon shown on the Browse cell (cell 0), reflecting whichever
+  /// browse surface (Feed / Discover / Home) is currently active.
+  final String browseLabel;
+  final PiconData browseIcon;
+
+  /// Icons for the three browse surfaces, in order: Feed, Discover, Home.
+  static final browseIcons = <PiconData>[
+    Picons.lightning,
+    Picons.compass,
+    Picons.playCircle,
+  ];
+
+  // Fixed destinations after the Browse cell.
+  static final _fixedItems = <PulsNavItem>[
     PulsNavItem(Picons.chartBar, 'Portfolio'),
     PulsNavItem(Picons.star, 'Creators'),
     PulsNavItem(Picons.robot, 'Agent'),
     PulsNavItem(Picons.userCircle, 'Profile'),
   ];
+
+  // The full 5-cell item list (Browse + 4 fixed), rebuilt per render so the
+  // Browse cell reflects the active surface.
+  List<PulsNavItem> get _items => [
+        PulsNavItem(browseIcon, browseLabel, isBrowse: true),
+        ..._fixedItems,
+      ];
 
   // Inset of the gliding pill within each tab cell.
   static const double _pillH = 4;
@@ -71,6 +92,7 @@ class PulsBottomNav extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final items = _items;
               final cellW = constraints.maxWidth / items.length;
               final pillW = cellW - _pillH * 2;
               final pillLeft = index * cellW + _pillH;
@@ -183,11 +205,20 @@ class _NavCellState extends State<_NavCell> {
                 scale: selected ? 1.12 : 1.0,
                 duration: colorDuration,
                 curve: Curves.easeOutBack,
-                child: Picon(
-                  widget.item.icon,
-                  size: 20,
-                  color: iconColor,
-                ),
+                child: widget.item.isBrowse
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Picon(widget.item.icon, size: 20, color: iconColor),
+                          const SizedBox(width: 2),
+                          Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: iconColor),
+                        ],
+                      )
+                    : Picon(
+                        widget.item.icon,
+                        size: 20,
+                        color: iconColor,
+                      ),
               ),
               const SizedBox(height: 2),
               AnimatedDefaultTextStyle(
@@ -208,7 +239,8 @@ class _NavCellState extends State<_NavCell> {
 }
 
 class PulsNavItem {
-  const PulsNavItem(this.icon, this.label);
+  const PulsNavItem(this.icon, this.label, {this.isBrowse = false});
   final PiconData icon;
   final String label;
+  final bool isBrowse;
 }
