@@ -176,9 +176,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     }
     try {
       final headers = <String, String>{};
-      final session = _supabase.auth.currentSession;
-      if (session != null) {
-        headers['Authorization'] = 'Bearer ${session.accessToken}';
+      final token = await wallet.freshAccessToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
       }
       final res = await _client.get(
         Uri.parse('$_backendUrl/api/portfolio?userId=${ws.userId}'),
