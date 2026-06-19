@@ -8,8 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
+import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
+import '../../core/widgets/tactile.dart';
 import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
@@ -738,7 +740,7 @@ class _GlassCardState extends State<GlassCard> {
     );
 
     Widget container = AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: context.motionDuration(const Duration(milliseconds: 200)),
       curve: Curves.easeInOut,
       padding: widget.padding,
       decoration: BoxDecoration(
@@ -766,11 +768,14 @@ class _GlassCardState extends State<GlassCard> {
     );
 
     if (widget.onTap != null) {
+      // Outer MouseRegion drives the hover decoration (border/glow); Tactile
+      // adds the press-scale feedback + click cursor so the card feels
+      // responsive on tap and pointer-aware on desktop.
       return MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
+        child: Tactile(
+          onTap: widget.onTap!,
           child: container,
         ),
       );

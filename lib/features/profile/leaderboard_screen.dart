@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/agent_badge.dart';
+import '../../core/widgets/tactile.dart';
 import '../alpha/alpha_screen.dart';
 import '../shell/shell_nav.dart';
 import '../shell/web_layout.dart';
@@ -299,10 +300,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _agentCta(PulsThemeColors t) {
-    return GestureDetector(
+    return Tactile(
       // Switch to the Agent tab inside the shell (keeps the nav menu visible)
       // instead of pushing a full-screen route that hides the shell.
       onTap: () => ShellNavScope.of(context).goToTab(PulsTab.agent),
+      hoverScale: 1.01,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/tactile.dart';
 
 class PromoSlide {
   const PromoSlide({
@@ -118,8 +119,11 @@ class _PromoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = slide.backgroundColor ?? t.brand;
     final hasImage = slide.imageAsset != null;
-    return GestureDetector(
+    return Tactile(
       onTap: slide.onTap,
+      // Promo banners are the most prominent tap target on Home — give them a
+      // subtle desktop hover-lift on top of the press feedback.
+      hoverScale: 1.02,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         clipBehavior: Clip.antiAlias,
