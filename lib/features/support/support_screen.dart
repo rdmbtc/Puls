@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
@@ -271,16 +272,13 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
       } else {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t create ticket (${res.statusCode})')),
-          );
+          PulsSnack.error(context,
+              data['error']?.toString() ?? 'Couldn\'t create ticket (${res.statusCode})');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Something went wrong — try again.')),
-        );
+        PulsSnack.error(context, 'Something went wrong — try again.');
       }
     }
     if (mounted) setState(() => _sending = false);
@@ -431,16 +429,13 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       } else {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error']?.toString() ?? 'Couldn\'t send message (${res.statusCode})')),
-          );
+          PulsSnack.error(context,
+              data['error']?.toString() ?? 'Couldn\'t send message (${res.statusCode})');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Something went wrong — try again.')),
-        );
+        PulsSnack.error(context, 'Something went wrong — try again.');
       }
     }
     if (mounted) setState(() => _sending = false);

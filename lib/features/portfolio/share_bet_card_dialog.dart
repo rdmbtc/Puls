@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart' show appBaseUrl;
@@ -44,9 +45,7 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
 
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Share text copied to clipboard!')),
-      );
+      PulsSnack.success(context, 'Share text copied to clipboard!');
     }
   }
 
@@ -71,9 +70,7 @@ class _ShareBetCardDialogState extends State<ShareBetCardDialog> {
     final url = '$appBaseUrl/m/$slug';
     await Clipboard.setData(ClipboardData(text: url));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Market URL copied to clipboard!')),
-      );
+      PulsSnack.success(context, 'Market URL copied to clipboard!');
     }
   }
 

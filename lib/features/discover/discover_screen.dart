@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -119,12 +120,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     onTap: () {
                       final ws = WalletServiceScope.of(context).state;
                       if (ws.userId == null || !ws.hasWallet) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Please sign in and connect a wallet to create custom markets.'),
-                            backgroundColor: t.no,
-                          ),
-                        );
+                        PulsSnack.error(context,
+                            'Please sign in and connect a wallet to create custom markets.');
                       } else {
                         CreateMarketDialog.show(context);
                       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -66,54 +67,48 @@ class _SignalsSectionState extends State<SignalsSection> {
 
   Future<void> _publish(CreatorSignal s) async {
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     try {
       final res = await wallet.publishSignal(s.id);
       final attested = res['attested'] == true;
-      messenger.showSnackBar(SnackBar(
-        content: Text(attested
-            ? 'Published — attested on Arc ✓'
-            : 'Published (on-chain attestation pending)'),
-      ));
+      snack.success(attested
+          ? 'Published — attested on Arc'
+          : 'Published (on-chain attestation pending)');
       setState(() => _loading = true);
       _fetch();
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Publish failed: $e')));
+      snack.error('Publish failed: $e');
     }
   }
 
   Future<void> _archive(CreatorSignal s) async {
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     try {
       await wallet.archiveSignal(s.id);
-      messenger.showSnackBar(const SnackBar(content: Text('Signal archived')));
+      snack.show('Signal archived');
       setState(() => _loading = true);
       _fetch();
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Archive failed: $e')));
+      snack.error('Archive failed: $e');
     }
   }
 
   Future<void> _unlock(CreatorSignal s) async {
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     try {
       final res = await wallet.unlockSignal(s.id);
       if (res['live'] == false) {
-        messenger.showSnackBar(SnackBar(
-          content: Text('${res['message'] ?? 'Paid unlock activates at launch.'}'),
-        ));
+        snack.show('${res['message'] ?? 'Paid unlock activates at launch.'}');
         return;
       }
       // Refresh to reveal the thesis.
       setState(() => _loading = true);
       await _fetch();
-      if (mounted) {
-        messenger.showSnackBar(const SnackBar(content: Text('Unlocked — thesis revealed ✓')));
-      }
+      snack.success('Unlocked — thesis revealed');
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Unlock failed: $e')));
+      snack.error('Unlock failed: $e');
     }
   }
 

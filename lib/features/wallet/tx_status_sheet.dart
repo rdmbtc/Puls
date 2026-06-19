@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:haptic_kit/haptic_kit.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -114,13 +115,8 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
           if (!OnboardingFlags.firstTradeSeen) {
             OnboardingFlags.markFirstTradeSeen();
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('🎉 Your first trade is live on Arc!'),
-                  duration: const Duration(seconds: 4),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              PulsSnack.success(context, '🎉 Your first trade is live on Arc!',
+                  duration: const Duration(seconds: 4));
             }
           }
           return;

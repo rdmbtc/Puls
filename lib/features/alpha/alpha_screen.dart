@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
@@ -71,9 +72,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-    );
+    PulsSnack.show(context, msg, duration: const Duration(seconds: 3));
   }
 
   Future<void> _viewUnlocked(String id) async {
@@ -153,6 +152,7 @@ class _AlphaScreenState extends State<AlphaScreen> {
     }
     final handle = '@${sig['creatorHandle'] ?? 'puls'}';
     final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     messenger.clearSnackBars();
 
     final tip = DeferredTip(
@@ -173,13 +173,10 @@ class _AlphaScreenState extends State<AlphaScreen> {
       onUndo: () => messenger.hideCurrentSnackBar(),
     )..start();
 
-    messenger.showSnackBar(
-      SnackBar(
+    snack.show('Tipping \$${_kTipAmount.toStringAsFixed(2)} to $handle',
         duration: const Duration(seconds: 5),
-        content: Text('Tipping \$${_kTipAmount.toStringAsFixed(2)} to $handle'),
-        action: SnackBarAction(label: 'Undo', onPressed: tip.cancel),
-      ),
-    );
+        actionLabel: 'Undo',
+        onAction: tip.cancel);
   }
 
   Future<bool?> _confirmUnlock(PulsThemeColors t, String title, double price) {

@@ -4,6 +4,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -59,17 +60,17 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     if (_claimingAll) return;
     setState(() => _claimingAll = true);
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     try {
       final res = await wallet.claimAllWinnings();
       final n = (res['claimed'] as num?)?.toInt() ?? 0;
-      messenger.showSnackBar(SnackBar(content: Text(
-        n > 0 ? '✅ Claiming $n winning position${n == 1 ? '' : 's'} — balance updates shortly.'
-              : 'No claimable winnings right now.')));
+      snack.success(
+          n > 0 ? 'Claiming $n winning position${n == 1 ? '' : 's'} — balance updates shortly.'
+                : 'No claimable winnings right now.');
       _load(silent: true);
       Future.delayed(const Duration(seconds: 8), () { if (mounted) _load(silent: true); });
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('❌ ${e.toString().replaceAll('Exception: ', '')}')));
+      snack.error(e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _claimingAll = false);
     }
@@ -278,21 +279,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 
   Future<void> _cancelLimitOrder(String orderId) async {
     final wallet = WalletServiceScope.of(context);
+    final snack = PulsSnack.of(context);
     setState(() { _loading = true; });
     try {
       await wallet.cancelLimitOrder(orderId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Limit order cancelled successfully.')),
-        );
-      }
+      snack.success('Limit order cancelled successfully.');
       await _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}')),
-        );
-      }
+      snack.error('Couldn\'t cancel order: ${e.toString().replaceAll('Exception: ', '')}');
       setState(() { _loading = false; });
     }
   }
@@ -897,9 +891,8 @@ class _HeroCard extends StatelessWidget {
                           onTap: () {
                             if (walletAddress != null) {
                               Clipboard.setData(ClipboardData(text: walletAddress!));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Address copied to clipboard'), duration: Duration(seconds: 2)),
-                              );
+                              PulsSnack.show(context, 'Address copied to clipboard',
+                                  duration: const Duration(seconds: 2));
                             }
                           },
                           child: Row(
@@ -945,6 +938,7 @@ class _PositionCardState extends State<_PositionCard> {
   bool _claiming = false;
 
   Future<void> _claim() async {
+    final snack = PulsSnack.of(context);
     setState(() => _claiming = true);
     final slug = widget.position['slug'] as String? ?? '';
     final String? contractAddress = (widget.position['contractAddress'] as String?) ?? (widget.position['marketId'] as String?);
@@ -955,9 +949,7 @@ class _PositionCardState extends State<_PositionCard> {
       }
       await widget.walletService.claimWinnings(contractAddress: contractAddress, slug: slug);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Claim submitted! Check balance in a few seconds.')),
-        );
+        snack.success('Claim submitted! Check balance in a few seconds.');
         widget.onRefresh?.call();
         // Delay to allow transaction to mine on-chain before refreshing again
         Future.delayed(const Duration(seconds: 8), () {
@@ -966,9 +958,7 @@ class _PositionCardState extends State<_PositionCard> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ ${e.toString().replaceAll('Exception: ', '')}')),
-        );
+        snack.error(e.toString().replaceAll('Exception: ', ''));
       }
     } finally {
       if (mounted) setState(() => _claiming = false);

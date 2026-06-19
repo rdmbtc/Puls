@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -64,9 +65,8 @@ class _ReferralCardState extends State<ReferralCard> {
   void _copyLink() {
     if (_link == null) return;
     Clipboard.setData(ClipboardData(text: _link!));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Referral link copied!'), duration: Duration(seconds: 2)),
-    );
+    PulsSnack.show(context, 'Referral link copied!',
+        duration: const Duration(seconds: 2));
   }
 
   Future<void> _claimCode() async {
@@ -83,16 +83,14 @@ class _ReferralCardState extends State<ReferralCard> {
         _claimCtrl.clear();
         await _fetch();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Referral code applied!'), duration: Duration(seconds: 2)),
-          );
+          PulsSnack.success(context, 'Referral code applied!',
+              duration: const Duration(seconds: 2));
         }
       } else {
         final data = jsonDecode(res.body);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['error'] as String? ?? 'Invalid code'), duration: const Duration(seconds: 2)),
-          );
+          PulsSnack.error(context, data['error'] as String? ?? 'Invalid code',
+              duration: const Duration(seconds: 2));
         }
       }
     } catch (_) {}

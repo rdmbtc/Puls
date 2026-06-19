@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/puls_snack.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../app/puls_app.dart';
@@ -32,14 +33,12 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
     final title = _title.text.trim();
     final body = _body.text.trim();
     if (title.isEmpty || body.isEmpty || _busy) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title and body are required')),
-      );
+      PulsSnack.error(context, 'Title and body are required');
       return;
     }
     setState(() => _busy = true);
     final wallet = WalletServiceScope.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final snack = PulsSnack.of(context);
     final navigator = Navigator.of(context);
     try {
       final tags = _tags.text
@@ -54,14 +53,14 @@ class _BlogComposeSheetState extends State<BlogComposeSheet> {
         coverUrl: _cover.text.trim().isEmpty ? null : _cover.text.trim(),
       );
       if (res['ok'] == true) {
-        messenger.showSnackBar(const SnackBar(content: Text('Published 🎉 +20 XP')));
+        snack.success('Published 🎉 +20 XP');
         navigator.pop(true);
       } else {
-        messenger.showSnackBar(SnackBar(content: Text('${res['message'] ?? res['error'] ?? 'Could not publish'}')));
+        snack.error('${res['message'] ?? res['error'] ?? 'Could not publish'}');
         setState(() => _busy = false);
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Publish failed: $e')));
+      snack.error('Publish failed: $e');
       setState(() => _busy = false);
     }
   }
