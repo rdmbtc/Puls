@@ -28,6 +28,7 @@ class Market {
     this.clobTokenId = '',
     this.liquidityNum = 0,
     this.competitive = 0,
+    this.createdByAgent = false,
   });
 
   final String id;
@@ -56,6 +57,7 @@ class Market {
   final String clobTokenId;
   final double liquidityNum;
   final double competitive;
+  final bool createdByAgent;
 
   bool get trendIsPositive => trend >= 0;
 

@@ -316,6 +316,10 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                                 _Tag(label: market.category, t: t),
                                 const SizedBox(width: 8),
                                 _Tag(label: market.volume, t: t),
+                                if (market.createdByAgent) ...[
+                                  const SizedBox(width: 8),
+                                  _Tag(label: '🤖 Agent', t: t),
+                                ],
                                 const Spacer(),
                                 ValueListenableBuilder<double>(
                                   valueListenable: _dragX,
