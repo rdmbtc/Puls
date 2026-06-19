@@ -72,7 +72,8 @@ class _PulsAppState extends State<PulsApp> {
       animation: Listenable.merge([_state, _walletService]),
       builder: (context, _) {
         final shellVisible =
-            _state.onboardingComplete || _walletService.state.userId != null;
+            _state.onboardingComplete || _walletService.state.userId != null
+            || _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app
         _maybeOpenDeepLink(shellVisible);
         return WalletServiceScope(
           service: _walletService,
