@@ -1404,7 +1404,9 @@ app.get('/api/markets', async (req, res) => {
           image: row.image_url || `https://api.dicebear.com/7.x/identicon/png?size=128&seed=${slug}`,
           endDateIso: new Date(Number(row.deadline) * 1000).toISOString(),
           outcomePrices: JSON.stringify([yesPrice.toString(), noPrice.toString()]),
-          featured: false
+          featured: false,
+          createdByAgent: row.created_by_agent === true,
+          creatorId: row.creator_id || null,
         });
       }
     }
