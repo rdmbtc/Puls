@@ -6,6 +6,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/widgets/tactile.dart';
 import '../../core/widgets/market_hero.dart';
 import '../../core/widgets/skeleton.dart';
@@ -93,7 +94,13 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
       if (_hintCtrl != null) _dragX.value = anim.value;
     });
     Future.delayed(const Duration(milliseconds: 1100), () {
-      if (mounted && _hintCtrl == ctrl) ctrl.forward();
+      if (!mounted || _hintCtrl != ctrl) return;
+      // Reduce-motion: skip the auto swipe-hint nudge entirely.
+      if (context.reduceMotion) {
+        _cancelSwipeHint();
+        return;
+      }
+      ctrl.forward();
     });
   }
 
