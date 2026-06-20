@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/utils/image_util.dart';
 import '../../core/widgets/market_hero.dart';
@@ -268,7 +269,7 @@ class _ProbabilityPanel extends StatelessWidget {
                       child: AnimatedCount(
                         value: yesPct.toDouble(),
                         formatter: (v) => '${v.round()}%',
-                        style: TextStyle(color: t.yes, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+                        style: TextStyle(color: t.yes, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1, fontFeatures: PulsColors.tabularFigures),
                       ),
                     ),
                     Text(TradeMath.formatPrice(market.yesPrice), style: TextStyle(color: t.textMuted, fontSize: 12)),
@@ -289,7 +290,7 @@ class _ProbabilityPanel extends StatelessWidget {
                         child: AnimatedCount(
                           value: noPct.toDouble(),
                           formatter: (v) => '${v.round()}%',
-                          style: TextStyle(color: t.no, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+                          style: TextStyle(color: t.no, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1, fontFeatures: PulsColors.tabularFigures),
                         ),
                       ),
                       Text(TradeMath.formatPrice(market.noPrice), style: TextStyle(color: t.textMuted, fontSize: 12)),
@@ -480,7 +481,7 @@ class _ChartSectionState extends State<_ChartSection> {
                 ),
                 child: Text(
                   '${widget.trendPositive ? '+' : ''}${TradeMath.formatPercent(widget.trend)} 24h',
-                  style: TextStyle(color: widget.trendColor, fontWeight: FontWeight.w700, fontSize: 12),
+                  style: TextStyle(color: widget.trendColor, fontWeight: FontWeight.w700, fontSize: 12, fontFeatures: PulsColors.tabularFigures),
                 ),
               ),
             ],
@@ -517,9 +518,9 @@ class _ChartSectionState extends State<_ChartSection> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('${(widget.history.first * 100).toStringAsFixed(0)}¢ open',
-                    style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                    style: TextStyle(color: t.textSubtle, fontSize: 11, fontFeatures: PulsColors.tabularFigures)),
                 Text('${(widget.history.last * 100).toStringAsFixed(0)}¢ now',
-                    style: TextStyle(color: widget.trendColor, fontSize: 11, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: widget.trendColor, fontSize: 11, fontWeight: FontWeight.w700, fontFeatures: PulsColors.tabularFigures)),
               ],
             ),
           ],
@@ -623,7 +624,7 @@ class _FullChart extends StatelessWidget {
           ),
         ],
       ),
-      duration: const Duration(milliseconds: 1000),
+      duration: context.reduceMotion ? Duration.zero : const Duration(milliseconds: 1000),
       curve: Curves.easeOutCubic,
     );
   }
@@ -712,7 +713,7 @@ class _BidAskPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text('${(market.competitive * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700, fontFeatures: PulsColors.tabularFigures)),
               ],
             ),
           ],
@@ -739,7 +740,7 @@ class _OrderCell extends StatelessWidget {
         children: [
           Text(label, style: TextStyle(color: t.textSubtle, fontSize: 10, fontWeight: FontWeight.w500)),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700)),
+          Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700, fontFeatures: PulsColors.tabularFigures)),
         ],
       ),
     );
