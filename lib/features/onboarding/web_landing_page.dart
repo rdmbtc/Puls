@@ -863,7 +863,7 @@ class _FeatureCardState extends State<_FeatureCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        transform: _hovered ? (Matrix4.identity()..translate(0.0, -5.0)) : Matrix4.identity(),
+        transform: _hovered ? Matrix4.translationValues(0.0, -5.0, 0.0) : Matrix4.identity(),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: LinearGradient(
