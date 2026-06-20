@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/tts.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/state_views.dart';
 import '../../app/puls_app.dart';
 import '../../core/widgets/simple_markdown.dart';
 import '../../data/models/blog_post.dart';
@@ -111,7 +112,10 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
       body: post == null
           ? (_loading
               ? const PulsLoader()
-              : Center(child: Text("Couldn't load this post.", style: TextStyle(color: t.textMuted))))
+              : const PulsErrorState(
+                  title: "Couldn't load this post",
+                  message: 'It may have been removed, or your connection dropped.',
+                ))
           : WebLayout(
               maxWidth: 720,
               child: ListView(
