@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../shell/shell_nav.dart';
 import 'onboarding_flags.dart';
 import 'onboarding_sheet.dart';
@@ -30,7 +31,20 @@ class _HelpButtonState extends State<HelpButton>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: hold the attention dot still (fully visible).
+    if (context.reduceMotion) {
+      _pulse
+        ..stop()
+        ..value = 1.0;
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
   }
 
   @override

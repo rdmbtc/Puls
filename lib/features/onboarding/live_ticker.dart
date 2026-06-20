@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 
 /// Infinite marquee of real markets with live YES prices, shown on the
 /// landing page. Fails silently (renders nothing) if the API is unreachable.
@@ -44,12 +45,27 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
     _marquee = AnimationController(
       vsync: this,
       duration: const Duration(seconds: _periodSec),
-    )..repeat();
+    );
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
+    );
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: hold the marquee + LIVE pulse still.
+    if (context.reduceMotion) {
+      _marquee.stop();
+      _pulse
+        ..stop()
+        ..value = 1.0; // keep the LIVE dot fully visible, just not pulsing
+    } else {
+      if (!_marquee.isAnimating) _marquee.repeat();
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    }
   }
 
   Future<void> _load() async {
@@ -156,7 +172,7 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
           // ── Marquee tape ──────────────────────────────────────────────
           MouseRegion(
             onEnter: (_) { if (_marquee.isAnimating) _marquee.stop(canceled: false); },
-            onExit: (_) { if (_items.isNotEmpty && !_marquee.isAnimating) _marquee.repeat(); },
+            onExit: (_) { if (!context.reduceMotion && _items.isNotEmpty && !_marquee.isAnimating) _marquee.repeat(); },
             child: SizedBox(
               height: 76,
               child: ClipRect(

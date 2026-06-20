@@ -11,6 +11,7 @@ import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
 import '../../core/widgets/puls_loader.dart';
@@ -376,7 +377,18 @@ class _PulseLineState extends State<_PulseLine>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: hold the feed pulse-line still.
+    if (context.reduceMotion) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override

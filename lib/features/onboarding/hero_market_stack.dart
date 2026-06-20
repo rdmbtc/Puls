@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 
 /// A floating, tilted stack of REAL live markets — the hero visual.
 /// Pulls from the backend; falls back to a static sample so the layout
@@ -42,9 +43,19 @@ class _HeroMarketStackState extends State<HeroMarketStack>
   @override
   void initState() {
     super.initState();
-    _float = AnimationController(vsync: this, duration: const Duration(seconds: 6))
-      ..repeat();
+    _float = AnimationController(vsync: this, duration: const Duration(seconds: 6));
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: hold the floating cards still.
+    if (context.reduceMotion) {
+      _float.stop();
+    } else if (!_float.isAnimating) {
+      _float.repeat();
+    }
   }
 
   @override

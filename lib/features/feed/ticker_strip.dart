@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 
 class WebTickerStrip extends StatefulWidget {
   const WebTickerStrip({super.key});
@@ -21,8 +22,19 @@ class _WebTickerStripState extends State<WebTickerStrip>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 120),
-    )..repeat();
+    );
     _ctrl.addListener(_scroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: keep the ticker strip still.
+    if (context.reduceMotion) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   void _scroll() {
