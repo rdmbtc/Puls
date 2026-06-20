@@ -7,6 +7,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import '../comments/comment_thread.dart';
@@ -603,32 +604,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildErrorView(PulsThemeColors t) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline_rounded, color: t.no, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              'Couldn\'t load this profile. Pull to retry.',
-              style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error ?? 'An unexpected error occurred.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: t.textMuted, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _fetchProfile,
-              style: ElevatedButton.styleFrom(backgroundColor: t.brand),
-              child: const Text('Try Again', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: PulsErrorState(
+        title: "Couldn't load this profile",
+        message: _error ?? 'An unexpected error occurred.',
+        onRetry: _fetchProfile,
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/state_views.dart';
 import '../../data/models/creator_signal.dart';
 import 'market_detail_screen.dart';
 import 'researched_sources.dart';
@@ -159,14 +160,11 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
         ),
       );
 
-  Widget _empty(PulsThemeColors t) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
-        child: Column(children: [
-          Icon(Icons.auto_awesome_rounded, color: t.textMuted, size: 32),
-          const SizedBox(height: 12),
-          Text('No published signals yet', style: TextStyle(color: t.textMuted, fontSize: 13, fontWeight: FontWeight.bold)),
-        ]),
+  Widget _empty(PulsThemeColors t) => const PulsEmptyState(
+        title: 'No published signals yet',
+        message: 'Creator signals will appear here once traders publish their calls.',
+        icon: Icons.auto_awesome_rounded,
+        compact: true,
       );
 }
 
