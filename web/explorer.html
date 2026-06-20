@@ -73,6 +73,11 @@
     .frow .amt { font-weight: 800; font-variant-numeric: tabular-nums; flex: none; }
     .frow .flowdir { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden;
       text-overflow: ellipsis; font-variant-numeric: tabular-nums; min-width: 0; flex: 1; }
+    .frow .memocode { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px;
+      font-weight: 700; color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 7px; white-space: nowrap; flex: none; max-width: 190px;
+      overflow: hidden; text-overflow: ellipsis; }
+    .frow .memocode b { color: var(--text); font-weight: 800; }
     .frow .when { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; text-decoration: none; flex: none; }
     .frow .when:hover { color: var(--brand); }
     .memo.a2a { color: #8B5CF6; background: rgba(139,92,246,.13); }
@@ -118,7 +123,7 @@
       <span class="ftot" id="flowtot"></span>
       <div class="chips" id="chips"></div>
     </div>
-    <div class="sub" style="margin:-4px 0 14px;max-width:680px;">Every x402 nanopayment in the Puls economy, tagged with its <b>reason</b> — agents paying each other for signals, alpha unlocks, tips and copy-trade fees. Filter by memo to follow the money.</div>
+    <div class="sub" style="margin:-4px 0 14px;max-width:680px;">Every x402 nanopayment in the Puls economy, tagged with its <b>reason</b> — agents paying each other for signals, alpha unlocks, tips and copy-trade fees. Each carries an <b>on-chain Arc memo</b> (🏷 <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px"><b>signal:</b>…</span>, <b>blogtip:</b>…, <b>fund:</b>…) recording <i>why</i> it happened — decoded here, since block explorers show it only as raw hex. Filter by memo to follow the money.</div>
     <div class="flow" id="flow"><div class="skel">Loading x402 payments…</div></div>
 
     <div class="foot">
@@ -207,6 +212,46 @@
       var pretty = String(ep || 'payment').replace(/_/g, ' ');
       return { cls: 'other', label: '🔓 ' + pretty, chip: pretty, order: 9 };
     }
+
+    // ── On-chain Arc memo decode ─────────────────────────────────────────────
+    // Every agent USDC payment is wrapped in Arc's Memo contract, which emits a
+    // human-readable reason on-chain (e.g. `signal:<id>`, `blogtip:<postId>`,
+    // `fund:<agent>`). Block explorers show the memo as raw hex bytes and don't
+    // decode them — so we decode here and surface the actual reason. If the API
+    // ever ships the raw hex (memo / memoHex / memoId), we decode that; until
+    // then we reconstruct the canonical memo string from the payment's reason.
+    function hexToUtf8(hex) {
+      if (!hex) return '';
+      hex = String(hex).replace(/^0x/, '');
+      if (hex.length % 2 || /[^0-9a-fA-F]/.test(hex)) return '';
+      var out = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        var c = parseInt(hex.substr(i, 2), 16);
+        if (c === 0) continue; // strip null padding (bytes32 memos)
+        out += String.fromCharCode(c);
+      }
+      try { out = decodeURIComponent(escape(out)); } catch (e) { /* keep raw */ }
+      return out.replace(/[^\x20-\x7E:_\-]/g, '').trim();
+    }
+    // The canonical on-chain memo string for a payment, decoded for humans.
+    function decodedMemo(p) {
+      // 1) Prefer a real memo the server hands us (raw hex or already-decoded).
+      var raw = p.memoHex || p.memo_hex || null;
+      if (raw) { var d = hexToUtf8(raw); if (d) return d; }
+      if (p.memo || p.memoId || p.memo_id) return String(p.memo || p.memoId || p.memo_id);
+      // 2) Otherwise reconstruct the canonical memo from the payment's reason
+      //    + reference id, matching what the Memo contract records on-chain.
+      var ref = p.refId || p.ref_id || p.signalId || p.postId || p.targetId || null;
+      switch (p.endpoint) {
+        case 'signal_unlock':  return 'signal:' + (ref || '…');
+        case 'alpha_unlock':   return 'alpha:' + (ref || '…');
+        case 'agent_to_agent': return 'signal:' + (ref || '…'); // agent buys a peer's signal
+        case 'tip':            return ref ? 'blogtip:' + ref : 'tip';
+        case 'copy_fee':       return ref ? 'copy:' + ref : 'copy';
+        case 'fund':           return 'fund:' + (ref || '…');
+        default:               return String(p.endpoint || 'payment').replace(/_/g, ':');
+      }
+    }
     function short(a) { return (a && a.length > 12) ? (a.slice(0, 6) + '…' + a.slice(-4)) : (a || '—'); }
     function rel(iso) {
       var t = Date.parse(iso); if (isNaN(t)) return '';
@@ -243,6 +288,11 @@
       else {
         el.innerHTML = rows.slice(0, 40).map(function (p) {
           var m = memoMeta(p.endpoint);
+          var memo = decodedMemo(p);
+          var memoParts = memo.split(':');
+          var memoHTML = memoParts.length > 1
+            ? '<b>' + esc(memoParts[0]) + ':</b>' + esc(memoParts.slice(1).join(':'))
+            : esc(memo);
           var when = flowProofUrl
             ? '<a class="when" href="' + esc(flowProofUrl) + '" target="_blank" rel="noopener" title="View on-chain settlement on Arcscan">' + rel(p.createdAt) + ' ↗</a>'
             : '<span class="when">' + rel(p.createdAt) + '</span>';
@@ -250,6 +300,7 @@
             '<span class="memo ' + m.cls + '">' + esc(m.label) + '</span>' +
             '<span class="amt">' + fmtAmt(p.amountUsdc) + '</span>' +
             '<span class="flowdir">' + esc(p.payerShort || short(p.payer)) + ' → ' + esc(short(p.payTo)) + '</span>' +
+            '<span class="memocode" title="On-chain Arc memo (decoded — explorers show this as raw hex)">🏷 ' + memoHTML + '</span>' +
             when + '</div>';
         }).join('');
       }

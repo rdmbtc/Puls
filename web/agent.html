@@ -120,6 +120,11 @@
     }
     .txlink:hover { text-decoration: underline; }
     .txmono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
+    .memochip { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700;
+      color: var(--agent); background: var(--agent-soft); border: 1px solid var(--border);
+      border-radius: 9px; padding: 5px 10px; }
+    .memochip b { color: var(--text); font-weight: 800; }
     .pnl-val { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
     .pnl-val.pos { color: var(--good); } .pnl-val.neg { color: var(--bad); }
     .skeleton { color: var(--muted); font-size: 14px; }
@@ -208,6 +213,39 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
+    // Decode the on-chain Arc memo for a payment. Agent payments are wrapped in
+    // Arc's Memo contract, which emits the reason on-chain (e.g. `signal:<id>`).
+    // Explorers render it as raw hex, so we decode/reconstruct the readable memo.
+    function hexToUtf8(hex) {
+      if (!hex) return '';
+      hex = String(hex).replace(/^0x/, '');
+      if (hex.length % 2 || /[^0-9a-fA-F]/.test(hex)) return '';
+      var out = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        var c = parseInt(hex.substr(i, 2), 16);
+        if (c === 0) continue;
+        out += String.fromCharCode(c);
+      }
+      try { out = decodeURIComponent(escape(out)); } catch (e) {}
+      return out.replace(/[^\x20-\x7E:_\-]/g, '').trim();
+    }
+    function decodedMemo(p) {
+      if (!p) return '';
+      var raw = p.memoHex || p.memo_hex || null;
+      if (raw) { var d = hexToUtf8(raw); if (d) return d; }
+      if (p.memo || p.memoId || p.memo_id) return String(p.memo || p.memoId || p.memo_id);
+      var ref = p.refId || p.ref_id || p.signalId || p.postId || p.targetId || null;
+      switch (p.endpoint) {
+        case 'signal_unlock':  return 'signal:' + (ref || '…');
+        case 'alpha_unlock':   return 'alpha:' + (ref || '…');
+        case 'agent_to_agent': return 'signal:' + (ref || '…');
+        case 'tip':            return ref ? 'blogtip:' + ref : 'tip';
+        case 'copy_fee':       return ref ? 'copy:' + ref : 'copy';
+        case 'fund':           return 'fund:' + (ref || '…');
+        default:               return p.endpoint ? String(p.endpoint).replace(/_/g, ':') : '';
+      }
+    }
+
     function getJSON(path) {
       return fetch(API + path, { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
@@ -255,7 +293,14 @@
           '<span>Network <b>Arc Testnet</b></span>' +
           '<span>Status <b>' + esc(pay.status || 'settled') + '</b></span>' +
           (pay.receiptId ? '<span>Receipt <b class="txmono">' + esc(shortHash(pay.receiptId)) + '</b></span>' : '');
-        if (data.sellerUrl) payTx = txLink(data.sellerUrl, 'Creator wallet on Arc', shortAddr(data.seller));
+        // On-chain Arc memo (decoded — explorers show it only as raw hex).
+        var memo = decodedMemo(pay);
+        if (memo) {
+          var mp = memo.split(':');
+          var memoInner = mp.length > 1 ? '<b>' + esc(mp[0]) + ':</b>' + esc(mp.slice(1).join(':')) : esc(memo);
+          payTx = '<div class="memochip" title="On-chain Arc memo, decoded — recorded by Arc\'s Memo contract; block explorers show this as raw hex">🏷 on-chain memo: ' + memoInner + '</div>';
+        }
+        if (data.sellerUrl) payTx += txLink(data.sellerUrl, 'Creator wallet on Arc', shortAddr(data.seller));
       } else {
         payMain = 'Agent pays <b>$0.001 USDC</b> for a premium forecast';
         payMeta = '<span>Gasless x402 nanopayment on <b>Arc Testnet</b></span>';

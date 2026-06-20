@@ -50,7 +50,7 @@ class SignalLiveOdds extends StatelessWidget {
     final idx = markets.indexWhere((m) => m.slug == slug || m.id == slug);
     if (idx < 0) return const SizedBox.shrink();
     final m = markets[idx];
-    final revealed = signal.stanceRevealed;
+    final revealed = signal.stanceVisible;
     final isYes = signal.stance == 'YES';
     // Price of the side the signal took (only meaningful once revealed).
     final sidePrice = isYes ? m.yesPrice : m.noPrice;
@@ -104,7 +104,7 @@ class ShareSignalButton extends StatelessWidget {
   String get _shareText {
     final who = (authorName != null && authorName!.isNotEmpty) ? authorName : 'A Puls creator';
     final conf = signal.confidence != null ? ' (${(signal.confidence! * 100).round()}% conf)' : '';
-    final call = signal.stanceRevealed ? '${signal.stance} on' : 'a paid signal on';
+    final call = signal.stanceVisible ? '${signal.stance} on' : 'a paid signal on';
     return '$who calls $call "${signal.title}"$conf.\n'
         'See the prediction + trade it live on Puls: $_url';
   }

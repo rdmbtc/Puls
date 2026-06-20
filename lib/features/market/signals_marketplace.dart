@@ -185,7 +185,7 @@ class _MarketSignalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final revealed = signal.stanceRevealed;
+    final revealed = signal.stanceVisible;
     final isYes = signal.stance == 'YES';
     final sideColor = !revealed ? t.textMuted : (isYes ? t.yes : t.no);
     return Container(
