@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../theme/app_theme.dart';
+import '../motion.dart';
 
 /// Slim, premium footer bar for the desktop web app shell.
 ///
@@ -355,7 +356,18 @@ class _PulseDotState extends State<_PulseDot>
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
-  )..repeat();
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion (and the parent's animate flag): hold the dot still.
+    if (widget.animate && !context.reduceMotion) {
+      if (!_c.isAnimating) _c.repeat();
+    } else {
+      _c.stop();
+    }
+  }
 
   @override
   void dispose() {
@@ -365,7 +377,7 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.animate) {
+    if (!widget.animate || context.reduceMotion) {
       return Container(
         width: 8,
         height: 8,

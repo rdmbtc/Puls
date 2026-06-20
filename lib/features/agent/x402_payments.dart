@@ -255,7 +255,8 @@ class _X402PaymentsState extends State<X402Payments> {
                   color: t.text,
                   fontWeight: FontWeight.w900,
                   fontSize: 19,
-                  letterSpacing: -0.5)),
+                  letterSpacing: -0.5,
+                  fontFeatures: PulsColors.tabularFigures)),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(color: t.textMuted, fontSize: 11.5)),
         ],
@@ -318,7 +319,7 @@ class _X402PaymentsState extends State<X402Payments> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text('${_a2aUsdc.toStringAsFixed(3)}',
-                  style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5, fontFeatures: PulsColors.tabularFigures)),
               Text('USDC · $_a2aCount pays', style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w700)),
             ],
           ),

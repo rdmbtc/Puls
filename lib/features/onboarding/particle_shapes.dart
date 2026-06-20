@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../core/motion.dart';
+
 /// Particle shape animation that cycles through Prediction/Swipe/Win shapes.
 class ParticleShapes extends StatefulWidget {
   const ParticleShapes({super.key, required this.isDark, required this.shapeIndex});
@@ -24,8 +26,18 @@ class _ParticleShapesState extends State<ParticleShapes> with TickerProviderStat
     super.initState();
     _prevIndex = widget.shapeIndex;
     _morphCtrl = AnimationController(vsync: this, duration: _morphDuration);
-    _breatheCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
+    _breatheCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: stop the breathing loop (hold a still, formed shape).
+    if (context.reduceMotion) {
+      _breatheCtrl.stop();
+    } else if (!_breatheCtrl.isAnimating) {
+      _breatheCtrl.repeat(reverse: true);
+    }
   }
 
   @override
@@ -33,7 +45,12 @@ class _ParticleShapesState extends State<ParticleShapes> with TickerProviderStat
     super.didUpdateWidget(old);
     if (old.shapeIndex != widget.shapeIndex) {
       _prevIndex = old.shapeIndex;
-      _morphCtrl.forward(from: 0);
+      // Reduce-motion: snap to the new shape instead of morphing.
+      if (context.reduceMotion) {
+        _morphCtrl.value = 1.0;
+      } else {
+        _morphCtrl.forward(from: 0);
+      }
     }
   }
 
@@ -60,7 +77,12 @@ class _ParticleShapesState extends State<ParticleShapes> with TickerProviderStat
         flickerSpeed: 0.5 + _rand.nextDouble() * 1.5,
       );
     });
-    _morphCtrl.forward();
+    // Reduce-motion: show the formed shape immediately, no fly-in morph.
+    if (context.reduceMotion) {
+      _morphCtrl.value = 1.0;
+    } else {
+      _morphCtrl.forward();
+    }
   }
 
   List<Offset> _getShapePoints(int index, Size size) {

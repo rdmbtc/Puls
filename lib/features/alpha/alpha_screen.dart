@@ -3,6 +3,7 @@ import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_loader.dart';
@@ -521,7 +522,18 @@ class _ShimmerUnlockButtonState extends State<_ShimmerUnlockButton>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honor reduce-motion: hold the unlock-button shimmer still.
+    if (context.reduceMotion) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override

@@ -955,7 +955,8 @@ class _HeroCard extends StatelessWidget {
                           fontSize: 34,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1.0,
-                          height: 1.1)),
+                          height: 1.1,
+                          fontFeatures: PulsColors.tabularFigures)),
                 ),
                 const SizedBox(height: 8),
                 Row(
