@@ -399,6 +399,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onChanged: (_) => appState.toggleThemeMode(),
                           ),
                         ),
+                        _Row(
+                          icon: Icons.hub_outlined,
+                          title: 'AI Oracle Panel',
+                          subtitle: appState.aiOracleEnabled
+                              ? 'Shown on market pages'
+                              : 'Off — show AI consensus on markets',
+                          t: t,
+                          trailing: Switch(
+                            value: appState.aiOracleEnabled,
+                            activeTrackColor: t.brand,
+                            onChanged: (_) => appState.toggleAiOracle(),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -619,6 +632,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     value: isDark,
                     activeTrackColor: t.brand,
                     onChanged: (_) => appState.toggleThemeMode(),
+                  ),
+                ),
+                _Row(
+                  icon: Icons.hub_outlined,
+                  title: 'AI Oracle Panel',
+                  subtitle: appState.aiOracleEnabled
+                      ? 'Shown on market pages'
+                      : 'Off — show AI consensus on markets',
+                  t: t,
+                  trailing: Switch(
+                    value: appState.aiOracleEnabled,
+                    activeTrackColor: t.brand,
+                    onChanged: (_) => appState.toggleAiOracle(),
                   ),
                 ),
               ],
