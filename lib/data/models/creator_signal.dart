@@ -54,6 +54,18 @@ class CreatorSignal {
   bool get hasThesis => thesis != null && thesis!.isNotEmpty;
   bool get hasMarketLink => (marketSlug != null && marketSlug!.isNotEmpty);
   bool get hasSources => sources.isNotEmpty;
+
+  /// True only when the paid alpha (the YES/NO pick) is legitimately available
+  /// to this viewer: they've unlocked it (paid per-read) or they own it.
+  ///
+  /// This is the ONLY gate any UI should use before rendering [stance]. It does
+  /// NOT rely on `stance != null`: the server normally nulls the stance on a
+  /// locked signal, but if a stance ever leaks into the payload, gating on the
+  /// unlock state keeps the paid pick hidden until it's actually been bought.
+  bool get stanceVisible => (unlocked || isOwner) && stanceRevealed;
+
+  /// Whether the payload carries a stance string at all. Internal — UIs must
+  /// gate on [stanceVisible], not this, so paid alpha can't leak pre-payment.
   bool get stanceRevealed => stance != null && stance!.isNotEmpty;
 
   factory CreatorSignal.fromJson(Map<String, dynamic> j) {
