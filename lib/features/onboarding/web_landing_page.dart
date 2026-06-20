@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/config.dart';
 
 class WebLandingPage extends StatefulWidget {
@@ -33,8 +34,9 @@ class _WebLandingPageState extends State<WebLandingPage>
   @override
   void initState() {
     super.initState();
-    _aurora = AnimationController(vsync: this, duration: const Duration(seconds: 18))
-      ..repeat();
+    // The aurora loops continuously; its start/stop is gated on reduce-motion
+    // in build() so motion-sensitive users get a single still frame.
+    _aurora = AnimationController(vsync: this, duration: const Duration(seconds: 18));
     _scrollCtrl.addListener(() {
       if (mounted) setState(() => _scrollOffset = _scrollCtrl.offset);
     });
@@ -51,6 +53,16 @@ class _WebLandingPageState extends State<WebLandingPage>
   Widget build(BuildContext context) {
     final t = context.puls;
     final isDark = context.isDark;
+
+    // Honor the OS "reduce motion" setting: hold the aurora on a single static
+    // frame instead of looping forever. Every other animated surface in the app
+    // already respects this (shimmer, skeletons, pulse dots, page routes) — the
+    // landing page was the one gap.
+    if (context.reduceMotion) {
+      if (_aurora.isAnimating) _aurora.stop();
+    } else if (!_aurora.isAnimating) {
+      _aurora.repeat();
+    }
 
     final dotColor = isDark
         ? Colors.white.withValues(alpha: 0.03)
@@ -246,6 +258,8 @@ class _HeroSectionState extends State<_HeroSection> {
   void _cyclePhrases() {
     Future.delayed(const Duration(milliseconds: 3200), () {
       if (!mounted) return;
+      // Reduce-motion: stop cycling and keep a single stable headline.
+      if (context.reduceMotion) return;
       setState(() => _phraseIndex = (_phraseIndex + 1) % _phrases.length);
       _cyclePhrases();
     });
@@ -256,7 +270,11 @@ class _HeroSectionState extends State<_HeroSection> {
     final h = MediaQuery.sizeOf(context).height;
     final w = MediaQuery.sizeOf(context).width;
     final isMobile = w < 1000;
-    final parallaxY = -(widget.scrollOffset * 0.18).clamp(0.0, h * 0.25);
+    // Reduce-motion: drop the scroll parallax (keep the gentle fade so the hero
+    // still clears the content scrolling up beneath it).
+    final parallaxY = context.reduceMotion
+        ? 0.0
+        : -(widget.scrollOffset * 0.18).clamp(0.0, h * 0.25);
     final heroOpacity = (1 - widget.scrollOffset / (h * 0.55)).clamp(0.0, 1.0);
 
     return ConstrainedBox(
@@ -543,8 +561,8 @@ class _PulsingDotState extends State<_PulsingDot>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+    // Repeat is gated on reduce-motion in build().
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
   }
 
   @override
@@ -553,11 +571,7 @@ class _PulsingDotState extends State<_PulsingDot>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, __) => Container(
+  Widget _dot(double v) => Container(
         width: 7,
         height: 7,
         decoration: BoxDecoration(
@@ -565,13 +579,25 @@ class _PulsingDotState extends State<_PulsingDot>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: widget.color.withValues(alpha: 0.5 * _c.value),
-              blurRadius: 6 + 6 * _c.value,
-              spreadRadius: 1.5 * _c.value,
+              color: widget.color.withValues(alpha: 0.5 * v),
+              blurRadius: 6 + 6 * v,
+              spreadRadius: 1.5 * v,
             ),
           ],
         ),
-      ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    // Reduce-motion: a still dot with a gentle fixed glow, no pulsing loop.
+    if (context.reduceMotion) {
+      if (_c.isAnimating) _c.stop();
+      return _dot(0.6);
+    }
+    if (!_c.isAnimating) _c.repeat(reverse: true);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) => _dot(_c.value),
     );
   }
 }
@@ -1667,13 +1693,16 @@ class _RevealState extends State<_Reveal> {
   Widget build(BuildContext context) {
     // Anything starting within the first viewport shows immediately.
     final h = MediaQuery.sizeOf(context).height;
-    final visibleNow = _shown || (_top != null && _top! < h * 0.92);
+    // Reduce-motion: reveal everything at once, with no fade/slide ramp.
+    final reduce = context.reduceMotion;
+    final visibleNow = reduce || _shown || (_top != null && _top! < h * 0.92);
+    final revealDuration = context.motionDuration(const Duration(milliseconds: 650));
     return AnimatedOpacity(
-      duration: const Duration(milliseconds: 650),
+      duration: revealDuration,
       curve: Curves.easeOut,
-      opacity: _shown ? 1 : (visibleNow ? 1 : 0),
+      opacity: _shown || visibleNow ? 1 : 0,
       child: AnimatedSlide(
-        duration: const Duration(milliseconds: 650),
+        duration: revealDuration,
         curve: Curves.easeOutCubic,
         offset: _shown || visibleNow ? Offset.zero : const Offset(0, 0.045),
         child: widget.child,
