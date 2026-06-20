@@ -777,6 +777,7 @@ class _TraderRow extends StatelessWidget {
                       color: t.textSubtle,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
+                      fontFeatures: PulsColors.tabularFigures,
                     ),
                   ),
           ),
@@ -867,6 +868,7 @@ class _TraderRow extends StatelessWidget {
                     color: t.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
+                    fontFeatures: PulsColors.tabularFigures,
                   ),
                 ),
               ],
@@ -884,6 +886,7 @@ class _TraderRow extends StatelessWidget {
                   color: isPnL ? (value >= 0 ? t.yes : t.no) : t.text,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
+                  fontFeatures: PulsColors.tabularFigures,
                 ),
               ),
               if (isPnL)
@@ -892,6 +895,7 @@ class _TraderRow extends StatelessWidget {
                   style: TextStyle(
                     color: t.textMuted,
                     fontSize: 10,
+                    fontFeatures: PulsColors.tabularFigures,
                   ),
                 ),
             ],

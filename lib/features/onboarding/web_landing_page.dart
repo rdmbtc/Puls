@@ -119,6 +119,11 @@ class _WebLandingPageState extends State<WebLandingPage>
   }
 }
 
+// Same-origin URL for the flagship static pages (/pulse, /agent, /versus, /stats),
+// resolved against the current origin so the links work in prod, on Vercel
+// previews and locally.
+String _pageUrl(String path) => Uri.base.resolve(path).toString();
+
 // ── Navbar ────────────────────────────────────────────────────────────────────
 class _Navbar extends StatelessWidget {
   const _Navbar();
@@ -130,6 +135,7 @@ class _Navbar extends StatelessWidget {
     final isDark = context.isDark;
     final w = MediaQuery.sizeOf(context).width;
     final isMobile = w < 800;
+    final isWide = w >= 1024;
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 12 : 18),
@@ -161,15 +167,26 @@ class _Navbar extends StatelessWidget {
           ),
           const Spacer(),
           if (!isMobile) ...[
-            _NavLink('Docs', 'https://docs.pulsmarket.tech'),
+            // Flagship agentic showcase — front and centre for judges.
+            _NavLink('Pulse', _pageUrl('/pulse')),
             const SizedBox(width: 8),
-            _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+            _NavLink('Agent', _pageUrl('/agent')),
             const SizedBox(width: 8),
-            _NavLink('Android', kAndroidApkUrl),
+            _NavLink('Versus', _pageUrl('/versus')),
             const SizedBox(width: 8),
-            _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+            const _NavLink('Docs', 'https://docs.pulsmarket.tech'),
+            // Utility links only when there's room — keeps mid-width tidy.
+            if (isWide) ...[
+              const SizedBox(width: 8),
+              const _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+              const SizedBox(width: 8),
+              const _NavLink('Android', kAndroidApkUrl),
+              const SizedBox(width: 8),
+              const _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+            ],
             const SizedBox(width: 16),
-          ],
+          ] else
+            const _MobileNavMenu(),
           // Theme Toggle button
           IconButton(
             onPressed: appState.toggleThemeMode,
@@ -227,6 +244,48 @@ class _NavLinkState extends State<_NavLink> {
       ),
     );
   }
+}
+
+// Compact dropdown for mobile, where inline nav links don't fit. Surfaces the
+// flagship pages + key links so judges on a phone can still discover them.
+class _MobileNavMenu extends StatelessWidget {
+  const _MobileNavMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return PopupMenuButton<String>(
+      tooltip: 'Menu',
+      icon: Icon(Icons.menu_rounded, size: 22, color: t.textMuted),
+      color: t.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: t.border),
+      ),
+      onSelected: (url) =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      itemBuilder: (context) => [
+        _item(t, 'Live agent', _pageUrl('/pulse')),
+        _item(t, 'Decision trace', _pageUrl('/agent')),
+        _item(t, 'Humans vs AI', _pageUrl('/versus')),
+        _item(t, 'Live stats', _pageUrl('/stats')),
+        _item(t, 'Docs', 'https://docs.pulsmarket.tech'),
+        _item(t, 'GitHub', 'https://github.com/rdmbtc/Puls'),
+        _item(t, 'Android app', kAndroidApkUrl),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _item(PulsThemeColors t, String label, String url) =>
+      PopupMenuItem<String>(
+        value: url,
+        height: 42,
+        child: Text(
+          label,
+          style: TextStyle(
+              color: t.text, fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      );
 }
 
 // ── Hero Section ──────────────────────────────────────────────────────────────
@@ -500,7 +559,7 @@ class _HeroCopy extends StatelessWidget {
           children: [
             Icon(Icons.android_rounded, size: 15, color: t.textSubtle),
             const SizedBox(width: 6),
-            _InlineLink(label: 'Get the Android app', url: kAndroidApkUrl),
+            const _InlineLink(label: 'Get the Android app', url: kAndroidApkUrl),
             Text('  ·  Testnet USDC. Nothing to lose.',
                 style: TextStyle(color: t.textSubtle, fontSize: 12.5)),
           ],
@@ -1102,7 +1161,7 @@ class _StatsSection extends StatelessWidget {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              _CopyButton(text: factoryAddress),
+                              const _CopyButton(text: factoryAddress),
                               const SizedBox(width: 8),
                               _SecondaryButton(
                                 label: 'View ↗',
@@ -1155,7 +1214,7 @@ class _StatsSection extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          _CopyButton(text: factoryAddress),
+                          const _CopyButton(text: factoryAddress),
                           const SizedBox(width: 8),
                           _SecondaryButton(
                             label: 'View ↗',
@@ -1420,7 +1479,7 @@ class _FooterSection extends StatelessWidget {
                           style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(height: 16),
-                        Wrap(
+                        const Wrap(
                           alignment: WrapAlignment.center,
                           spacing: 20,
                           runSpacing: 10,
@@ -1456,13 +1515,13 @@ class _FooterSection extends StatelessWidget {
                           style: TextStyle(color: t.textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                         const Spacer(),
-                        _FooterLink('Docs', 'https://docs.pulsmarket.tech'),
+                        const _FooterLink('Docs', 'https://docs.pulsmarket.tech'),
                         const SizedBox(width: 20),
-                        _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
+                        const _FooterLink('GitHub', 'https://github.com/rdmbtc/Puls'),
                         const SizedBox(width: 20),
-                        _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
+                        const _FooterLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
                         const SizedBox(width: 20),
-                        _FooterLink('Faucet', 'https://faucet.circle.com'),
+                        const _FooterLink('Faucet', 'https://faucet.circle.com'),
                       ],
                     ),
             ],
@@ -1486,9 +1545,9 @@ class _VerifiedBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: green.withValues(alpha: 0.30)),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.verified_rounded, size: 12, color: green),
           SizedBox(width: 4),
           Text(
