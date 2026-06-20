@@ -130,8 +130,9 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           t: t,
         ),
 
-        // ── AI Oracle Panel (crowd vs AI swarm + ask-agent + correlations) ──
-        AiOraclePanel(slug: market.slug.isNotEmpty ? market.slug : market.id, question: market.question),
+        // ── AI Oracle Panel (opt-in via Settings; off by default) ──────────
+        if (appState.aiOracleEnabled)
+          AiOraclePanel(slug: market.slug.isNotEmpty ? market.slug : market.id, question: market.question),
 
         // ── Discussion / comments / activity ────────────────────────────
         const SizedBox(height: 24),

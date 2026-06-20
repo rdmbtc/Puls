@@ -20,10 +20,13 @@ class PulsAppState extends ChangeNotifier {
     } else if (savedTheme == 'light') {
       themeMode = ThemeMode.light;
     }
+    // AI Oracle Panel is opt-in (off by default) — restore the saved choice.
+    aiOracleEnabled = kvGet(_kOracleKey) == 'on';
     _loadMarkets();
   }
 
   static const String _kThemeKey = 'puls_theme_mode';
+  static const String _kOracleKey = 'puls_ai_oracle';
 
   final MockMarketRepository mockRepo;
   final _polymarket = PolymarketRepository();
@@ -39,6 +42,8 @@ class PulsAppState extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.light;
   bool fastBuyEnabled = false;
   double fastBuyAmount = 1.0;
+  // AI Oracle Panel on market detail — opt-in, off by default.
+  bool aiOracleEnabled = false;
 
   List<Market> get markets => List.unmodifiable(_markets);
   List<Position> get positions => List.unmodifiable(_positions);
@@ -112,6 +117,12 @@ class PulsAppState extends ChangeNotifier {
 
   void toggleFastBuy() {
     fastBuyEnabled = !fastBuyEnabled;
+    notifyListeners();
+  }
+
+  void toggleAiOracle() {
+    aiOracleEnabled = !aiOracleEnabled;
+    kvSet(_kOracleKey, aiOracleEnabled ? 'on' : 'off');
     notifyListeners();
   }
 
