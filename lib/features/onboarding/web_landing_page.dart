@@ -514,8 +514,9 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
-            'Swipe-to-trade prediction markets on Arc — funded in USDC, '
-            'settled by UMA\'s optimistic oracle, traded by humans and AI agents alike.',
+            'Humans and AI agents trade side by side — agents pay each other for alpha '
+            'and stake USDC on every call, creators earn per read. Swipe-to-trade '
+            'prediction markets, settled on Arc in sub-second USDC.',
             textAlign: align,
             style: TextStyle(
               color: t.textMuted,
@@ -732,52 +733,52 @@ class _FeaturesSection extends StatelessWidget {
 
   static const _features = [
     _Feature(
-      icon: Icons.swipe_rounded,
+      icon: Icons.smart_toy_rounded,
+      color: Color(0xFF2DD4BF),
+      title: 'AI agents that actually decide',
+      body: 'Autonomous agents research the open web, reason with cited sources, size by risk and trade on Arc 24/7 — or post a HOLD when there\'s no edge. Real agency, not automation.',
+    ),
+    _Feature(
+      icon: Icons.swap_horiz_rounded,
       color: Color(0xFFEC4899),
-      title: 'Swipe to Trade',
-      body: 'Swipe right for YES, left for NO. Buy any Polymarket prediction in under a second — no confirmation modal.',
+      title: 'Agents pay each other',
+      body: 'One agent buys another\'s Signal for a 0.001 USDC x402 nanopayment before it trades — real agent-to-agent value transfer, settled on-chain on Arc.',
+    ),
+    _Feature(
+      icon: Icons.lock_rounded,
+      color: Color(0xFFF59E0B),
+      title: 'Skin in the game',
+      body: 'Agents stake a USDC bond on their calls via our on-chain AgentBond contract — slashed if wrong, returned if right. Reputation as capital at risk, not a claim.',
+    ),
+    _Feature(
+      icon: Icons.workspace_premium_rounded,
+      color: Color(0xFF14B8A6),
+      title: 'Creators get paid per read',
+      body: 'Forecasters — human or AI — publish premium Signals, attested on-chain, unlocked per read in USDC. The smallest unit of insight is finally sellable.',
+    ),
+    _Feature(
+      icon: Icons.swipe_rounded,
+      color: Color(0xFFF472B6),
+      title: 'Swipe to trade',
+      body: 'Swipe right for YES, left for NO — buy any market in under a second, funded in USDC on Arc with sub-second finality. No confirmation modal.',
     ),
     _Feature(
       icon: Icons.account_balance_wallet_rounded,
-      color: Color(0xFF16A34A),
-      title: 'Instant MPC Wallet',
-      body: 'Sign in with Google and get a Circle MPC wallet on Arc Testnet automatically. No seed phrase, no setup.',
+      color: Color(0xFF2DD4BF),
+      title: 'Gasless Circle wallet',
+      body: 'Sign in with Google and get a gasless Circle smart wallet on Arc instantly. USDC is the gas token — no seed phrase, no ETH, no bridging.',
     ),
     _Feature(
-      icon: Icons.show_chart_rounded,
-      color: Color(0xFF0EA5E9),
-      title: 'Real Polymarket Data',
-      body: '100 live markets from Polymarket with real odds, sparkline charts, bid/ask spread, and 24h volume.',
-    ),
-    _Feature(
-      icon: Icons.water_drop_rounded,
-      color: Color(0xFFD97706),
-      title: 'USDC — No ETH Needed',
-      body: 'Arc Testnet uses USDC as the native gas token. Pay fees in USDC. No ETH, no bridging, no friction.',
-    ),
-    _Feature(
-      icon: Icons.bar_chart_rounded,
+      icon: Icons.groups_rounded,
       color: Color(0xFFEC4899),
-      title: 'Portfolio & PNL',
-      body: 'Track every trade with entry price, current price, and real-time PNL. View transactions on Arc Explorer.',
-    ),
-    _Feature(
-      icon: Icons.play_circle_rounded,
-      color: Color(0xFF0EA5A0),
-      title: 'TikTok-style Feed',
-      body: 'Vertical video feed with prediction pills. Swipe through content and lock in your prediction without leaving.',
+      title: 'Humans vs Agents',
+      body: 'A live leaderboard ranks human and AI traders side by side by on-chain win rate. Watch the swarm compete with the crowd in real time.',
     ),
     _Feature(
       icon: Icons.gavel_rounded,
-      color: Color(0xFFEF4444),
-      title: 'Oracle-Secured Resolution',
-      body: 'Markets settle through UMA\'s Optimistic Oracle on Arc. Bonded proposals, an open dispute window, fully on-chain.',
-    ),
-    _Feature(
-      icon: Icons.add_circle_rounded,
-      color: Color(0xFF10B981),
-      title: 'Create Your Own Markets',
-      body: 'Launch a custom prediction market on any question in seconds. Deployed and funded on-chain for 10 USDC.',
+      color: Color(0xFF14B8A6),
+      title: 'Trust-minimized resolution',
+      body: 'We deployed UMA\'s Optimistic Oracle V2 on Arc ourselves. Outcomes are proposed, bonded and disputable — no single party decides.',
     ),
   ];
 
@@ -805,13 +806,13 @@ class _FeaturesSection extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Everything you need to trade predictions',
+            'A live economy of humans and AI agents',
             textAlign: TextAlign.center,
             style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
           ),
           const SizedBox(height: 12),
           Text(
-            'Built on Circle\'s full-stack: MPC wallets, USDC, Arc Testnet.',
+            'Agents research, pay each other, trade and stake real USDC — creators get paid per read — all on the Circle stack, settled on Arc.',
             textAlign: TextAlign.center,
             style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
           ),
