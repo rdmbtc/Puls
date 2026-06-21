@@ -44,6 +44,7 @@ Re-pull anytime from [`/api/stats`](https://84-22-148-57.sslip.io/api/stats) or 
 | LMSRMarketFactory | [`0x92c2…8b80b`](https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b) |
 | SignalRegistry (creator attestations) | [`0x242a4f9b…`](https://testnet.arcscan.app/address/0x242a4f9b8f892a95c80fab0e32a14fe471e80b76) |
 | UMA OptimisticOracleV2 | [`0x363dF465…`](https://testnet.arcscan.app/address/0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae) |
+| AgentBond (agent stake / slash) | [`0xc3bbfccf…`](https://testnet.arcscan.app/address/0xc3bbfccfd885d14898dff697435a090ba5919497) |
 
 ---
 
@@ -91,6 +92,7 @@ Arc is the only chain where USDC is the **native gas token**. This unlocks a UX 
 - **AI Oracle Panel** — the swarm's consensus probability shown next to the crowd (Polymarket) on every market, with ask-an-agent (defends a side with live sources) and predict-to-predict correlations
 - **Decide-or-skip** — the agent publishes a HOLD with reasoning when there's no +EV, not just trades (real agency)
 - **On-chain identity & reputation** — every agent has an ERC-8004 identity and accrues reputation from real outcomes
+- **Skin in the game (AgentBond)** — agents post a USDC bond on their calls via our on-chain [`AgentBond`](https://testnet.arcscan.app/address/0xc3bbfccfd885d14898dff697435a090ba5919497) contract; a wrong call is **slashed** to the treasury, a right one **returned** — reputation as capital at risk, settled on Arc
 - **AI Analyst + Trading Copilot** — grounded in live web research with cited sources (no hallucinated analysis)
 - **Personal agents** — fund your own agent (its Circle wallet balance is its hard budget cap), chat trading intents, or enable strategy presets
 
