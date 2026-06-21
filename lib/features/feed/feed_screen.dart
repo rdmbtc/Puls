@@ -588,11 +588,10 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   bool _isWebSocketConnected = false;
   int _reconnectDelaySeconds = 2;
   Timer? _reconnectTimer;
-  // Liveness watchdog: even when the WebSocket handshake succeeds (e.g. through
-  // a CDN/proxy) the stream can go silent - no frames, no error, no close -
-  // which freezes the live ticker. Track the last time we heard anything over
-  // the socket and poll /api/trade/recent directly if it stays quiet too long.
-  DateTime _lastWsMessageAt = DateTime.now();
+  // Liveness heartbeat: the WebSocket can flap or go silent through a CDN
+  // (Cloudflare) — connect, deliver no frames, close, repeat — which froze the
+  // ticker. So we ALWAYS poll /api/trade/recent on a slow cadence regardless of
+  // socket state; the WS just adds instant updates on top. De-duped by id.
   Timer? _watchdogTimer;
 
   @override
@@ -625,7 +624,6 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       _channel!.ready.then((_) {
         if (!mounted) return;
         debugPrint('[Feed WebSocket] Connected successfully.');
-        _lastWsMessageAt = DateTime.now();
         setState(() {
           _isWebSocketConnected = true;
           _reconnectDelaySeconds =
@@ -641,7 +639,6 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       _channel!.stream.listen(
         (event) {
           if (!mounted) return;
-          _lastWsMessageAt = DateTime.now();
           if (!_isWebSocketConnected) {
             setState(() {
               _isWebSocketConnected = true;
@@ -699,17 +696,14 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     });
   }
 
-  // Heartbeat: refresh from the recent-trades endpoint every ~10s unless a WS
-  // frame just arrived (socket is clearly live). This keeps the ticker moving
-  // even when the socket is silent OR its frames are buffered/dropped by a CDN
-  // (Cloudflare) - the case that froze it. The endpoint is CDN-cached ~5s and
-  // trades de-dupe by id, so the cost is minimal and it never double-inserts.
+  // Always-on heartbeat: poll the recent-trades endpoint every 8s no matter
+  // what the socket is doing. This is what guarantees the ticker keeps moving
+  // even if the WS flaps or its frames are dropped by a CDN. The endpoint is
+  // CDN-cached ~5s and trades de-dupe by id, so it's cheap and never doubles up.
   void _startWatchdog() {
     _watchdogTimer?.cancel();
-    _watchdogTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (!mounted) return;
-      if (DateTime.now().difference(_lastWsMessageAt).inSeconds < 6) return;
-      _fetchRecentTrades();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted) _fetchRecentTrades();
     });
   }
 
