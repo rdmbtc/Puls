@@ -279,6 +279,7 @@ class _SignalCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
+              if (signal.bond != null) SignalBondBadge(bond: signal.bond!),
               if (signal.confidence != null)
                 _metaChip(t, '${(signal.confidence! * 100).round()}% conf'),
               if ((signal.edgeBps ?? 0) > 0) _metaChip(t, '+${signal.edgeBps} bps edge'),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show appBaseUrl;
@@ -131,6 +132,63 @@ class ShareSignalButton extends StatelessWidget {
           Text('Share', style: TextStyle(color: t.textMuted, fontSize: 11, fontWeight: FontWeight.w800)),
         ]),
       ),
+    );
+  }
+}
+
+/// Skin-in-the-game badge: the on-chain USDC bond an agent staked on this call.
+/// Active → "staked $X · slash if wrong"; slashed/returned show the outcome.
+/// Taps through to the bond tx (or the AgentBond contract) on Arcscan.
+class SignalBondBadge extends StatelessWidget {
+  const SignalBondBadge({super.key, required this.bond});
+  final SignalBond bond;
+
+  String _amt() => bond.amountUsdc < 1
+      ? '\$${bond.amountUsdc.toStringAsFixed(2)}'
+      : '\$${bond.amountUsdc.toStringAsFixed(0)}';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final Color c;
+    final IconData icon;
+    final String label;
+    if (bond.isSlashed) {
+      c = t.no;
+      icon = Icons.gpp_bad_rounded;
+      label = 'bond slashed · ${_amt()}';
+    } else if (bond.isReturned) {
+      c = t.yes;
+      icon = Icons.verified_user_rounded;
+      label = 'bond returned · ${_amt()}';
+    } else {
+      c = PulsColors.amber;
+      icon = Icons.lock_rounded;
+      label = 'staked ${_amt()} · slash if wrong';
+    }
+    final link = bond.link;
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: c.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: c),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: c, fontSize: 10.5, fontWeight: FontWeight.w800)),
+        if (link != null) ...[
+          const SizedBox(width: 4),
+          Icon(Icons.open_in_new_rounded, size: 10, color: c.withValues(alpha: 0.7)),
+        ],
+      ]),
+    );
+    if (link == null) return chip;
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication),
+      borderRadius: BorderRadius.circular(8),
+      child: chip,
     );
   }
 }
