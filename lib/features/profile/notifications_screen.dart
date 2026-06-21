@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:puls/core/theme/app_theme.dart';
+import 'package:puls/core/widgets/gradient_text.dart';
 import 'package:puls/core/widgets/state_views.dart';
 import 'package:puls/core/widgets/puls_loader.dart';
 import 'package:puls/app/puls_app.dart';
@@ -89,7 +90,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const AnimatedGradientText('Notifications',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [

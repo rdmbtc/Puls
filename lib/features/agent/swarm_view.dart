@@ -136,7 +136,8 @@ class _SwarmViewState extends State<SwarmView> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
-              color: sel ? t.brand : Colors.transparent,
+              gradient: sel ? PulsColors.pulseGradient : null,
+              color: sel ? null : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [

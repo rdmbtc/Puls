@@ -4,6 +4,7 @@ import '../../core/widgets/puls_snack.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
@@ -275,8 +276,9 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: AnimatedGradientText(
                       _isBuy ? 'Buy Prediction Shares' : 'Sell Prediction Shares',
+                      textAlign: TextAlign.left,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -390,7 +392,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             ),
                           ),
                         );
-                      }).toList()
+                      })
                     ],
               ),
               const SizedBox(height: 16),

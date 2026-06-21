@@ -272,18 +272,24 @@ class _CandlePainter extends CustomPainter {
       // Ensure body has at least a small height to be visible even if open == close
       final bodyHeight = (bottom - top).clamp(2.0, double.infinity);
 
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            candleWidth * i + bodyPadding,
-            top,
-            candleWidth - bodyPadding * 2,
-            bodyHeight,
-          ),
-          const Radius.circular(2),
+      final bodyRRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          candleWidth * i + bodyPadding,
+          top,
+          candleWidth - bodyPadding * 2,
+          bodyHeight,
         ),
-        bodyPaint,
+        const Radius.circular(2),
       );
+
+      // Soft neon glow behind the body — subtle, brighter on the hovered candle.
+      canvas.drawRRect(
+        bodyRRect,
+        Paint()
+          ..color = color.withValues(alpha: i == hoveredIndex ? 0.55 : 0.3)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      canvas.drawRRect(bodyRRect, bodyPaint);
     }
   }
 
@@ -344,6 +350,16 @@ class DepthChart extends StatelessWidget {
             LineChartData(
               gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
+              extraLinesData: ExtraLinesData(
+                verticalLines: [
+                  VerticalLine(
+                    x: currentPrice,
+                    color: t.brand.withValues(alpha: 0.6),
+                    strokeWidth: 1.5,
+                    dashArray: const [4, 4],
+                  ),
+                ],
+              ),
               titlesData: FlTitlesData(
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

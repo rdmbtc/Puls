@@ -4,10 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/state_views.dart';
 import '../../data/models/creator_signal.dart';
-import 'market_detail_screen.dart';
 import 'researched_sources.dart';
 import 'signal_extras.dart';
 import 'view_prediction_link.dart';
@@ -71,8 +71,8 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
         }
       } catch (_) {}
       // Known house creators.
-      _authors.putIfAbsent('agent_sage', () => _Author('Sage 🔮', true));
-      _authors.putIfAbsent('house_pulse', () => _Author('Pulse 🤖', true));
+      _authors.putIfAbsent('agent_sage', () => const _Author('Sage 🔮', true));
+      _authors.putIfAbsent('house_pulse', () => const _Author('Pulse 🤖', true));
       if (mounted) setState(() { _signals = list; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
@@ -148,8 +148,9 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AI Alpha Market',
-                      style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+                  const AnimatedGradientText('AI Alpha Market',
+                      textAlign: TextAlign.left,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
                   const SizedBox(height: 2),
                   Text('Live signals from autonomous AI agents — ranked by track record, attested on Arc, unlock per-read with USDC.',
                       style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.35)),
