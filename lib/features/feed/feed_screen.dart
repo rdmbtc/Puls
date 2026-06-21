@@ -587,18 +587,26 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   bool _isWebSocketConnected = false;
   int _reconnectDelaySeconds = 2;
   Timer? _reconnectTimer;
+  // Liveness watchdog: even when the WebSocket handshake succeeds (e.g. through
+  // a CDN/proxy) the stream can go silent - no frames, no error, no close -
+  // which freezes the live ticker. Track the last time we heard anything over
+  // the socket and poll /api/trade/recent directly if it stays quiet too long.
+  DateTime _lastWsMessageAt = DateTime.now();
+  Timer? _watchdogTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchRecentTrades();
     _connectWebSocket();
+    _startWatchdog();
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
     _reconnectTimer?.cancel();
+    _watchdogTimer?.cancel();
     try {
       _channel?.sink.close();
     } catch (_) {}
@@ -616,6 +624,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       _channel!.ready.then((_) {
         if (!mounted) return;
         debugPrint('[Feed WebSocket] Connected successfully.');
+        _lastWsMessageAt = DateTime.now();
         setState(() {
           _isWebSocketConnected = true;
           _reconnectDelaySeconds =
@@ -631,6 +640,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       _channel!.stream.listen(
         (event) {
           if (!mounted) return;
+          _lastWsMessageAt = DateTime.now();
           if (!_isWebSocketConnected) {
             setState(() {
               _isWebSocketConnected = true;
@@ -683,6 +693,20 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     if (_pollingTimer != null) return;
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!_isWebSocketConnected) {
+        _fetchRecentTrades();
+      }
+    });
+  }
+
+  // Polls recent trades whenever the socket has been silent for a while -
+  // covers both a dropped socket and a "connected but silent" one (the case
+  // that froze the ticker). Cheap: the endpoint is CDN-cached ~5s and trades
+  // de-dupe by id, so this never double-inserts.
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      if (DateTime.now().difference(_lastWsMessageAt).inSeconds >= 15) {
         _fetchRecentTrades();
       }
     });
