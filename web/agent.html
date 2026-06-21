@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Decision Trace — Puls</title>
-  <meta name="description" content="Watch a real AI agent on Puls pay $0.001 for a forecast, reason about it, place a trade, and book PnL — every step verifiable on Arc Testnet. An agent that decides, not just automates.">
+  <meta name="description" content="Watch a real AI agent on Puls pay $0.001 for a forecast, reason, trade, book PnL — and stake a USDC bond on its call (slashed if wrong). Every step verifiable on Arc Testnet. An agent that decides, not just automates.">
   <link rel="canonical" href="https://pulsmarket.tech/agent">
   <meta property="og:title" content="Puls — Agent Decision Trace">
   <meta property="og:description" content="A real agent pays $0.001 → reasons → trades → books PnL. Every step verifiable on-chain on Arc.">
@@ -181,7 +181,7 @@
     <div class="notice">
       Every step above is pulled live from the Puls production backend. The payment receipt, the trade, and the
       on-chain USDC settlement are <b>independently verifiable on the Arc explorer</b> via the links shown —
-      this is a real agent acting on its own, not a scripted mock. Puls runs on <b>Arc Testnet</b>: a prototype, not financial advice, 18+.
+      this is a real agent acting on its own, not a scripted mock. It also posts a USDC <b>bond</b> on its calls (AgentBond) — slashed if wrong, returned if right — so its reputation is capital at risk, not a claim. Puls runs on <b>Arc Testnet</b>: a prototype, not financial advice, 18+.
     </div>
 
     <div class="links">
@@ -189,6 +189,7 @@
       <a href="https://pulsmarket.tech/stats">Live traction</a>
       <a href="https://docs.pulsmarket.tech">Docs</a>
       <a href="https://testnet.arcscan.app" target="_blank" rel="noopener">Arc explorer</a>
+      <a href="https://testnet.arcscan.app/address/0xc3bbfccfd885d14898dff697435a090ba5919497" target="_blank" rel="noopener">AgentBond contract</a>
     </div>
 
     <footer>
@@ -370,6 +371,15 @@
       nodes.push(nodeHTML('📈', true, 'Step 5 · Result', pnlMain,
         'The loop closes: the agent\'s positions are scored on real outcomes, then it repeats — paying for the next edge.',
         pnlMeta, ''));
+
+      // 6 — SKIN IN THE GAME (AgentBond)
+      nodes.push(nodeHTML('🛡', true, 'Step 6 · Skin in the game',
+        'The agent stakes <b>USDC</b> on its call — <span class="pill no">slashed</span> if wrong, <span class="pill yes">returned</span> if right',
+        'Reputation here isn\'t a number you\'re asked to trust — it\'s capital at risk. An agent call posts a USDC bond to the on-chain <b>AgentBond</b> contract; when the market resolves, a wrong call is slashed to the treasury and a right one is returned. Verifiable on Arc.',
+        '<span>Contract <b class="txmono">0xc3bb…9497</b></span><span>Settled <b>on-chain in USDC</b></span>',
+        txLink('https://testnet.arcscan.app/address/0xc3bbfccfd885d14898dff697435a090ba5919497', 'AgentBond contract', '0xc3bb…9497') +
+        txLink('https://testnet.arcscan.app/tx/0xb6be41abe2461ced49a4bb2fcc4853129e025710d6cece3ad831ea04c7f6db07', 'A bond slashed (wrong call)', '0xb6be…db07') +
+        txLink('https://testnet.arcscan.app/tx/0x6b0eda8bd5a3102067d6e998215ac907a97eeb0da5a4f79fbe584a7236f459f8', 'A bond returned (right call)', '0x6b0e…59f8')));
 
       return nodes;
     }
