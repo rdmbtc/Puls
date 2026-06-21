@@ -30,6 +30,10 @@ class Market {
     this.competitive = 0,
     this.createdByAgent = false,
     this.volumeNum = 0,
+    this.pulsTrades = 0,
+    this.pulsHolders = 0,
+    this.pulsVolume = 0,
+    this.commentsCount = 0,
   });
 
   final String id;
@@ -60,6 +64,12 @@ class Market {
   final double competitive;
   final bool createdByAgent;
   final double volumeNum;
+  // Pulse-native activity (real engagement HERE, from the backend) — ranks the
+  // feed instead of external Polymarket volume.
+  final int pulsTrades;
+  final int pulsHolders;
+  final double pulsVolume;
+  final int commentsCount;
 
   bool get trendIsPositive => trend >= 0;
 
@@ -67,10 +77,13 @@ class Market {
   /// cluttering the real category feeds.
   String get displayCategory => createdByAgent ? 'AI Agents' : category;
 
-  /// Feed ranking signal — surfaces markets with real trading activity
-  /// (24h + total volume, competitiveness) ahead of empty/just-created ones.
-  double get hotness =>
-      volume24hr + volumeNum * 0.25 + competitive * 500 + liquidityNum * 0.05;
+  /// Real Pulse engagement — holders + trades + comments ON PULS. Ranks the
+  /// feed so markets people/agents actually traded here lead; empty ones sink.
+  /// (External Polymarket volume is only a tiebreaker among zero-activity ones.)
+  int get pulsScore => pulsHolders * 4 + pulsTrades + commentsCount * 3;
+
+  /// True when this market has any real Pulse engagement.
+  bool get hasPulsActivity => pulsScore > 0;
 
   Market copyWith({String? contractAddress, String? slug}) => Market(
         id: id,
@@ -101,6 +114,10 @@ class Market {
         competitive: competitive,
         createdByAgent: createdByAgent,
         volumeNum: volumeNum,
+        pulsTrades: pulsTrades,
+        pulsHolders: pulsHolders,
+        pulsVolume: pulsVolume,
+        commentsCount: commentsCount,
       );
 }
 

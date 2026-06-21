@@ -198,6 +198,10 @@ class PolymarketRepository {
         volumeNum: volNum,
         competitive: (j['competitive'] as num?)?.toDouble() ?? 0,
         createdByAgent: j['createdByAgent'] == true,
+        pulsTrades: (j['pulsTrades'] as num?)?.toInt() ?? 0,
+        pulsHolders: (j['pulsHolders'] as num?)?.toInt() ?? 0,
+        pulsVolume: (j['pulsVolume'] as num?)?.toDouble() ?? 0,
+        commentsCount: (j['commentsCount'] as num?)?.toInt() ?? 0,
       );
     } catch (_) {
       return null;
