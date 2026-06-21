@@ -1398,7 +1398,38 @@ app.get('/api/markets', async (req, res) => {
   try {
     const limit = req.query.limit || 50;
     const offset = req.query.offset || 0;
-    
+
+    // ── Pulse-native activity per market (real engagement HERE, not external
+    // Polymarket volume) so the feed can rank by what actually traded on Pulse:
+    // holders, trades and comments. Aggregated once per request. ─────────────
+    const tradeAgg = {};   // market_id(lowercased) -> { trades, holders:Set, vol }
+    const commentAgg = {}; // market id -> comment count
+    try {
+      const { data: _tr } = await supabase.from('trades').select('market_id, user_id, usdc_amount');
+      for (const t of (_tr || [])) {
+        const k = (t.market_id || '').toLowerCase();
+        if (!k) continue;
+        const a = tradeAgg[k] || (tradeAgg[k] = { trades: 0, holders: new Set(), vol: 0 });
+        a.trades++;
+        if (t.user_id) a.holders.add(t.user_id);
+        a.vol += parseFloat(t.usdc_amount) || 0;
+      }
+    } catch (e) { console.warn('[markets] trade aggregation failed:', e.message); }
+    try {
+      const { data: _cm } = await supabase.from('comments').select('target_id').eq('target_type', 'market');
+      for (const c of (_cm || [])) { if (c.target_id) commentAgg[c.target_id] = (commentAgg[c.target_id] || 0) + 1; }
+    } catch (e) { console.warn('[markets] comment aggregation failed:', e.message); }
+    const pulsActivity = (m) => {
+      const ca = (m.contractAddress || '').toLowerCase();
+      const ta = ca ? tradeAgg[ca] : null;
+      return {
+        pulsTrades: ta ? ta.trades : 0,
+        pulsHolders: ta ? ta.holders.size : 0,
+        pulsVolume: ta ? Math.round(ta.vol * 100) / 100 : 0,
+        commentsCount: commentAgg[m.id] || commentAgg[m.slug] || 0,
+      };
+    };
+
     // Fetch custom user-created markets from database
     const { data: dbCustomMarkets, error: customErr } = await supabase
       .from('deployed_markets')
@@ -1583,7 +1614,7 @@ app.get('/api/markets', async (req, res) => {
       return bDep - aDep;
     });
 
-    res.json(mergedList);
+    res.json(mergedList.map((m) => ({ ...m, ...pulsActivity(m) })));
   } catch (e) {
     console.error('/api/markets error:', e.message);
     res.status(500).json({ error: e.message });
