@@ -4335,7 +4335,8 @@ app.post('/api/profile/update', authenticateUser, strictLimiter, async (req, res
 // appended automatically when missing. All keys live in .env, never in the repo.
 function buildLlmProviders() {
   const list = [];
-  for (const sfx of ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10', '_11', '_12', '_13', '_14', '_15']) {
+  // '', _2 … _30 — room for many fallback providers and rotating keys.
+  for (const sfx of ['', ...Array.from({ length: 29 }, (_, i) => `_${i + 2}`)]) {
     let url = (process.env[`AGENT_LLM_URL${sfx}`] || '').trim();
     const key = (process.env[`AGENT_LLM_KEY${sfx}`] || '').trim();
     const model = (process.env[`AGENT_MODEL${sfx}`] || '').trim();
@@ -4358,6 +4359,12 @@ function buildLlmProviders() {
 const LLM_PROVIDERS = buildLlmProviders();
 const LLM_TIMEOUT_MS = parseInt(process.env.AGENT_LLM_TIMEOUT_MS || '60000', 10);
 const LLM_RETRIES = Math.max(1, parseInt(process.env.AGENT_LLM_RETRIES || '1', 10)); // attempts per provider
+// After a provider hits a rate-limit/quota/overload error, skip it for this
+// long — stops hammering exhausted keys (frees the 1-vCPU box) and rotates to a
+// fresh key/provider. With many keys configured this gives big effective
+// throughput without 429 spam.
+const LLM_COOLDOWN_MS = parseInt(process.env.AGENT_LLM_COOLDOWN_MS || '90000', 10);
+const llmCooldownUntil = new Map(); // provider index -> timestamp to skip until
 if (LLM_PROVIDERS.length === 0) {
   console.warn('[llm] No agent LLM providers configured (set AGENT_LLM_URL/KEY/MODEL).');
 } else {
@@ -4553,8 +4560,14 @@ async function llmComplete(messages, opts = {}) {
     const pi = LLM_PROVIDERS.findIndex(p => p.model.toLowerCase().includes(want));
     if (pi > 0) order = [pi, ...order.filter(i => i !== pi)];
   }
+  // Skip providers that recently hit a rate-limit/quota error (stops 429 spam,
+  // saves CPU, rotates to fresh keys). If everything is cooling down, try the
+  // full order anyway rather than hard-failing.
+  const nowTs = Date.now();
+  const ready = order.filter((i) => (llmCooldownUntil.get(i) || 0) <= nowTs);
+  const tryOrder = ready.length ? ready : order;
   const errors = [];
-  for (const idx of order) {
+  for (const idx of tryOrder) {
     const provider = LLM_PROVIDERS[idx];
     for (let attempt = 1; attempt <= LLM_RETRIES; attempt++) {
       const ac = new AbortController();
@@ -4563,13 +4576,15 @@ async function llmComplete(messages, opts = {}) {
         const out = await llmCompleteOne(provider, messages, ac.signal);
         clearTimeout(timer);
         if (!out) throw new Error('empty completion');
-        if (idx !== order[0] || idx > 0) {
-          // (only noisy-log when not the natural primary)
-        }
         return out;
       } catch (e) {
         clearTimeout(timer);
         const reason = ac.signal.aborted ? `timeout after ${LLM_TIMEOUT_MS}ms` : (e.message || String(e));
+        // Rate-limited / quota / overloaded → cool this provider down so the
+        // next calls rotate to a fresh key instead of re-failing here.
+        if (/\b(429|503)\b|rate.?limit|quota|cost limit|too many|overloaded|capacity/i.test(reason)) {
+          llmCooldownUntil.set(idx, Date.now() + LLM_COOLDOWN_MS);
+        }
         errors.push(`${provider.model}: ${reason}`);
         console.error(`[llm] provider (${provider.model}) attempt ${attempt}/${LLM_RETRIES} failed: ${reason}`);
       }
