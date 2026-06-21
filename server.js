@@ -25,6 +25,18 @@ import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
 import { registerPoints } from './lib/points.js';
 
+// Keep outbound HTTPS connections (Supabase, Arc RPC, Circle) warm. Node's
+// default keep-alive timeout is ~4s; bumping it lets the frequent RPC/DB/Circle
+// calls reuse TLS sockets instead of re-handshaking. Best-effort: if undici
+// isn't available the app still runs on Node's default keep-alive.
+try {
+  const { setGlobalDispatcher, Agent } = await import('undici');
+  setGlobalDispatcher(new Agent({ keepAliveTimeout: 30_000, keepAliveMaxTimeout: 60_000, connections: 128 }));
+  console.log('[net] outbound keep-alive tuned (undici, 30s)');
+} catch (e) {
+  console.warn('[net] keep-alive tuning skipped:', e.message);
+}
+
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[UNHANDLED REJECTION]', reason?.message || reason);
@@ -72,6 +84,34 @@ app.set('trust proxy', 1);
 // signals, feed). Registered early so every downstream route benefits. Clients
 // can opt out with an `x-no-compression` header.
 app.use(compression());
+
+// Short-lived edge/browser cache for PUBLIC, non-user-specific GETs so a CDN
+// (Cloudflare) serves them from the edge and the 1-vCPU origin is offloaded.
+// Allowlist only — never matches authed/user-varying routes (wallet, copy,
+// points/me, signals, comments, support, alpha/:id). Non-200s aren't cached by
+// Cloudflare, and config rules are listed before the broader :id rule.
+const PUBLIC_CACHE_RULES = [
+  [/^\/api\/(blog|swap|tips|comments|support|referrals)\/config\/?$/, 300],
+  [/^\/api\/markets\/?$/, 10],
+  [/^\/api\/market\/(info|resolution-status)\/?$/, 12],
+  [/^\/api\/agents\/(roster|feed|bonds|house)\/?$/, 15],
+  [/^\/api\/oracle\//, 15],
+  [/^\/api\/alpha\/list\/?$/, 20],
+  [/^\/api\/(points|referrals)\/leaderboard\/?$/, 30],
+  [/^\/api\/blog\/?$/, 30],
+  [/^\/api\/blog\/[^/]+\/?$/, 30],
+];
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    for (const [re, s] of PUBLIC_CACHE_RULES) {
+      if (re.test(req.path)) {
+        res.set('Cache-Control', `public, max-age=${s}, s-maxage=${s}, stale-while-revalidate=${s * 3}`);
+        break;
+      }
+    }
+  }
+  next();
+});
 
 // CORS: lock down to known origins when ALLOWED_ORIGINS is set (comma-separated).
 // Falls back to permissive mode when unset so local dev keeps working.
