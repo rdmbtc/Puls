@@ -92,12 +92,21 @@ app.use(compression());
 // Cloudflare, and config rules are listed before the broader :id rule.
 const PUBLIC_CACHE_RULES = [
   [/^\/api\/(blog|swap|tips|comments|support|referrals)\/config\/?$/, 300],
+  [/^\/api\/x402\/info\/?$/, 300],
+  [/^\/api\/og\/market\//, 300],
   [/^\/api\/markets\/?$/, 10],
-  [/^\/api\/market\/(info|resolution-status)\/?$/, 12],
+  [/^\/api\/market\/(info|resolution-status|price-history)\/?$/, 12],
+  [/^\/api\/market\/insight\/?$/, 30],
+  [/^\/api\/trade\/recent\/?$/, 5],
+  [/^\/api\/stats\/?$/, 20],
+  [/^\/api\/live\/?$/, 10],
+  [/^\/api\/economy\/feed\/?$/, 15],
   [/^\/api\/agents\/(roster|feed|bonds|house)\/?$/, 15],
   [/^\/api\/oracle\//, 15],
   [/^\/api\/alpha\/list\/?$/, 20],
   [/^\/api\/(points|referrals)\/leaderboard\/?$/, 30],
+  [/^\/api\/leaderboard\/?$/, 30],
+  [/^\/api\/profile\/[^/]+\/?$/, 30],
   [/^\/api\/blog\/?$/, 30],
   [/^\/api\/blog\/[^/]+\/?$/, 30],
 ];
