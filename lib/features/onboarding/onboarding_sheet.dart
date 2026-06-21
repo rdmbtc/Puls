@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../shell/shell_nav.dart';
 import '../portfolio/funds_sheet.dart';
@@ -151,10 +152,10 @@ class _Header extends StatelessWidget {
                           ),
                         ),
                       ),
-                    Text(
+                    AnimatedGradientText(
                       content.title,
-                      style: TextStyle(
-                        color: t.text,
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.4,

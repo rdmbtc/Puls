@@ -10,6 +10,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/shimmer_text.dart';
 import '../shell/web_layout.dart';
@@ -167,8 +168,9 @@ class _AgentScreenState extends State<AgentScreen>
         )
         .timeout(const Duration(seconds: 150));
     final data = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 200)
+    if (res.statusCode != 200) {
       throw Exception(data['error'] ?? 'Request failed');
+    }
     return data;
   }
 
@@ -218,14 +220,17 @@ class _AgentScreenState extends State<AgentScreen>
             sources: (r['sources'] as List<dynamic>? ?? const [])
                 .whereType<Map<String, dynamic>>()
                 .toList()));
-        if (r['remaining'] != null)
+        if (r['remaining'] != null) {
           _spent = _budgetVal - (r['remaining'] as num).toDouble();
-        if (r['reputation'] != null)
+        }
+        if (r['reputation'] != null) {
           _reputation = (r['reputation'] as num).toInt();
+        }
       });
       // Agent placed a trade → refresh balance + portfolio instantly.
-      if (trade != null && mounted)
+      if (trade != null && mounted) {
         WalletServiceScope.of(context).notifyTrade();
+      }
     } catch (e) {
       setState(() => _msgs
           .add(_Msg(true, '⚠️ ${e.toString().replaceAll('Exception: ', '')}')));
@@ -340,9 +345,8 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             Icon(Icons.smart_toy_rounded, color: t.brand, size: 22),
             const SizedBox(width: 8),
-            Text('AI Agent',
+            const AnimatedGradientText('AI Agent',
                 style: TextStyle(
-                    color: t.text,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5)),
           ],

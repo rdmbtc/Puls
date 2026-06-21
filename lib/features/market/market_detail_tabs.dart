@@ -86,12 +86,19 @@ class _MarketDetailTabsState extends State<MarketDetailTabs>
           child: TabBar(
             controller: _tabCtrl,
             indicator: BoxDecoration(
-              color: t.brand.withValues(alpha: 0.15),
+              gradient: PulsColors.pulseGradient,
               borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: PulsColors.brandPink.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
-            labelColor: t.brand,
+            labelColor: Colors.white,
             unselectedLabelColor: t.textMuted,
             labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),

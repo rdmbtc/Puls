@@ -2,6 +2,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/skeleton.dart';
@@ -106,10 +107,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            const AnimatedGradientText(
               'Creators',
+              textAlign: TextAlign.left,
               style: TextStyle(
-                color: t.text,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,
               ),
