@@ -698,17 +698,17 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     });
   }
 
-  // Polls recent trades whenever the socket has been silent for a while -
-  // covers both a dropped socket and a "connected but silent" one (the case
-  // that froze the ticker). Cheap: the endpoint is CDN-cached ~5s and trades
-  // de-dupe by id, so this never double-inserts.
+  // Heartbeat: refresh from the recent-trades endpoint every ~10s unless a WS
+  // frame just arrived (socket is clearly live). This keeps the ticker moving
+  // even when the socket is silent OR its frames are buffered/dropped by a CDN
+  // (Cloudflare) - the case that froze it. The endpoint is CDN-cached ~5s and
+  // trades de-dupe by id, so the cost is minimal and it never double-inserts.
   void _startWatchdog() {
     _watchdogTimer?.cancel();
-    _watchdogTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted) return;
-      if (DateTime.now().difference(_lastWsMessageAt).inSeconds >= 15) {
-        _fetchRecentTrades();
-      }
+      if (DateTime.now().difference(_lastWsMessageAt).inSeconds < 6) return;
+      _fetchRecentTrades();
     });
   }
 
