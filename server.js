@@ -2,6 +2,7 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
@@ -66,6 +67,11 @@ const app = express();
 // Behind a reverse proxy (nginx/caddy on the VPS) — trust the first hop so
 // express-rate-limit keys on the real client IP instead of the proxy IP.
 app.set('trust proxy', 1);
+
+// gzip-compress all responses — a big win for JSON API payloads (markets,
+// signals, feed). Registered early so every downstream route benefits. Clients
+// can opt out with an `x-no-compression` header.
+app.use(compression());
 
 // CORS: lock down to known origins when ALLOWED_ORIGINS is set (comma-separated).
 // Falls back to permissive mode when unset so local dev keeps working.
