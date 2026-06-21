@@ -22,6 +22,7 @@ import '../onboarding/help_button.dart';
 import 'share_bet_card_dialog.dart';
 import '../../core/widgets/count_up_text.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/widgets/gradient_text.dart';
 
 import '../../core/config.dart' show backendUrl;
 
@@ -761,9 +762,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text('Portfolio',
+        title: const AnimatedGradientText('Portfolio',
             style: TextStyle(
-                color: t.text,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
@@ -889,7 +889,7 @@ class _HeroCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: t.brand,
+        gradient: PulsColors.pulseGradient,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

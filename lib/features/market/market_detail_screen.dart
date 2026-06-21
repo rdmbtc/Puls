@@ -10,6 +10,7 @@ import '../../core/widgets/puls_loader.dart';
 import '../../core/utils/image_util.dart';
 import '../../core/widgets/market_hero.dart';
 import '../../core/widgets/animated_count.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -153,7 +154,8 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
           icon: Icon(Icons.arrow_back_rounded, size: 20, color: t.text),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Market'),
+        title: const AnimatedGradientText('Market',
+            style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
         actions: [
           IconButton(
             icon: Icon(Icons.ios_share_rounded, size: 20, color: t.text),

@@ -14,6 +14,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/tactile.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../wallet/wallet_service.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
@@ -224,10 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(width: 8),
                             IconButton.filled(
                               onPressed: () {
-                                final rand = 'trader_' +
-                                    DateTime.now()
-                                        .millisecondsSinceEpoch
-                                        .toString();
+                                final rand =
+                                    'trader_${DateTime.now().millisecondsSinceEpoch}';
                                 final seedType = ws.isExternalWallet
                                     ? 'identicon'
                                     : 'bottts';
@@ -809,9 +808,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text('Profile Settings',
+        title: const AnimatedGradientText('Profile Settings',
             style: TextStyle(
-                color: t.text,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,

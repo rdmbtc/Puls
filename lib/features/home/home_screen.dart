@@ -41,9 +41,9 @@ class _WebHomeScreen extends StatelessWidget {
     final size = MediaQuery.sizeOf(context);
 
     if (appState.feedStatus == FeedStatus.loading && appState.markets.isEmpty) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: const WebLayout(
+        body: WebLayout(
           child: Center(
             child: MarketCardSkeleton(),
           ),
@@ -297,21 +297,38 @@ class _FeaturedHeroBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: t.brandSubtle,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'FEATURED MARKET',
-                  style: TextStyle(
-                      color: t.brand,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1),
-                ),
+              ShaderMask(
+                shaderCallback: (r) =>
+                    PulsColors.pulseGradient.createShader(r),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    size: 15, color: Colors.white),
               ),
+              const SizedBox(width: 7),
+              Text(
+                'FEATURED MARKET',
+                style: TextStyle(
+                    color: t.brand,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2),
+              ),
+              if (market.createdByAgent) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('🤖 AGENT',
+                      style: TextStyle(
+                          color: Color(0xFF8B5CF6),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4)),
+                ),
+              ],
               const Spacer(),
               Icon(Icons.trending_up_rounded, color: t.yes, size: 16),
               const SizedBox(width: 4),
