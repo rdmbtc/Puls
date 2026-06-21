@@ -602,6 +602,13 @@ async function loadDeployedMarkets() {
 const pendingDeployments = new Map();
 let deploymentQueue = Promise.resolve();
 
+// LMSR liquidity parameter b (in USDC) seeded into every new market at deploy.
+// initialCost = b·ln2 is pulled from the treasury per market, so this is the
+// single biggest treasury cost. Env-tunable (default 10); lower = cheaper seed
+// but thinner liquidity (a bit more price slippage per trade).
+const MARKET_LIQUIDITY_B_USDC = Math.max(1, parseFloat(process.env.MARKET_LIQUIDITY_B) || 10);
+console.log(`[market] LMSR b = ${MARKET_LIQUIDITY_B_USDC} USDC (seed ~${(MARKET_LIQUIDITY_B_USDC * Math.log(2)).toFixed(2)} USDC/market)`);
+
 async function _executeMarketDeployment(slug, deadlineSeconds) {
   let cached = deployedMarketsCache.get(slug);
   if (cached) return cached.contractAddress;
@@ -610,8 +617,8 @@ async function _executeMarketDeployment(slug, deadlineSeconds) {
   if (!walletClient || !adminAccount) throw new Error('Admin wallet credentials not configured');
 
   console.log(`Dynamic deployment triggered for slug: ${slug}, deadline: ${deadlineSeconds}`);
-  const b = 10_000_000; // b = 10 USDC
-  const initialCost = BigInt(Math.round(b * Math.log(2))); // ~6,931,471
+  const b = Math.round(MARKET_LIQUIDITY_B_USDC * 1_000_000); // LMSR liquidity (USDC), env-tunable
+  const initialCost = BigInt(Math.round(b * Math.log(2))); // seed pulled from treasury per market
 
   // Check current allowance first to avoid redundant approvals and race conditions
   const allowance = await publicClient.readContract({
