@@ -21,6 +21,7 @@ import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../profile/notifications_screen.dart';
+import '../profile/user_profile_screen.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
@@ -726,6 +727,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
     final newAct = _BetActivity(
       id: id,
+      userId: userId,
       username: _formatUserId(userId),
       action: isBuy ? 'bought' : 'sold',
       question: question,
@@ -944,6 +946,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
 
       return _BetActivity(
         id: id,
+        userId: userId,
         username: _formatUserId(userId),
         action: isBuy ? 'bought' : 'sold',
         question: question,
@@ -1355,6 +1358,13 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     );
   }
 
+  void _openProfile(String userId) {
+    if (userId.isEmpty || userId.startsWith('mock')) return;
+    Navigator.of(context).push(
+      pulsRoute(context, builder: (_) => UserProfileScreen(userId: userId)),
+    );
+  }
+
   Widget _buildActivityItem(
     _BetActivity act,
     Color sideColor,
@@ -1364,6 +1374,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final t = widget.t;
     // Named house/swarm agents carry an emoji in their formatted handle.
     final isAgent = act.username.runes.any((r) => r > 0x2600);
+    final tappable = act.userId.isNotEmpty && !act.userId.startsWith('mock');
     return FadeTransition(
       opacity: animation,
       child: SizeTransition(
@@ -1373,17 +1384,10 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isAgent
-                  ? t.brand.withValues(alpha: 0.05)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isAgent ? t.brand.withValues(alpha: 0.18) : t.border,
-              ),
-            ),
+          child: _ActivityRowCard(
+            isAgent: isAgent,
+            t: t,
+            onTap: tappable ? () => _openProfile(act.userId) : null,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1691,9 +1695,69 @@ class _ActivityAvatar extends StatelessWidget {
   }
 }
 
+/// Wraps a live-feed activity row: hover highlight + tap-to-open the trader's
+/// profile (the same UserProfileScreen used in the Creators hub). Non-tappable
+/// (no hover/cursor) for mock fallback rows that have no real userId.
+class _ActivityRowCard extends StatefulWidget {
+  const _ActivityRowCard({
+    required this.isAgent,
+    required this.t,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool isAgent;
+  final PulsThemeColors t;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<_ActivityRowCard> createState() => _ActivityRowCardState();
+}
+
+class _ActivityRowCardState extends State<_ActivityRowCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final tappable = widget.onTap != null;
+    final hovered = _hover && tappable;
+    return MouseRegion(
+      cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: tappable ? (_) => setState(() => _hover = true) : null,
+      onExit: tappable ? (_) => setState(() => _hover = false) : null,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: hovered
+                ? t.brand.withValues(alpha: 0.10)
+                : (widget.isAgent
+                    ? t.brand.withValues(alpha: 0.05)
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: hovered
+                  ? t.brand.withValues(alpha: 0.45)
+                  : (widget.isAgent
+                      ? t.brand.withValues(alpha: 0.18)
+                      : t.border),
+            ),
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
 class _BetActivity {
   _BetActivity({
     required this.id,
+    this.userId = '',
     required this.username,
     required this.action,
     required this.question,
@@ -1703,6 +1767,7 @@ class _BetActivity {
     required this.createdAt,
   });
   final String id;
+  final String userId;
   final String username;
   final String action;
   final String question;
