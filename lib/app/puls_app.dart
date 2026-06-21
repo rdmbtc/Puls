@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -73,7 +74,11 @@ class _PulsAppState extends State<PulsApp> {
     return AnimatedBuilder(
       animation: Listenable.merge([_state, _walletService]),
       builder: (context, _) {
-        final shellVisible = _state.onboardingComplete ||
+        // On the app subdomain (app.pulsmarket.tech) boot straight into the
+        // product; pulsmarket.tech / www keep showing the marketing landing.
+        final onAppHost = kIsWeb && Uri.base.host == 'app.pulsmarket.tech';
+        final shellVisible = onAppHost ||
+            _state.onboardingComplete ||
             _walletService.state.userId != null ||
             _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app
         _maybeOpenDeepLink(shellVisible);

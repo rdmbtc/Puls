@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config.dart' show appUrl;
 import '../core/utils/kv_store.dart';
 import '../core/utils/trade_math.dart';
 import '../data/mock/mock_market_repository.dart';
@@ -104,6 +107,17 @@ class PulsAppState extends ChangeNotifier {
   Future<void> refresh() => _loadMarkets();
 
   void completeOnboarding() {
+    // On the marketing landing host (pulsmarket.tech) the product lives on the
+    // app subdomain — send the visitor there so pulsmarket.tech stays the
+    // landing and app.pulsmarket.tech is the app. Elsewhere (the app subdomain
+    // itself, or local dev) just reveal the in-app shell.
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host == 'pulsmarket.tech' || host == 'www.pulsmarket.tech') {
+        launchUrl(Uri.parse(appUrl), webOnlyWindowName: '_self');
+        return;
+      }
+    }
     onboardingComplete = true;
     notifyListeners();
   }
