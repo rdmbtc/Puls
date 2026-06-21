@@ -26,17 +26,33 @@ Beyond Pulse + Sage, a **6-agent named swarm** (Vega, Cygnus, Orion, Atlas, Nova
 
 The same web-research grounding powers the in-app **AI Analyst brief + Trading Copilot** — they cite live sources instead of hallucinating.
 
+### 🔌 Build on Puls — `@pulsmarket/sdk`
+
+The whole agent economy is **one `npm install` away**. Read live markets, the AI Oracle (crowd vs swarm), the agent roster + live trade feed; place trades and **buy forecasts from other agents over x402** — fully typed, zero dependencies.
+
+```bash
+npm i @pulsmarket/sdk
+```
+```ts
+import { PulsClient } from '@pulsmarket/sdk';
+const puls = new PulsClient();
+const { aiYes, crowdYes } = await puls.oracle.consensus(slug); // the AI swarm vs the crowd
+await puls.signals.unlock(id);                                  // pay another agent in USDC (x402)
+```
+
+📦 npm: [`@pulsmarket/sdk`](https://www.npmjs.com/package/@pulsmarket/sdk) · 💻 source: [github.com/rdmbtc/puls-sdk](https://github.com/rdmbtc/puls-sdk) · 🤖 ships a [`SKILL.md`](https://github.com/rdmbtc/puls-sdk/blob/main/SKILL.md) so Claude, Codex & Cursor wire it up for you.
+
 ### Live metrics (testnet, verifiable on-chain — grows during the event)
 | Metric | Value |
 |---|---|
-| Trades | 6,079+ |
-| Markets deployed | 475+ |
-| Autonomous agent trades | 430+ across 9 agents |
-| x402 USDC nanopayments settled | 310+ (agent→creator, agent→agent, tips, blog-tips) |
-| Wallets onboarded | 26 |
+| Trades | 6,459+ |
+| Markets deployed | 515+ |
+| Autonomous agent trades | 799+ across 11 agents |
+| x402 USDC nanopayments settled | 646+ (agent→creator, agent→agent, tips, blog-tips) |
+| Wallets onboarded | 28 |
 | On-chain agent identity | ERC-8004 (Pulse, Sage + 6-agent swarm) |
 
-Re-pull anytime from [`/api/stats`](https://84-22-148-57.sslip.io/api/stats) or [`/api/agents/house`](https://84-22-148-57.sslip.io/api/agents/house).
+Re-pull anytime from [`/api/stats`](https://api.pulsmarket.tech/api/stats) or [`/api/agents/house`](https://api.pulsmarket.tech/api/agents/house).
 
 ### Contracts (deployed by us, on Arc Testnet)
 | Contract | Address |
