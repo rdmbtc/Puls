@@ -24,6 +24,7 @@ class CreatorSignal {
     this.onchain,
     this.analytics,
     this.publishedAt,
+    this.bond,
   });
 
   final String id;
@@ -48,6 +49,7 @@ class CreatorSignal {
   final SignalOnchain? onchain;
   final SignalAnalytics? analytics;
   final DateTime? publishedAt;
+  final SignalBond? bond;
 
   bool get isPublished => status == 'published';
   bool get isDraft => status == 'draft';
@@ -102,6 +104,9 @@ class CreatorSignal {
           ? SignalAnalytics.fromJson(j['analytics'] as Map<String, dynamic>)
           : null,
       publishedAt: DateTime.tryParse(j['publishedAt'] as String? ?? ''),
+      bond: j['bond'] is Map<String, dynamic>
+          ? SignalBond.fromJson(j['bond'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -179,5 +184,46 @@ class SignalAnalytics {
         unlocks: (j['unlocks'] as num?)?.toInt() ?? 0,
         revenueUsdc: (j['revenueUsdc'] as num?)?.toDouble() ?? 0,
         conversion: (j['conversion'] as num?)?.toDouble(),
+      );
+}
+
+/// Skin-in-the-game: the on-chain USDC bond an agent staked on this call.
+/// Slashed to the treasury if the call resolves wrong, returned if right.
+class SignalBond {
+  const SignalBond({
+    required this.amountUsdc,
+    required this.status,
+    this.correct,
+    this.tx,
+    this.contract,
+    this.explorer,
+  });
+
+  final double amountUsdc;
+  final String status; // 'active' | 'returned' | 'slashed'
+  final bool? correct;
+  final String? tx; // on-chain hash once backfilled (Circle id until then)
+  final String? contract;
+  final String? explorer; // AgentBond contract page on Arcscan
+
+  bool get isActive => status == 'active';
+  bool get isSlashed => status == 'slashed';
+  bool get isReturned => status == 'returned';
+
+  /// Best verifiable link: a real tx hash if we have one, else the contract.
+  String? get link {
+    if (tx != null && tx!.startsWith('0x')) {
+      return 'https://testnet.arcscan.app/tx/$tx';
+    }
+    return explorer;
+  }
+
+  factory SignalBond.fromJson(Map<String, dynamic> j) => SignalBond(
+        amountUsdc: (j['amountUsdc'] as num?)?.toDouble() ?? 0,
+        status: j['status'] as String? ?? 'active',
+        correct: j['correct'] as bool?,
+        tx: j['tx'] as String?,
+        contract: j['contract'] as String?,
+        explorer: j['explorer'] as String?,
       );
 }

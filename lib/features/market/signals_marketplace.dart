@@ -239,6 +239,7 @@ class _MarketSignalCard extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           Wrap(spacing: 6, runSpacing: 6, children: [
+            if (signal.bond != null) SignalBondBadge(bond: signal.bond!),
             if (signal.confidence != null) _chip(t, '${(signal.confidence! * 100).round()}% conf'),
             if ((signal.edgeBps ?? 0) > 0) _chip(t, '+${signal.edgeBps} bps edge'),
             if (signal.horizon != null && signal.horizon!.isNotEmpty) _chip(t, signal.horizon!),
