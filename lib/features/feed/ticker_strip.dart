@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/motion.dart';
 
 class WebTickerStrip extends StatefulWidget {
   const WebTickerStrip({super.key});
@@ -29,12 +28,10 @@ class _WebTickerStripState extends State<WebTickerStrip>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Honor reduce-motion: keep the ticker strip still.
-    if (context.reduceMotion) {
-      _ctrl.stop();
-    } else if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
+    // The live ticker is essential content — a calm, linear marquee of live
+    // markets — so it scrolls continuously. (Previously it was paused under the
+    // OS "reduce motion" setting, which left it frozen for those users.)
+    if (!_ctrl.isAnimating) _ctrl.repeat();
   }
 
   void _scroll() {
