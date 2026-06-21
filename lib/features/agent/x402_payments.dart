@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 
 /// Creator Earnings — the in-app proof feed for x402 nanopayments.
@@ -213,9 +214,9 @@ class _X402PaymentsState extends State<X402Payments> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Creator Earnings',
+                    const AnimatedGradientText('Creator Earnings',
+                        textAlign: TextAlign.left,
                         style: TextStyle(
-                            color: t.text,
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
                             letterSpacing: -0.5)),
@@ -288,7 +289,7 @@ class _X402PaymentsState extends State<X402Payments> {
               color: PulsColors.brandMint.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.swap_horiz_rounded, color: PulsColors.brandMint, size: 22),
+            child: const Icon(Icons.swap_horiz_rounded, color: PulsColors.brandMint, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -318,7 +319,7 @@ class _X402PaymentsState extends State<X402Payments> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${_a2aUsdc.toStringAsFixed(3)}',
+              Text(_a2aUsdc.toStringAsFixed(3),
                   style: TextStyle(color: t.text, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5, fontFeatures: PulsColors.tabularFigures)),
               Text('USDC · $_a2aCount pays', style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w700)),
             ],

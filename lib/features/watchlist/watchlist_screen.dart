@@ -4,6 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/utils/trade_math.dart';
 import '../../core/widgets/state_views.dart';
@@ -33,7 +34,8 @@ class WatchlistScreen extends StatelessWidget {
                   children: [
                     FadeInDown(
                       duration: const Duration(milliseconds: 400),
-                      child: Text('Watchlist',
+                      child: AnimatedGradientText('Watchlist',
+                          textAlign: TextAlign.left,
                           style: Theme.of(context).textTheme.displaySmall),
                     ),
                     const SizedBox(height: 20),

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 
 /// Economy Explorer — a live, verifiable feed of on-chain USDC activity in the
@@ -193,9 +194,9 @@ class _EconomyFeedState extends State<EconomyFeed> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Economy Explorer',
+                    const AnimatedGradientText('Economy Explorer',
+                        textAlign: TextAlign.left,
                         style: TextStyle(
-                            color: t.text,
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
                             letterSpacing: -0.5)),
@@ -212,7 +213,7 @@ class _EconomyFeedState extends State<EconomyFeed> {
           const SizedBox(height: 18),
           Row(
             children: [
-              _stat(t, '${vol.toStringAsFixed(2)}', 'USDC volume'),
+              _stat(t, vol.toStringAsFixed(2), 'USDC volume'),
               _statDivider(t),
               _stat(t, '$count', 'transfers'),
               _statDivider(t),

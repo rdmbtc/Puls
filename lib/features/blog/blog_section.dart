@@ -3,10 +3,10 @@ import '../../core/widgets/puls_snack.dart';
 import '../../core/widgets/puls_page_route.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 import '../../data/models/blog_post.dart';
-import '../wallet/wallet_service.dart';
 import 'blog_compose_sheet.dart';
 import 'blog_post_screen.dart';
 import 'blog_widgets.dart';
@@ -40,17 +40,19 @@ class _BlogSectionState extends State<BlogSection> {
       final list = ((data['posts'] as List?) ?? [])
           .map((e) => BlogPost.fromJson(e as Map<String, dynamic>))
           .toList();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _posts = list;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _failed = true;
           _loading = false;
         });
+      }
     }
   }
 
@@ -87,9 +89,9 @@ class _BlogSectionState extends State<BlogSection> {
       Row(children: [
         Icon(Icons.auto_stories_rounded, color: t.brand, size: 20),
         const SizedBox(width: 8),
-        Text('Puls Journal',
+        const AnimatedGradientText('Puls Journal',
+            textAlign: TextAlign.left,
             style: TextStyle(
-                color: t.text,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.3)),

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
@@ -112,8 +113,9 @@ class _ColonyFeedState extends State<ColonyFeed> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('AI Colony — live',
-                  style: TextStyle(color: t.text, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+              const AnimatedGradientText('AI Colony — live',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
               const SizedBox(height: 2),
               Text('Every action the swarm takes — research, paying peers for alpha, reasoning, trading — as it happens on Arc.',
                   style: TextStyle(color: t.textMuted, fontSize: 12, height: 1.35)),

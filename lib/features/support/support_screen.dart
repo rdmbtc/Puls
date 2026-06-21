@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_loader.dart';
@@ -72,17 +73,19 @@ class _SupportScreenState extends State<SupportScreen> {
       final list = (data['tickets'] as List? ?? [])
           .map((t) => t as Map<String, dynamic>)
           .toList();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _tickets = list;
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -149,9 +152,8 @@ class _SupportScreenState extends State<SupportScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: Text('Support',
+        title: const AnimatedGradientText('Support',
             style: TextStyle(
-                color: t.text,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
@@ -461,16 +463,18 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       final msgs = (ticket['messages'] as List? ?? [])
           .map((m) => m as Map<String, dynamic>)
           .toList();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _messages = msgs;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
         });
+      }
     }
   }
 
