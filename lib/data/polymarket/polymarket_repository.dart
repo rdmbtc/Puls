@@ -195,6 +195,7 @@ class PolymarketRepository {
         spread: (j['spread'] as num?)?.toDouble() ?? 0,
         clobTokenId: _firstClobToken(j['clobTokenIds']),
         liquidityNum: liqNum,
+        volumeNum: volNum,
         competitive: (j['competitive'] as num?)?.toDouble() ?? 0,
         createdByAgent: j['createdByAgent'] == true,
       );

@@ -53,16 +53,36 @@ class PulsAppState extends ChangeNotifier {
   List<String> get watchlistIds => List.unmodifiable(_watchlistIds);
 
   List<String> get categories {
-    final cats = _markets.map((m) => m.category).toSet().toList();
+    final cats = _markets
+        .where((m) => !m.createdByAgent)
+        .map((m) => m.category)
+        .toSet()
+        .toList();
     cats.sort();
+    // Agent-created markets get their own category instead of polluting the feed.
+    if (_markets.any((m) => m.createdByAgent)) cats.add('AI Agents');
     return cats;
   }
 
+  /// The main feed: untraded, NON-agent markets, hottest (most trading
+  /// activity) first. Agent-created markets are surfaced separately via
+  /// [agentMarkets] / the "AI Agents" category.
   List<Market> get feedMarkets {
     final tradedIds = _positions.map((p) => p.marketId).toSet();
-    final fresh = _markets.where((m) => !tradedIds.contains(m.id)).toList();
-    // If all traded (unlikely), show all
+    final fresh = _markets
+        .where((m) => !tradedIds.contains(m.id) && !m.createdByAgent)
+        .toList()
+      ..sort((a, b) => b.hotness.compareTo(a.hotness));
     return fresh.isNotEmpty ? fresh : _markets;
+  }
+
+  /// Agent-created markets ("AI Agents" category), hottest first.
+  List<Market> get agentMarkets {
+    final tradedIds = _positions.map((p) => p.marketId).toSet();
+    return _markets
+        .where((m) => m.createdByAgent && !tradedIds.contains(m.id))
+        .toList()
+      ..sort((a, b) => b.hotness.compareTo(a.hotness));
   }
 
   List<Market> get watchlistMarkets =>

@@ -77,6 +77,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         return '💻';
       case 'finance':
         return '💼';
+      case 'ai agents':
+        return '🤖';
       default:
         return '🔮';
     }
@@ -88,7 +90,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final t = context.puls;
     final categories = ['All', ...appState.categories];
     final markets = appState.markets.where((m) {
-      final matchCat = _category == 'All' || m.category == _category;
+      final matchCat = _category == 'All'
+          ? !m.createdByAgent
+          : m.displayCategory == _category;
       final matchQ = m.question.toLowerCase().contains(_query.toLowerCase()) ||
           m.context.toLowerCase().contains(_query.toLowerCase());
       return matchCat && matchQ;
