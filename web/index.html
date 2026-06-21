@@ -254,6 +254,18 @@
     </p>
   </noscript>
 
+  <!-- Persistent legal footer — a real, always-present, VISIBLE DOM link to the
+       privacy policy + terms. Googlebot renders JS and removes #puls-seo on the
+       first frame, and the Flutter footer is canvas (unreadable), so this stays
+       as the crawlable + visible homepage link required by Google OAuth
+       verification. Shown on the marketing landing; removed on the app
+       subdomain (where the app has its own footer) on the first frame. -->
+  <footer id="puls-legal" style="position:fixed;left:0;right:0;bottom:0;z-index:9000;text-align:center;padding:7px 10px;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;line-height:1;background:rgba(250,251,253,.92);color:#56607A;border-top:1px solid rgba(0,0,0,.06);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);">
+    <a href="https://pulsmarket.tech/privacy" style="color:#56607A;text-decoration:none;margin:0 10px;">Privacy Policy</a>
+    <span style="opacity:.45;">·</span>
+    <a href="https://pulsmarket.tech/terms" style="color:#56607A;text-decoration:none;margin:0 10px;">Terms of Service</a>
+  </footer>
+
   <script>
     // Note: modern Flutter web dropped the HTML renderer — it always uses
     // CanvasKit/Skwasm, so the old `renderer: "html"` config is a no-op and
@@ -269,6 +281,13 @@
         el.style.opacity = '0';
         setTimeout(function () { el.remove(); }, 450);
       });
+      // Keep the persistent legal footer (privacy/terms) on the marketing
+      // landing for users + Google verification; drop it on the app subdomain
+      // so it doesn't overlap the app's own UI.
+      var host = location.hostname;
+      var isLanding = host === 'pulsmarket.tech' || host === 'www.pulsmarket.tech';
+      var legal = document.getElementById('puls-legal');
+      if (legal && !isLanding) legal.remove();
     });
   </script>
 
