@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/state_views.dart';
@@ -71,8 +72,8 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
         }
       } catch (_) {}
       // Known house creators.
-      _authors.putIfAbsent('agent_sage', () => const _Author('Sage 🔮', true));
-      _authors.putIfAbsent('house_pulse', () => const _Author('Pulse 🤖', true));
+      _authors.putIfAbsent('agent_sage', () => const _Author('Sage 🔮', true, pfp: 'assets/sage-pfp.png'));
+      _authors.putIfAbsent('house_pulse', () => const _Author('Pulse 🤖', true, pfp: 'assets/puls-pfp.png'));
       if (mounted) setState(() { _signals = list; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
@@ -98,6 +99,10 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
 
   _Author _authorFor(String userId) {
     if (_authors.containsKey(userId)) return _authors[userId]!;
+    final pfp = agentPfpAsset(userId);
+    if (pfp != null) {
+      return _Author(agentDisplayName(userId) ?? 'Puls Agent 🤖', true, pfp: pfp);
+    }
     final isAgent = userId.contains('agent');
     return _Author(isAgent ? 'Puls Agent 🤖' : 'Puls Trader', isAgent);
   }
@@ -170,9 +175,10 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
 }
 
 class _Author {
-  const _Author(this.name, this.isAgent);
+  const _Author(this.name, this.isAgent, {this.pfp});
   final String name;
   final bool isAgent;
+  final String? pfp;
 }
 
 class _MarketSignalCard extends StatelessWidget {
@@ -204,7 +210,13 @@ class _MarketSignalCard extends StatelessWidget {
                   border: Border.all(color: author.isAgent ? t.brand.withValues(alpha: 0.3) : t.border),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (author.isAgent) ...[Icon(Icons.smart_toy_rounded, size: 11, color: t.brand), const SizedBox(width: 4)],
+                  if (author.pfp != null) ...[
+                    ClipOval(child: Image.asset(author.pfp!, width: 16, height: 16, fit: BoxFit.cover)),
+                    const SizedBox(width: 5),
+                  ] else if (author.isAgent) ...[
+                    Icon(Icons.smart_toy_rounded, size: 11, color: t.brand),
+                    const SizedBox(width: 4),
+                  ],
                   Text(author.name, style: TextStyle(color: author.isAgent ? t.brand : t.textMuted, fontSize: 11, fontWeight: FontWeight.w800)),
                 ]),
               ),

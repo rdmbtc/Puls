@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/agent_pfp.dart';
 
 /// Normalizes avatar URLs so they can actually render in Flutter.
 ///
@@ -55,7 +56,17 @@ class PulsAvatar extends StatelessWidget {
     );
 
     Widget child;
-    if (url == null || url!.isEmpty) {
+    final pfp = agentPfpAsset(name);
+    if (pfp != null) {
+      // Named house/swarm agent → use its bundled PFP.
+      child = Image.asset(
+        pfp,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback,
+      );
+    } else if (url == null || url!.isEmpty) {
       child = fallback;
     } else {
       child = Image.network(

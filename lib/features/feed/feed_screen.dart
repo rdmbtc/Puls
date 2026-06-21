@@ -11,6 +11,7 @@ import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
@@ -1656,6 +1657,22 @@ class _ActivityAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pfp = agentPfpAsset(name);
+    if (pfp != null) {
+      return Container(
+        width: 34,
+        height: 34,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+                color: PulsColors.brandPink.withValues(alpha: 0.3), blurRadius: 8)
+          ],
+        ),
+        child: Image.asset(pfp, fit: BoxFit.cover),
+      );
+    }
     return Container(
       width: 34,
       height: 34,

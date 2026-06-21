@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../comments/comment_thread.dart';
 
@@ -171,7 +172,8 @@ class _ActivityTab extends StatelessWidget {
         final isYes = side == 'YES';
         final amount = (trade['usdc_amount'] as num?)?.toDouble() ?? 0;
         final userId = trade['user_id'] as String? ?? '';
-        final isAgent = userId.startsWith('house_') || userId.contains('pulse');
+        final pfp = agentPfpAsset(userId);
+        final isAgent = pfp != null || userId.startsWith('house_') || userId.contains('pulse');
         final price = (trade['entry_price'] as num?)?.toDouble() ?? 0.5;
 
         return Padding(
@@ -205,15 +207,19 @@ class _ActivityTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        if (pfp != null) ...[
+                          ClipOval(child: Image.asset(pfp, width: 18, height: 18, fit: BoxFit.cover)),
+                          const SizedBox(width: 6),
+                        ],
                         Flexible(
                           child: Text(
-                            isAgent ? 'Pulse 🤖' : _shortAddr(userId),
+                            isAgent ? (agentDisplayName(userId) ?? 'Pulse 🤖') : _shortAddr(userId),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                         ),
-                        if (isAgent) ...[
+                        if (pfp == null && isAgent) ...[
                           const SizedBox(width: 4),
                           const Icon(Icons.smart_toy_rounded, size: 11, color: Color(0xFF0EA5A0)), // agent teal (AgentBadge.agentColor)
                         ],
@@ -313,7 +319,8 @@ class _HoldersTab extends StatelessWidget {
       itemCount: holders.length,
       itemBuilder: (context, i) {
         final h = holders[i];
-        final isAgent = h.uid.startsWith('house_') || h.uid.contains('pulse');
+        final pfp = agentPfpAsset(h.uid);
+        final isAgent = pfp != null || h.uid.startsWith('house_') || h.uid.contains('pulse');
         final leansYes = h.yes >= h.no;
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -327,9 +334,13 @@ class _HoldersTab extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
+                    if (pfp != null) ...[
+                      ClipOval(child: Image.asset(pfp, width: 18, height: 18, fit: BoxFit.cover)),
+                      const SizedBox(width: 6),
+                    ],
                     Flexible(
                       child: Text(
-                        isAgent ? 'Pulse 🤖' : _shortId(h.uid),
+                        isAgent ? (agentDisplayName(h.uid) ?? 'Pulse 🤖') : _shortId(h.uid),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w600),

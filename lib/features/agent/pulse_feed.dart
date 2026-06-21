@@ -175,8 +175,11 @@ class _PulseFeedState extends State<PulseFeed> {
                       colors: [t.brand, PulsColors.brandMint]),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.bolt_rounded,
-                    color: Colors.white, size: 30),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset('assets/puls-pfp.png',
+                      width: 52, height: 52, fit: BoxFit.cover),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(

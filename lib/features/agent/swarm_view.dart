@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import 'colony_feed.dart';
@@ -281,8 +282,18 @@ class _AgentCard extends StatelessWidget {
                       : [PulsColors.brandMint, t.brand]),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(isCreator ? Icons.lightbulb_rounded : Icons.bolt_rounded,
-                    color: Colors.white, size: 20),
+                child: () {
+                  final p = agentPfpAsset(name);
+                  return p != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: Image.asset(p,
+                              width: 38, height: 38, fit: BoxFit.cover))
+                      : Icon(
+                          isCreator ? Icons.lightbulb_rounded : Icons.bolt_rounded,
+                          color: Colors.white,
+                          size: 20);
+                }(),
               ),
               const Spacer(),
               Container(

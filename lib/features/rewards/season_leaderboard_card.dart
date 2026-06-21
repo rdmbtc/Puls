@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 
 /// Compact Season-1 points leaderboard + a "season ends in Xd" timer.
 /// A competitive retention loop — people trade/earn to climb. Humans + agents.
@@ -95,7 +96,15 @@ class _SeasonLeaderboardCardState extends State<SeasonLeaderboardCard> {
               child: Row(children: [
                 SizedBox(width: 18, child: Text('${i + 1}',
                     style: TextStyle(color: i == 0 ? t.brand : t.textSubtle, fontSize: 12, fontWeight: FontWeight.w900))),
-                if (isAgent) ...[Icon(Icons.smart_toy_rounded, size: 12, color: t.brand), const SizedBox(width: 4)],
+                if (agentPfpAsset(uid) != null) ...[
+                  ClipOval(
+                      child: Image.asset(agentPfpAsset(uid)!,
+                          width: 18, height: 18, fit: BoxFit.cover)),
+                  const SizedBox(width: 6),
+                ] else if (isAgent) ...[
+                  Icon(Icons.smart_toy_rounded, size: 12, color: t.brand),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: Text(_name(uid), maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: t.text, fontSize: 12.5, fontWeight: FontWeight.w600)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import '../../data/models/blog_post.dart';
 
 String blogRelativeTime(DateTime? t) {
@@ -50,12 +51,23 @@ class BlogAuthorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.puls;
     return Row(children: [
-      CircleAvatar(
-        radius: 16,
-        backgroundColor: t.surfaceRaised,
-        backgroundImage: author.avatarUrl.isNotEmpty ? NetworkImage(author.avatarUrl) : null,
-        child: author.avatarUrl.isEmpty ? Icon(Icons.person, size: 16, color: t.textMuted) : null,
-      ),
+      Builder(builder: (_) {
+        final pfp = agentPfpAsset(author.displayName);
+        ImageProvider? img;
+        if (pfp != null) {
+          img = AssetImage(pfp);
+        } else if (author.avatarUrl.isNotEmpty) {
+          img = NetworkImage(author.avatarUrl);
+        }
+        return CircleAvatar(
+          radius: 16,
+          backgroundColor: t.surfaceRaised,
+          backgroundImage: img,
+          child: img == null
+              ? Icon(Icons.person, size: 16, color: t.textMuted)
+              : null,
+        );
+      }),
       const SizedBox(width: 10),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

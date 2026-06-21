@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 import 'landing_kit.dart';
 
 /// Live "Humans vs Agents" leaderboard — the core narrative made literal.
@@ -260,7 +261,7 @@ class _LbRow extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w800)),
           ),
-          _Avatar(url: row.avatar, isAgent: row.isAgent),
+          _Avatar(url: row.avatar, isAgent: row.isAgent, name: row.name),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -327,9 +328,10 @@ class _LbRow extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url, required this.isAgent});
+  const _Avatar({required this.url, required this.isAgent, required this.name});
   final String url;
   final bool isAgent;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
@@ -344,16 +346,19 @@ class _Avatar extends StatelessWidget {
         border: Border.all(color: ring.withValues(alpha: 0.6), width: 1.5),
       ),
       clipBehavior: Clip.antiAlias,
-      child: url.isNotEmpty
-          ? Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Icon(isAgent ? Icons.smart_toy_rounded : Icons.person_rounded,
-                      size: 18, color: t.textSubtle),
-            )
-          : Icon(isAgent ? Icons.smart_toy_rounded : Icons.person_rounded,
-              size: 18, color: t.textSubtle),
+      child: () {
+        final pfp = agentPfpAsset(name);
+        if (pfp != null) return Image.asset(pfp, fit: BoxFit.cover);
+        if (url.isNotEmpty) {
+          return Image.network(url, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                  isAgent ? Icons.smart_toy_rounded : Icons.person_rounded,
+                  size: 18,
+                  color: t.textSubtle));
+        }
+        return Icon(isAgent ? Icons.smart_toy_rounded : Icons.person_rounded,
+            size: 18, color: t.textSubtle);
+      }(),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/agent_pfp.dart';
 
 /// "Meet the agents" — the live AI economy on the landing page.
 /// Pulls the autonomous-agent roster from the backend and shows each agent's
@@ -232,7 +233,7 @@ class _AgentCardState extends State<_AgentCard> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         transform: _hovered
-            ? (Matrix4.identity()..translate(0.0, -5.0))
+            ? Matrix4.translationValues(0.0, -5.0, 0.0)
             : Matrix4.identity(),
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
@@ -279,11 +280,19 @@ class _AgentCardState extends State<_AgentCard> {
                           offset: const Offset(0, 8))
                     ],
                   ),
-                  child: Text(_glyph(a.name),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800)),
+                  child: () {
+                    final p = agentPfpAsset(a.name);
+                    return p != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.asset(p,
+                                width: 52, height: 52, fit: BoxFit.cover))
+                        : Text(_glyph(a.name),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800));
+                  }(),
                 ),
                 const SizedBox(width: 13),
                 Expanded(
