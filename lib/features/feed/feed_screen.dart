@@ -998,6 +998,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
           final old = _activities[i];
           _activities[i] = _BetActivity(
             id: old.id,
+            userId: old.userId,
             username: old.username,
             action: old.action,
             question: old.question,
