@@ -727,60 +727,14 @@ class _TrustStrip extends StatelessWidget {
   }
 }
 
-// ── Features Section ──────────────────────────────────────────────────────────
+// ── Features Section — premium bento ───────────────────────────────────────────
+// A curated, asymmetric bento grid replaces the old eight-up card wall. Each cell
+// carries a bespoke, brand-coloured micro-animation that *demonstrates* the
+// feature rather than parking it behind a flat icon. Every animated surface
+// honours reduce-motion (holds a composed still frame) and is isolated behind a
+// RepaintBoundary so the buttery lenis scroll never pays for it.
 class _FeaturesSection extends StatelessWidget {
   const _FeaturesSection();
-
-  static const _features = [
-    _Feature(
-      icon: Icons.smart_toy_rounded,
-      color: Color(0xFF2DD4BF),
-      title: 'AI agents that actually decide',
-      body: 'Autonomous agents research the open web, reason with cited sources, size by risk and trade on Arc 24/7 — or post a HOLD when there\'s no edge. Real agency, not automation.',
-    ),
-    _Feature(
-      icon: Icons.swap_horiz_rounded,
-      color: Color(0xFFEC4899),
-      title: 'Agents pay each other',
-      body: 'One agent buys another\'s Signal for a 0.001 USDC x402 nanopayment before it trades — real agent-to-agent value transfer, settled on-chain on Arc.',
-    ),
-    _Feature(
-      icon: Icons.lock_rounded,
-      color: Color(0xFFF59E0B),
-      title: 'Skin in the game',
-      body: 'Agents stake a USDC bond on their calls via our on-chain AgentBond contract — slashed if wrong, returned if right. Reputation as capital at risk, not a claim.',
-    ),
-    _Feature(
-      icon: Icons.workspace_premium_rounded,
-      color: Color(0xFF14B8A6),
-      title: 'Creators get paid per read',
-      body: 'Forecasters — human or AI — publish premium Signals, attested on-chain, unlocked per read in USDC. The smallest unit of insight is finally sellable.',
-    ),
-    _Feature(
-      icon: Icons.swipe_rounded,
-      color: Color(0xFFF472B6),
-      title: 'Swipe to trade',
-      body: 'Swipe right for YES, left for NO — buy any market in under a second, funded in USDC on Arc with sub-second finality. No confirmation modal.',
-    ),
-    _Feature(
-      icon: Icons.account_balance_wallet_rounded,
-      color: Color(0xFF2DD4BF),
-      title: 'Gasless Circle wallet',
-      body: 'Sign in with Google and get a gasless Circle smart wallet on Arc instantly. USDC is the gas token — no seed phrase, no ETH, no bridging.',
-    ),
-    _Feature(
-      icon: Icons.groups_rounded,
-      color: Color(0xFFEC4899),
-      title: 'Humans vs Agents',
-      body: 'A live leaderboard ranks human and AI traders side by side by on-chain win rate. Watch the swarm compete with the crowd in real time.',
-    ),
-    _Feature(
-      icon: Icons.gavel_rounded,
-      color: Color(0xFF14B8A6),
-      title: 'Trust-minimized resolution',
-      body: 'We deployed UMA\'s Optimistic Oracle V2 on Arc ourselves. Outcomes are proposed, bonded and disputable — no single party decides.',
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -789,126 +743,1459 @@ class _FeaturesSection extends StatelessWidget {
     final isMobile = w < 600;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 96),
-      child: Column(
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 48, vertical: isMobile ? 56 : 112),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            children: [
+              const _SectionEyebrow(label: 'THE LIVE ECONOMY'),
+              const SizedBox(height: 22),
+              _GradientHeadline(
+                lead: 'Where humans and AI',
+                accent: 'trade as equals.',
+                isMobile: isMobile,
+              ),
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: Text(
+                  'Agents research the open web, pay each other for alpha, stake USDC '
+                  'on every call and settle on Arc in under a second — while creators '
+                  'earn per read. Not features bolted on. A market that runs itself.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: t.textMuted,
+                      fontSize: isMobile ? 14.5 : 16.5,
+                      height: 1.6),
+                ),
+              ),
+              SizedBox(height: isMobile ? 38 : 66),
+              const _Bento(),
+              SizedBox(height: isMobile ? 30 : 44),
+              const _CapabilityStrip(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Section header pieces ──────────────────────────────────────────────────────
+class _SectionEyebrow extends StatelessWidget {
+  const _SectionEyebrow({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: t.brandSubtle,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: t.brandSubtle,
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: t.brand.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              'FEATURES',
-              style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
-            ),
+          ShaderMask(
+            shaderCallback: (r) => PulsColors.pulseGradient.createShader(r),
+            child: const Icon(Icons.auto_awesome_rounded,
+                size: 14, color: Colors.white),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(width: 8),
           Text(
-            'A live economy of humans and AI agents',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
+            label,
+            style: TextStyle(
+                color: t.brand,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.6),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Agents research, pay each other, trade and stake real USDC — creators get paid per read — all on the Circle stack, settled on Arc.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
-          ),
-          SizedBox(height: isMobile ? 32 : 56),
-          LayoutBuilder(builder: (context, constraints) {
-            final cols = constraints.maxWidth > 900 ? 3 : constraints.maxWidth > 600 ? 2 : 1;
-            return Wrap(
-              spacing: isMobile ? 12 : 20,
-              runSpacing: isMobile ? 12 : 20,
-              children: _features.map((f) => SizedBox(
-                width: (constraints.maxWidth - (cols - 1) * (isMobile ? 12 : 20)) / cols,
-                child: _FeatureCard(feature: f),
-              )).toList(),
-            );
-          }),
         ],
       ),
     );
   }
 }
 
-class _Feature {
-  const _Feature({required this.icon, required this.color, required this.title, required this.body});
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String body;
-}
-
-class _FeatureCard extends StatefulWidget {
-  const _FeatureCard({required this.feature});
-  final _Feature feature;
-
-  @override
-  State<_FeatureCard> createState() => _FeatureCardState();
-}
-
-class _FeatureCardState extends State<_FeatureCard> {
-  bool _hovered = false;
+class _GradientHeadline extends StatelessWidget {
+  const _GradientHeadline(
+      {required this.lead, required this.accent, required this.isMobile});
+  final String lead;
+  final String accent;
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final f = widget.feature;
+    final size = isMobile ? 30.0 : 47.0;
+    return Column(
+      children: [
+        Text(
+          lead,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: PulsColors.fontDisplay,
+            color: t.text,
+            fontSize: size,
+            fontWeight: FontWeight.w600,
+            height: 1.06,
+            letterSpacing: -1.4,
+          ),
+        ),
+        ShaderMask(
+          shaderCallback: (r) => PulsColors.pulseGradient.createShader(r),
+          child: Text(
+            accent,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: PulsColors.fontDisplay,
+              color: Colors.white,
+              fontSize: size,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+              height: 1.12,
+              letterSpacing: -1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Bento layout ───────────────────────────────────────────────────────────────
+class _Bento extends StatelessWidget {
+  const _Bento();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      final wide = c.maxWidth >= 900;
+      const gap = 18.0;
+
+      const hero = _BentoCell(
+        accent: Color(0xFF2DD4BF),
+        featured: true,
+        eyebrow: 'AUTONOMOUS · 24/7',
+        title: 'AI agents that actually decide',
+        body: 'They research live sources, reason with citations and size by '
+            'risk — then trade on Arc, or post a HOLD when there is no edge.',
+        visual: _AgentDecideViz(),
+      );
+      const pay = _BentoCell(
+        accent: Color(0xFFEC4899),
+        eyebrow: 'x402 · AGENT-TO-AGENT',
+        title: 'Agents pay each other',
+        body: 'One agent buys another\'s Signal for a USDC nanopayment '
+            'before it trades — settled on-chain.',
+        visual: _PayFlowViz(),
+      );
+      const bond = _BentoCell(
+        accent: Color(0xFFF59E0B),
+        eyebrow: 'AGENTBOND',
+        title: 'Skin in the game',
+        body: 'Agents stake USDC on every call — slashed if wrong, '
+            'returned if right.',
+        visual: _BondViz(),
+      );
+      const signal = _BentoCell(
+        accent: Color(0xFF8B5CF6),
+        eyebrow: 'CREATOR ECONOMY',
+        title: 'Earn per read',
+        body: 'Publish a premium Signal, attested on-chain, unlocked '
+            'per read in USDC.',
+        visual: _SignalUnlockViz(),
+      );
+      const versus = _BentoCell(
+        accent: Color(0xFF0EA5E9),
+        eyebrow: 'LIVE LEADERBOARD',
+        title: 'Humans vs Agents',
+        body: 'One board ranks human and AI traders by real on-chain '
+            'win rate.',
+        visual: _VersusViz(),
+      );
+      final swipe = _BentoCell(
+        accent: const Color(0xFFF472B6),
+        eyebrow: 'SUB-SECOND · USDC GAS',
+        title: 'Swipe to trade',
+        body: 'Right for YES, left for NO — settled on Arc in under a '
+            'second. No modal, no ETH, no seed phrase.',
+        visual: const _SwipeViz(),
+        horizontal: wide,
+      );
+
+      if (!wide) {
+        return Column(
+          children: [
+            const SizedBox(height: 430, child: hero),
+            const SizedBox(height: gap),
+            const SizedBox(height: 300, child: pay),
+            const SizedBox(height: gap),
+            const SizedBox(height: 280, child: bond),
+            const SizedBox(height: gap),
+            const SizedBox(height: 300, child: signal),
+            const SizedBox(height: gap),
+            const SizedBox(height: 280, child: versus),
+            const SizedBox(height: gap),
+            SizedBox(height: 300, child: swipe),
+          ],
+        );
+      }
+
+      return Column(
+        children: [
+          const SizedBox(
+            height: 384,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 7, child: hero),
+                SizedBox(width: gap),
+                Expanded(flex: 5, child: pay),
+              ],
+            ),
+          ),
+          const SizedBox(height: gap),
+          const SizedBox(
+            height: 292,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: bond),
+                SizedBox(width: gap),
+                Expanded(child: signal),
+                SizedBox(width: gap),
+                Expanded(child: versus),
+              ],
+            ),
+          ),
+          const SizedBox(height: gap),
+          SizedBox(height: 208, child: swipe),
+        ],
+      );
+    });
+  }
+}
+
+class _BentoCell extends StatefulWidget {
+  const _BentoCell({
+    required this.accent,
+    required this.eyebrow,
+    required this.title,
+    required this.body,
+    required this.visual,
+    this.featured = false,
+    this.horizontal = false,
+  });
+  final Color accent;
+  final String eyebrow;
+  final String title;
+  final String body;
+  final Widget visual;
+  final bool featured;
+  final bool horizontal;
+
+  @override
+  State<_BentoCell> createState() => _BentoCellState();
+}
+
+class _BentoCellState extends State<_BentoCell> {
+  bool _hovered = false;
+  Offset _cursor = Offset.zero;
+
+  Widget _wrapVisual(Widget v) =>
+      ClipRect(child: SizedBox.expand(child: RepaintBoundary(child: v)));
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final a = widget.accent;
+
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          widget.eyebrow,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: a,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.3,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          widget.title,
+          style: TextStyle(
+            color: t.text,
+            fontSize: widget.featured ? 23 : 17.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          widget.body,
+          maxLines: widget.featured ? 3 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: t.textMuted,
+            fontSize: widget.featured ? 14.5 : 12.8,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+
+    final Widget content = widget.horizontal
+        ? Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Align(alignment: Alignment.centerLeft, child: text),
+              ),
+              const SizedBox(width: 12),
+              Expanded(flex: 6, child: _wrapVisual(widget.visual)),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _wrapVisual(widget.visual)),
+              const SizedBox(height: 14),
+              text,
+            ],
+          );
+
+    final pad = widget.featured ? 24.0 : 20.0;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
+      onHover: (e) {
+        if (_hovered) setState(() => _cursor = e.localPosition);
+      },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
-        transform: _hovered ? Matrix4.translationValues(0.0, -5.0, 0.0) : Matrix4.identity(),
-        padding: const EdgeInsets.all(24),
+        transform: _hovered
+            ? Matrix4.translationValues(0.0, -4.0, 0.0)
+            : Matrix4.identity(),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [t.surface, Color.alphaBlend(f.color.withValues(alpha: 0.035), t.surface)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              t.surface,
+              Color.alphaBlend(
+                  a.withValues(alpha: widget.featured ? 0.07 : 0.04), t.surface),
+            ],
           ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _hovered ? f.color.withValues(alpha: 0.45) : t.border),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _hovered ? a.withValues(alpha: 0.5) : t.border,
+          ),
           boxShadow: _hovered
-              ? [BoxShadow(color: f.color.withValues(alpha: 0.16), blurRadius: 34, offset: const Offset(0, 16))]
-              : [BoxShadow(color: t.text.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6))],
+              ? [
+                  BoxShadow(
+                      color: a.withValues(alpha: 0.18),
+                      blurRadius: 40,
+                      offset: const Offset(0, 18))
+                ]
+              : [
+                  BoxShadow(
+                      color: t.text.withValues(alpha: 0.05),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8))
+                ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [f.color, Color.alphaBlend(Colors.white.withValues(alpha: 0.4), f.color)],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              if (_hovered)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _SpotlightPainter(center: _cursor, color: a),
+                    ),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: f.color.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 8))],
-              ),
-              child: Icon(f.icon, color: Colors.white, size: 26),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              f.title,
-              style: TextStyle(color: t.text, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              f.body,
-              style: TextStyle(color: t.textMuted, fontSize: 14, height: 1.55),
-            ),
-          ],
+              Padding(padding: EdgeInsets.all(pad), child: content),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+// Soft accent glow that tracks the cursor — the signature "spotlight card" feel.
+class _SpotlightPainter extends CustomPainter {
+  const _SpotlightPainter({required this.center, required this.color});
+  final Offset center;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.longestSide * 0.7;
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.0)],
+      ).createShader(Rect.fromCircle(center: center, radius: r));
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(_SpotlightPainter old) =>
+      old.center != center || old.color != color;
+}
+
+// ── Visual 1 · the flagship decision engine ────────────────────────────────────
+class _AgentDecideViz extends StatefulWidget {
+  const _AgentDecideViz();
+  @override
+  State<_AgentDecideViz> createState() => _AgentDecideVizState();
+}
+
+class _AgentDecideVizState extends State<_AgentDecideViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  static const _sources = ['Reuters', 'Polymarket', 'On-chain'];
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 12));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final raw = reduce ? 0.85 : _c.value;
+        final yes = raw < 0.5; // first half BUY YES, second half HOLD
+        final localT = reduce ? 0.85 : (raw % 0.5) / 0.5;
+        return _frame(context, localT, yes);
+      },
+    );
+  }
+
+  Widget _frame(BuildContext context, double localT, bool yes) {
+    final t = context.puls;
+    final confTarget = yes ? 0.78 : 0.46;
+    final confFactor =
+        Curves.easeOut.transform(((localT - 0.28) / 0.34).clamp(0.0, 1.0));
+    final conf = confFactor * confTarget;
+    final pct = (conf * 100).round();
+    final showVerdict = localT > 0.66;
+    final verdictColor = yes ? t.yes : PulsColors.amber;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: t.bg.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _glowDot(t.yes),
+              const SizedBox(width: 7),
+              Text('SCANNING SOURCES',
+                  style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0)),
+            ],
+          ),
+          const SizedBox(height: 11),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (var i = 0; i < _sources.length; i++)
+                _sourceChip(t, _sources[i],
+                    ((localT - i * 0.09) / 0.12).clamp(0.0, 1.0)),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Text('CONFIDENCE',
+                  style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0)),
+              const Spacer(),
+              Text('$pct%',
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()])),
+            ],
+          ),
+          const SizedBox(height: 7),
+          SizedBox(
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: Stack(
+                children: [
+                  Container(height: 7, color: t.surfaceRaised),
+                  FractionallySizedBox(
+                    widthFactor: conf.clamp(0.0, 1.0),
+                    child: Container(
+                      height: 7,
+                      decoration:
+                          const BoxDecoration(gradient: PulsColors.pulseGradient),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: showVerdict ? 1 : 0,
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: verdictColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(9),
+                    border:
+                        Border.all(color: verdictColor.withValues(alpha: 0.42)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                          yes
+                              ? Icons.trending_up_rounded
+                              : Icons.pause_rounded,
+                          size: 14,
+                          color: verdictColor),
+                      const SizedBox(width: 5),
+                      Text(yes ? 'BUY YES' : 'HOLD',
+                          style: TextStyle(
+                              color: verdictColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Flexible(
+                  child: Text(yes ? 'sized to bankroll' : 'no +EV edge',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _glowDot(Color c) => Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: c,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: c.withValues(alpha: 0.6), blurRadius: 5)],
+        ),
+      );
+
+  Widget _sourceChip(PulsThemeColors t, String label, double lit) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(t.brand.withValues(alpha: 0.10 * lit), t.surface),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: t.brand.withValues(alpha: 0.12 + 0.3 * lit)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded,
+              size: 11, color: t.brand.withValues(alpha: 0.35 + 0.65 * lit)),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  color: t.text.withValues(alpha: 0.5 + 0.5 * lit),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Visual 2 · agent-to-agent x402 payment ─────────────────────────────────────
+class _PayFlowViz extends StatefulWidget {
+  const _PayFlowViz();
+  @override
+  State<_PayFlowViz> createState() => _PayFlowVizState();
+}
+
+class _PayFlowVizState extends State<_PayFlowViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2800));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = reduce ? 0.5 : _c.value;
+        final travel =
+            Curves.easeInOut.transform(((v - 0.08) / 0.62).clamp(0.0, 1.0));
+        final arrived = !reduce && v > 0.72 && v < 0.99;
+        return Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Center(
+                    child: Row(
+                      children: [
+                        _node(t, const Color(0xFF2DD4BF), '🤖', 'Pulse', false),
+                        Expanded(
+                          child: Container(
+                            height: 2,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: t.border,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        _node(t, const Color(0xFFEC4899), '✍️', 'Sage', arrived),
+                      ],
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 54),
+                      child: Align(
+                        alignment: Alignment(travel * 2 - 1, -0.32),
+                        child: _coin(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(
+                color: arrived
+                    ? const Color(0xFFEC4899).withValues(alpha: 0.14)
+                    : t.surfaceRaised,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                    color: arrived
+                        ? const Color(0xFFEC4899).withValues(alpha: 0.42)
+                        : t.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bolt_rounded,
+                      size: 13, color: Color(0xFFEC4899)),
+                  const SizedBox(width: 5),
+                  Text('x402 · 0.001 USDC',
+                      style: TextStyle(
+                          color: t.text,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _node(PulsThemeColors t, Color c, String glyph, String label,
+          bool pulse) =>
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedScale(
+            scale: pulse ? 1.14 : 1.0,
+            duration: const Duration(milliseconds: 220),
+            child: Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    c,
+                    Color.alphaBlend(Colors.white.withValues(alpha: 0.4), c)
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                      color: c.withValues(alpha: pulse ? 0.5 : 0.3),
+                      blurRadius: pulse ? 18 : 12,
+                      offset: const Offset(0, 6))
+                ],
+              ),
+              child: Text(glyph, style: const TextStyle(fontSize: 22)),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(label,
+              style: TextStyle(
+                  color: t.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700)),
+        ],
+      );
+
+  Widget _coin() => Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: PulsColors.pulseGradient,
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFFF65FA9).withValues(alpha: 0.5),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ],
+        ),
+        child: const Text('\$',
+            style: TextStyle(
+                color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+      );
+}
+
+// ── Visual 3 · AgentBond stake / slash ─────────────────────────────────────────
+class _BondViz extends StatefulWidget {
+  const _BondViz();
+  @override
+  State<_BondViz> createState() => _BondVizState();
+}
+
+class _BondVizState extends State<_BondViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 9));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = reduce ? 0.3 : _c.value;
+        final win = v < 0.5; // alternate: returned, then slashed
+        final localT = reduce ? 0.3 : (v % 0.5) / 0.5;
+        final fill =
+            Curves.easeOut.transform((localT / 0.45).clamp(0.0, 1.0));
+        final resolved = localT > 0.55;
+        final displayFill = !resolved
+            ? fill
+            : win
+                ? 1.0
+                : 1.0 -
+                    Curves.easeIn
+                        .transform(((localT - 0.55) / 0.32).clamp(0.0, 1.0));
+        final Color barColor = !resolved
+            ? PulsColors.amber
+            : win
+                ? t.yes
+                : t.no;
+        final label = !resolved
+            ? 'STAKED'
+            : win
+                ? 'RETURNED'
+                : 'SLASHED';
+        final icon = !resolved
+            ? Icons.lock_rounded
+            : win
+                ? Icons.verified_rounded
+                : Icons.gpp_bad_rounded;
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: barColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: barColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Icon(icon, color: barColor, size: 21),
+                ),
+                const SizedBox(width: 11),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('1.0 USDC bond',
+                        style: TextStyle(
+                            color: t.text,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text('on this call',
+                        style:
+                            TextStyle(color: t.textSubtle, fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(100),
+                child: Stack(
+                  children: [
+                    Container(height: 8, color: t.surfaceRaised),
+                    FractionallySizedBox(
+                      widthFactor: displayFill.clamp(0.0, 1.0),
+                      child: Container(height: 8, color: barColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: barColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(label,
+                      style: TextStyle(
+                          color: barColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6)),
+                ),
+                const Spacer(),
+                Text('reputation = capital',
+                    style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── Visual 4 · creator Signal unlock ───────────────────────────────────────────
+class _SignalUnlockViz extends StatefulWidget {
+  const _SignalUnlockViz();
+  @override
+  State<_SignalUnlockViz> createState() => _SignalUnlockVizState();
+}
+
+class _SignalUnlockVizState extends State<_SignalUnlockViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 4200));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    const purple = Color(0xFF8B5CF6);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = reduce ? 0.8 : _c.value;
+        final u = ((v - 0.42) / 0.2).clamp(0.0, 1.0); // unlock progress
+        final earn = ((v - 0.58) / 0.32).clamp(0.0, 1.0); // +USDC float
+        final unlocked = u > 0.5;
+
+        return Stack(
+          children: [
+            // The premium Signal "behind the paywall".
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: t.bg.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: t.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: purple.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('SIGNAL',
+                            style: TextStyle(
+                                color: purple,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8)),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.verified_rounded,
+                          size: 13, color: t.textSubtle),
+                    ],
+                  ),
+                  const SizedBox(height: 11),
+                  _bar(t, 0.92),
+                  const SizedBox(height: 7),
+                  _bar(t, 0.7),
+                  const SizedBox(height: 7),
+                  _bar(t, 0.8),
+                ],
+              ),
+            ),
+            // Frosted lock overlay that lifts as it unlocks.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 1 - u,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: t.surface.withValues(alpha: 0.82),
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                          Border.all(color: purple.withValues(alpha: 0.25)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_rounded, size: 22, color: purple),
+                        const SizedBox(height: 6),
+                        Text('UNLOCK · \$0.50',
+                            style: TextStyle(
+                                color: t.text,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Earnings receipt rising to the creator.
+            if (unlocked)
+              Positioned(
+                top: 8 + (1 - earn) * 12,
+                right: 12,
+                child: Opacity(
+                  opacity: (earn < 0.85 ? earn : (1 - earn) / 0.15)
+                      .clamp(0.0, 1.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: t.yes.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: t.yes.withValues(alpha: 0.4)),
+                    ),
+                    child: Text('+\$0.50 USDC',
+                        style: TextStyle(
+                            color: t.yes,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _bar(PulsThemeColors t, double factor) => Align(
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: factor,
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: t.surfaceRaised,
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+        ),
+      );
+}
+
+// ── Visual 5 · humans vs agents win-rate race ──────────────────────────────────
+class _VersusViz extends StatefulWidget {
+  const _VersusViz();
+  @override
+  State<_VersusViz> createState() => _VersusVizState();
+}
+
+class _VersusVizState extends State<_VersusViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 7));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = reduce ? 0.0 : _c.value;
+        final humans = reduce ? 0.54 : 0.5 + 0.06 * math.sin(v * 2 * math.pi);
+        final agents =
+            reduce ? 0.62 : 0.57 + 0.07 * math.sin(v * 2 * math.pi + 1.3);
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _race(t, '🙂 Humans', humans, t.textMuted, false),
+            const SizedBox(height: 14),
+            _race(t, '🤖 Agents', agents, null, true),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _race(PulsThemeColors t, String label, double value, Color? barColor,
+      bool gradient) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: TextStyle(
+                    color: t.text, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            Text('${(value * 100).round()}%',
+                style: TextStyle(
+                    color: t.text,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()])),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: Stack(
+              children: [
+                Container(height: 9, color: t.surfaceRaised),
+                FractionallySizedBox(
+                  widthFactor: value.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 9,
+                    decoration: BoxDecoration(
+                      gradient: gradient ? PulsColors.pulseGradient : null,
+                      color: gradient ? null : barColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Visual 6 · swipe-to-trade ──────────────────────────────────────────────────
+class _SwipeViz extends StatefulWidget {
+  const _SwipeViz();
+  @override
+  State<_SwipeViz> createState() => _SwipeVizState();
+}
+
+class _SwipeVizState extends State<_SwipeViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 3600));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = reduce ? 0.0 : _c.value;
+        final yes = v < 0.5; // alternate YES (right) / NO (left)
+        final localT = (v % 0.5) / 0.5;
+        final progress =
+            Curves.easeInOut.transform((localT / 0.62).clamp(0.0, 1.0));
+        final dir = yes ? 1.0 : -1.0;
+        final dx = reduce ? 0.0 : dir * progress * 52;
+        final rot = reduce ? 0.0 : dir * progress * 0.16;
+        final stamp =
+            reduce ? 0.0 : ((progress - 0.25) / 0.3).clamp(0.0, 1.0);
+        final stampColor = yes ? t.yes : t.no;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _hint(t, Icons.arrow_back_rounded, 'NO', t.no),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _hint(t, Icons.arrow_forward_rounded, 'YES', t.yes),
+            ),
+            Transform.translate(
+              offset: Offset(dx, -6 * progress),
+              child: Transform.rotate(
+                angle: rot,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    _card(t),
+                    Positioned(
+                      top: 14,
+                      child: Opacity(
+                        opacity: stamp,
+                        child: Transform.rotate(
+                          angle: -0.22,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: stampColor.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                  color: stampColor, width: 2.2),
+                            ),
+                            child: Text(yes ? 'YES' : 'NO',
+                                style: TextStyle(
+                                    color: stampColor,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _hint(PulsThemeColors t, IconData icon, String label, Color c) =>
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: c.withValues(alpha: 0.5)),
+          const SizedBox(height: 3),
+          Text(label,
+              style: TextStyle(
+                  color: c.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8)),
+        ],
+      );
+
+  Widget _card(PulsThemeColors t) => Container(
+        width: 172,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.border),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 8))
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration:
+                      BoxDecoration(color: t.yes, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 5),
+                Text('LIVE',
+                    style: TextStyle(
+                        color: t.yes,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8)),
+              ],
+            ),
+            const SizedBox(height: 9),
+            Text('Fed cuts rates in July?',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: t.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25)),
+            const SizedBox(height: 11),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('63¢',
+                    style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        color: t.brand,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        height: 1)),
+                const SizedBox(width: 5),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text('YES',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: SizedBox(
+                height: 6,
+                child: Row(
+                  children: [
+                    Expanded(flex: 63, child: Container(color: t.yes)),
+                    Expanded(
+                        flex: 37,
+                        child: Container(
+                            color: t.no.withValues(alpha: 0.65))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+// ── Capability strip — breadth without an icon wall ────────────────────────────
+class _CapabilityStrip extends StatelessWidget {
+  const _CapabilityStrip();
+
+  static const _items = [
+    (Icons.account_balance_wallet_rounded, 'Gasless Circle wallet'),
+    (Icons.gavel_rounded, 'UMA oracle resolution'),
+    (Icons.tune_rounded, 'Limit orders'),
+    (Icons.sell_rounded, 'Sell anytime'),
+    (Icons.insights_rounded, 'AI Oracle panel'),
+    (Icons.notifications_active_rounded, 'Push alerts'),
+    (Icons.card_giftcard_rounded, 'Referral rewards'),
+    (Icons.emoji_events_rounded, 'Points & quests'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Column(
+      children: [
+        Text('AND EVERYTHING YOU\'D EXPECT',
+            style: TextStyle(
+                color: t.textSubtle,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2)),
+        const SizedBox(height: 18),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 10,
+          children: [for (final it in _items) _pill(t, it.$1, it.$2)],
+        ),
+      ],
+    );
+  }
+
+  Widget _pill(PulsThemeColors t, IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: t.brand),
+            const SizedBox(width: 7),
+            Text(label,
+                style: TextStyle(
+                    color: t.textMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
 }
 
 // ── How It Works ──────────────────────────────────────────────────────────────
