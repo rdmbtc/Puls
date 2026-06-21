@@ -288,6 +288,15 @@ class WalletService extends ChangeNotifier {
 
   // ── Trade ─────────────────────────────────────────────────────────────────
 
+  /// Fire-and-forget: deploy the market's on-chain LMSR contract ahead of a
+  /// trade (e.g. when its detail screen opens) so the user's first buy/sell
+  /// doesn't wait on a cold deploy. Server-side no-op if already deployed.
+  void prewarmMarket(String slug, int deadline) {
+    if (slug.isEmpty) return;
+    _post('/api/market/activate', {'slug': slug, 'deadline': deadline})
+        .then((_) {}, onError: (_) {});
+  }
+
   Future<Map<String, dynamic>> buyPosition({
     required bool isYes,
     required double usdcAmount,
