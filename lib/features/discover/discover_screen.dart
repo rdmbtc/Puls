@@ -10,6 +10,7 @@ import '../../core/widgets/puls_page_route.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/trade_math.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -96,6 +97,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         appState.feedStatus == FeedStatus.loading && appState.markets.isEmpty;
     final hasFilters = _query.isNotEmpty || _category != 'All';
 
+    // Spotlight the single highest-volume market as a featured hero — only when
+    // the user hasn't narrowed things down with a search or category.
+    final Market? featured =
+        (!hasFilters && !isInitialLoading && markets.isNotEmpty)
+            ? (markets.toList()
+                  ..sort((a, b) => b.volume24hr.compareTo(a.volume24hr)))
+                .first
+            : null;
+    final gridMarkets = featured == null
+        ? markets
+        : markets.where((m) => m.id != featured.id).toList();
+
     final header = SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -119,7 +132,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       child: Image.asset('assets/logo.png', fit: BoxFit.cover),
                     ),
                   ],
-                  Text('Discover',
+                  AnimatedGradientText('Discover',
+                      textAlign: TextAlign.left,
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                             fontWeight: FontWeight.w900,
                             letterSpacing: -1.0,
@@ -140,7 +154,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     child: Container(
                       height: 38,
                       padding:
-                          EdgeInsets.symmetric(horizontal: kIsWeb ? 12 : 9),
+                          const EdgeInsets.symmetric(horizontal: kIsWeb ? 12 : 9),
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         color: t.brandSubtle,
@@ -244,14 +258,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: sel ? t.brand : t.surface,
+                          gradient: sel ? PulsColors.pulseGradient : null,
+                          color: sel ? null : t.surface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: sel ? t.brand : t.border),
+                          border: Border.all(
+                              color: sel ? Colors.transparent : t.border),
                           boxShadow: [
                             if (sel)
                               BoxShadow(
-                                color: t.brand.withValues(alpha: 0.25),
-                                blurRadius: 12,
+                                color: t.brand.withValues(alpha: 0.3),
+                                blurRadius: 14,
                                 offset: const Offset(0, 4),
                               ),
                           ],
@@ -277,11 +293,27 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            if (featured != null) ...[
+              _FeaturedLabel(t: t),
+              const SizedBox(height: 12),
+              _FeaturedMarketCard(
+                market: featured,
+                t: t,
+                isWatchlisted: appState.isWatchlisted(featured.id),
+                onWatchlist: () => appState.toggleWatchlist(featured.id),
+                onTap: () => Navigator.of(context).push(
+                  pulsRoute(context,
+                      builder: (_) =>
+                          MarketDetailScreen(marketId: featured.id)),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
             FadeIn(
               delay: const Duration(milliseconds: 160),
               child: Row(
                 children: [
-                  Text('Trending Markets',
+                  Text(featured != null ? 'More markets' : 'Trending Markets',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           )),
@@ -360,21 +392,21 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final listSliver = SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
       sliver: SliverList.builder(
-        itemCount: markets.length,
+        itemCount: gridMarkets.length,
         itemBuilder: (context, i) => FadeInUp(
           delay: Duration(milliseconds: 100 + i * 40),
           duration: const Duration(milliseconds: 300),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _MarketCard(
-              market: markets[i],
+              market: gridMarkets[i],
               t: t,
-              isWatchlisted: appState.isWatchlisted(markets[i].id),
-              onWatchlist: () => appState.toggleWatchlist(markets[i].id),
+              isWatchlisted: appState.isWatchlisted(gridMarkets[i].id),
+              onWatchlist: () => appState.toggleWatchlist(gridMarkets[i].id),
               onTap: () => Navigator.of(context).push(
                 pulsRoute(
                   context,
-                  builder: (_) => MarketDetailScreen(marketId: markets[i].id),
+                  builder: (_) => MarketDetailScreen(marketId: gridMarkets[i].id),
                 ),
               ),
             ),
@@ -392,19 +424,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           mainAxisSpacing: 16,
           childAspectRatio: 1.45,
         ),
-        itemCount: markets.length,
+        itemCount: gridMarkets.length,
         itemBuilder: (context, i) => FadeInUp(
           delay: Duration(milliseconds: 50 + i * 30),
           duration: const Duration(milliseconds: 250),
           child: _MarketCard(
-            market: markets[i],
+            market: gridMarkets[i],
             t: t,
-            isWatchlisted: appState.isWatchlisted(markets[i].id),
-            onWatchlist: () => appState.toggleWatchlist(markets[i].id),
+            isWatchlisted: appState.isWatchlisted(gridMarkets[i].id),
+            onWatchlist: () => appState.toggleWatchlist(gridMarkets[i].id),
             onTap: () => Navigator.of(context).push(
               pulsRoute(
                 context,
-                builder: (_) => MarketDetailScreen(marketId: markets[i].id),
+                builder: (_) => MarketDetailScreen(marketId: gridMarkets[i].id),
               ),
             ),
           ),
@@ -538,7 +570,33 @@ class _MarketCardState extends State<_MarketCard> {
                           ),
                         ),
                       ),
+                      if (market.createdByAgent) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('🤖 AGENT',
+                              style: TextStyle(
+                                  color: Color(0xFF8B5CF6),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.4)),
+                        ),
+                      ],
                       const Spacer(),
+                      if (market.volume.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text('Vol ${market.volume}',
+                              style: TextStyle(
+                                  color: t.textSubtle,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
                       GestureDetector(
                         onTap: widget.onWatchlist,
                         child: Container(
@@ -669,6 +727,378 @@ class _MarketCardState extends State<_MarketCard> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Featured market hero ──────────────────────────────────────────────────────
+class _FeaturedLabel extends StatelessWidget {
+  const _FeaturedLabel({required this.t});
+  final PulsThemeColors t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ShaderMask(
+          shaderCallback: (r) => PulsColors.pulseGradient.createShader(r),
+          child: const Icon(Icons.auto_awesome_rounded,
+              size: 16, color: Colors.white),
+        ),
+        const SizedBox(width: 8),
+        Text('FEATURED MARKET',
+            style: TextStyle(
+                color: t.brand,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text('· highest volume right now',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: t.textSubtle, fontSize: 12)),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeaturedMarketCard extends StatefulWidget {
+  const _FeaturedMarketCard({
+    required this.market,
+    required this.t,
+    required this.isWatchlisted,
+    required this.onWatchlist,
+    required this.onTap,
+  });
+
+  final Market market;
+  final PulsThemeColors t;
+  final bool isWatchlisted;
+  final VoidCallback onWatchlist;
+  final VoidCallback onTap;
+
+  @override
+  State<_FeaturedMarketCard> createState() => _FeaturedMarketCardState();
+}
+
+class _FeaturedMarketCardState extends State<_FeaturedMarketCard> {
+  bool _hovered = false;
+  List<double> _spark = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final p = await PriceHistoryService.fetch(widget.market.clobTokenId);
+    if (mounted) {
+      setState(() {
+        _spark = p;
+        _loading = false;
+      });
+    }
+  }
+
+  String _endsIn(DateTime d) {
+    final diff = d.difference(DateTime.now());
+    if (diff.isNegative) return 'Closed';
+    if (diff.inDays >= 1) return '${diff.inDays}d';
+    if (diff.inHours >= 1) return '${diff.inHours}h';
+    return '${diff.inMinutes}m';
+  }
+
+  Widget _stat(PulsThemeColors t, String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  color: t.text, fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: t.textSubtle, fontSize: 11)),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final m = widget.market;
+    final up = m.trendIsPositive;
+    final trendColor = up ? t.yes : t.no;
+    final trendBg = up ? t.yesBg : t.noBg;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(0, _hovered ? -4.0 : 0.0, 0),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.alphaBlend(t.brand.withValues(alpha: 0.10), t.surface),
+                t.surfaceRaised,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: _hovered
+                  ? t.brand.withValues(alpha: 0.5)
+                  : t.brand.withValues(alpha: 0.25),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: t.brand.withValues(alpha: _hovered ? 0.20 : 0.10),
+                blurRadius: _hovered ? 34 : 18,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: t.brandSubtle,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(m.category.toUpperCase(),
+                        style: TextStyle(
+                            color: t.brand,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5)),
+                  ),
+                  if (m.createdByAgent) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('🤖 AGENT',
+                          style: TextStyle(
+                              color: Color(0xFF8B5CF6),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4)),
+                    ),
+                  ],
+                  const Spacer(),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: trendBg,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                        '${up ? '+' : ''}${TradeMath.formatPercent(m.trend)}',
+                        style: TextStyle(
+                            color: trendColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11)),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: widget.onWatchlist,
+                    child: Icon(
+                      widget.isWatchlisted
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      size: 20,
+                      color:
+                          widget.isWatchlisted ? PulsColors.amber : t.textSubtle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (m.imageUrl.isNotEmpty) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        m.imageUrl,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 52,
+                          height: 52,
+                          color: t.brandSubtle,
+                          child: Icon(Icons.show_chart_rounded,
+                              color: t.brand, size: 24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                  ],
+                  Expanded(
+                    child: Text(m.question,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: t.text,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            height: 1.3,
+                            letterSpacing: -0.3)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 56,
+                child: _loading
+                    ? const SizedBox.shrink()
+                    : _spark.length >= 2
+                        ? _MiniSparkline(prices: _spark, isUp: up)
+                        : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _stat(t, 'Volume', m.volume.isEmpty ? '—' : m.volume),
+                  Container(
+                      width: 1,
+                      height: 28,
+                      margin: const EdgeInsets.symmetric(horizontal: 18),
+                      color: t.border),
+                  _stat(t, 'Liquidity', m.liquidity.isEmpty ? '—' : m.liquidity),
+                  Container(
+                      width: 1,
+                      height: 28,
+                      margin: const EdgeInsets.symmetric(horizontal: 18),
+                      color: t.border),
+                  _stat(t, 'Ends in', _endsIn(m.deadline)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _BigBuy(
+                      label: 'YES',
+                      price: TradeMath.formatPrice(m.yesPrice),
+                      bg: t.yesBg,
+                      fg: t.yes,
+                      onPressed: () => showTradePreviewSheet(
+                        context: context,
+                        market: m,
+                        side: MarketSide.yes,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _BigBuy(
+                      label: 'NO',
+                      price: TradeMath.formatPrice(m.noPrice),
+                      bg: t.noBg,
+                      fg: t.no,
+                      onPressed: () => showTradePreviewSheet(
+                        context: context,
+                        market: m,
+                        side: MarketSide.no,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BigBuy extends StatefulWidget {
+  const _BigBuy({
+    required this.label,
+    required this.price,
+    required this.bg,
+    required this.fg,
+    required this.onPressed,
+  });
+  final String label;
+  final String price;
+  final Color bg;
+  final Color fg;
+  final VoidCallback onPressed;
+
+  @override
+  State<_BigBuy> createState() => _BigBuyState();
+}
+
+class _BigBuyState extends State<_BigBuy> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: widget.fg.withValues(alpha: _hover ? 0.6 : 0.3)),
+            boxShadow: _hover
+                ? [
+                    BoxShadow(
+                        color: widget.fg.withValues(alpha: 0.2),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4))
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(widget.label,
+                  style: TextStyle(
+                      color: widget.fg,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900)),
+              const SizedBox(width: 8),
+              Text(widget.price,
+                  style: TextStyle(
+                      color: widget.fg.withValues(alpha: 0.8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ],
           ),
         ),
       ),

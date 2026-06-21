@@ -14,6 +14,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
@@ -279,7 +280,26 @@ class _FeedHeader extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Puls Feed', style: Theme.of(context).textTheme.titleMedium),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Puls ',
+                      style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        color: t.text,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      )),
+                  const AnimatedGradientText('Feed',
+                      style: TextStyle(
+                        fontFamily: PulsColors.fontDisplay,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      )),
+                ],
+              ),
               Text('Swipe to choose your side',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 12,
@@ -1042,23 +1062,37 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final selected = _selectedCategory == category;
     return InkWell(
       onTap: () => setState(() => _selectedCategory = category),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? t.brandSubtle : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          gradient: selected ? PulsColors.pulseGradient : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: t.brand.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
+            Text(_feedCategoryEmoji(category),
+                style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: selected ? t.brand : t.text,
+                  color: selected ? Colors.white : t.text,
                   fontSize: 13,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1067,15 +1101,15 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: selected ? t.brand.withValues(alpha: 0.2) : t.border,
+                color: selected ? Colors.white.withValues(alpha: 0.25) : t.border,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 count.toString(),
                 style: TextStyle(
-                  color: selected ? t.brand : t.textMuted,
+                  color: selected ? Colors.white : t.textMuted,
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -1235,23 +1269,37 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: t.yes,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
+                        PulseDot(
+                            size: 6,
+                            color: _isWebSocketConnected
+                                ? t.yes
+                                : PulsColors.amber),
+                        const SizedBox(width: 4),
                         Text(
-                          'LIVE BETTING FEED',
+                          _isWebSocketConnected
+                              ? 'STREAMING LIVE'
+                              : 'LIVE FEED',
                           style: TextStyle(
                             color: t.textMuted,
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.0,
                           ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: t.bg,
+                            borderRadius: BorderRadius.circular(100),
+                            border: Border.all(color: t.border),
+                          ),
+                          child: Text('${_activities.length}',
+                              style: TextStyle(
+                                  color: t.textMuted,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
@@ -1263,8 +1311,9 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                               key: _listKey,
                               initialItemCount: _activities.length,
                               itemBuilder: (context, index, animation) {
-                                if (index >= _activities.length)
+                                if (index >= _activities.length) {
                                   return const SizedBox.shrink();
+                                }
                                 final act = _activities[index];
                                 final sideColor = act.isYes ? t.yes : t.no;
                                 final sideText = act.isYes ? 'YES' : 'NO';
@@ -1290,6 +1339,8 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     Animation<double> animation,
   ) {
     final t = widget.t;
+    // Named house/swarm agents carry an emoji in their formatted handle.
+    final isAgent = act.username.runes.any((r) => r > 0x2600);
     return FadeTransition(
       opacity: animation,
       child: SizeTransition(
@@ -1298,82 +1349,104 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
           curve: Curves.easeInOutCubic,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    act.username,
-                    style: TextStyle(
-                      color: t.brand,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    act.action,
-                    style: TextStyle(
-                      color: t.textSubtle,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    act.time,
-                    style: TextStyle(
-                      color: t.textSubtle,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isAgent
+                  ? t.brand.withValues(alpha: 0.05)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isAgent ? t.brand.withValues(alpha: 0.18) : t.border,
               ),
-              const SizedBox(height: 6),
-              Text(
-                act.question,
-                style: TextStyle(
-                  color: t.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: sideColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      sideText,
-                      style: TextStyle(
-                        color: sideColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ActivityAvatar(name: act.username, isAgent: isAgent, t: t),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              act.username,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isAgent ? t.brand : t.text,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            act.action,
+                            style:
+                                TextStyle(color: t.textSubtle, fontSize: 11.5),
+                          ),
+                          const Spacer(),
+                          Text(
+                            act.time,
+                            style: TextStyle(color: t.textSubtle, fontSize: 10),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 5),
+                      Text(
+                        act.question,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: t.text,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: sideColor.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              sideText,
+                              style: TextStyle(
+                                color: sideColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '\$${act.amount.toStringAsFixed(act.amount % 1 == 0 ? 0 : 2)}',
+                            style: TextStyle(
+                              color: t.text,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(' USDC',
+                              style: TextStyle(
+                                  color: t.textSubtle, fontSize: 10.5)),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '\$${act.amount.toStringAsFixed(act.amount % 1 == 0 ? 0 : 2)} USDC',
-                    style: TextStyle(
-                      color: t.text,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Divider(color: t.border, height: 1),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1508,6 +1581,73 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Emoji for the web category panel (mirrors Discover's mapping).
+String _feedCategoryEmoji(String? category) {
+  switch ((category ?? 'all').toLowerCase()) {
+    case 'all':
+      return '🌍';
+    case 'politics':
+      return '🗳️';
+    case 'crypto':
+      return '🪙';
+    case 'sports':
+      return '⚽';
+    case 'pop culture':
+      return '🎬';
+    case 'science':
+      return '🧪';
+    case 'tech':
+      return '💻';
+    case 'finance':
+      return '💼';
+    default:
+      return '🔮';
+  }
+}
+
+/// Avatar for a live-feed row — a gradient "bot" disc (with the agent's emoji)
+/// for named AI agents, or a neutral person disc for human wallets.
+class _ActivityAvatar extends StatelessWidget {
+  const _ActivityAvatar(
+      {required this.name, required this.isAgent, required this.t});
+  final String name;
+  final bool isAgent;
+  final PulsThemeColors t;
+
+  String get _glyph {
+    for (final r in name.runes) {
+      if (r > 0x2600) return String.fromCharCode(r);
+    }
+    final cleaned = name.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    return cleaned.isNotEmpty ? cleaned[0].toUpperCase() : '?';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: isAgent ? PulsColors.pulseGradient : null,
+        color: isAgent ? null : t.surface,
+        shape: BoxShape.circle,
+        border: isAgent ? null : Border.all(color: t.border),
+        boxShadow: isAgent
+            ? [
+                BoxShadow(
+                    color: PulsColors.brandPink.withValues(alpha: 0.3),
+                    blurRadius: 8)
+              ]
+            : null,
+      ),
+      child: isAgent
+          ? Text(_glyph, style: const TextStyle(fontSize: 15))
+          : Icon(Icons.person_rounded, size: 16, color: t.textSubtle),
     );
   }
 }
