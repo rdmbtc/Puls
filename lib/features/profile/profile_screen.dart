@@ -411,6 +411,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onChanged: (_) => appState.toggleAiOracle(),
                           ),
                         ),
+                        _Row(
+                          icon: Icons.motion_photos_paused_outlined,
+                          title: 'Reduce motion',
+                          subtitle: (appState.reduceMotionOverride ??
+                                  (MediaQuery.maybeDisableAnimationsOf(context) ?? false))
+                              ? 'Animations minimized'
+                              : 'Full animations',
+                          t: t,
+                          trailing: Switch(
+                            value: appState.reduceMotionOverride ??
+                                (MediaQuery.maybeDisableAnimationsOf(context) ?? false),
+                            activeTrackColor: t.brand,
+                            onChanged: (v) => appState.setReduceMotion(v),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -644,6 +659,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     value: appState.aiOracleEnabled,
                     activeTrackColor: t.brand,
                     onChanged: (_) => appState.toggleAiOracle(),
+                  ),
+                ),
+                _Row(
+                  icon: Icons.motion_photos_paused_outlined,
+                  title: 'Reduce motion',
+                  subtitle: (appState.reduceMotionOverride ??
+                          (MediaQuery.maybeDisableAnimationsOf(context) ?? false))
+                      ? 'Animations minimized'
+                      : 'Full animations',
+                  t: t,
+                  trailing: Switch(
+                    value: appState.reduceMotionOverride ??
+                        (MediaQuery.maybeDisableAnimationsOf(context) ?? false),
+                    activeTrackColor: t.brand,
+                    onChanged: (v) => appState.setReduceMotion(v),
                   ),
                 ),
               ],

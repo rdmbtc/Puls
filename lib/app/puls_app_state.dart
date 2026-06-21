@@ -25,11 +25,19 @@ class PulsAppState extends ChangeNotifier {
     }
     // AI Oracle Panel is opt-in (off by default) — restore the saved choice.
     aiOracleEnabled = kvGet(_kOracleKey) == 'on';
+    // Reduce-motion: null = follow the OS setting; 'on'/'off' = explicit override.
+    final savedReduceMotion = kvGet(_kReduceMotionKey);
+    if (savedReduceMotion == 'on') {
+      reduceMotionOverride = true;
+    } else if (savedReduceMotion == 'off') {
+      reduceMotionOverride = false;
+    }
     _loadMarkets();
   }
 
   static const String _kThemeKey = 'puls_theme_mode';
   static const String _kOracleKey = 'puls_ai_oracle';
+  static const String _kReduceMotionKey = 'puls_reduce_motion';
 
   final MockMarketRepository mockRepo;
   final _polymarket = PolymarketRepository();
@@ -47,6 +55,8 @@ class PulsAppState extends ChangeNotifier {
   double fastBuyAmount = 1.0;
   // AI Oracle Panel on market detail — opt-in, off by default.
   bool aiOracleEnabled = false;
+  /// Reduce-motion override: null = follow the OS setting, true/false = explicit.
+  bool? reduceMotionOverride;
 
   List<Market> get markets => List.unmodifiable(_markets);
   List<Position> get positions => List.unmodifiable(_positions);
@@ -64,6 +74,13 @@ class PulsAppState extends ChangeNotifier {
     return cats;
   }
 
+  // Rank by real Pulse engagement first (holders/trades/comments); fall back to
+  // external Polymarket volume only to order the zero-Pulse-activity tail.
+  static int _byHotness(Market a, Market b) {
+    final p = b.pulsScore.compareTo(a.pulsScore);
+    return p != 0 ? p : b.volumeNum.compareTo(a.volumeNum);
+  }
+
   /// The main feed: untraded, NON-agent markets, hottest (most trading
   /// activity) first. Agent-created markets are surfaced separately via
   /// [agentMarkets] / the "AI Agents" category.
@@ -72,7 +89,7 @@ class PulsAppState extends ChangeNotifier {
     final fresh = _markets
         .where((m) => !tradedIds.contains(m.id) && !m.createdByAgent)
         .toList()
-      ..sort((a, b) => b.hotness.compareTo(a.hotness));
+      ..sort(_byHotness);
     return fresh.isNotEmpty ? fresh : _markets;
   }
 
@@ -82,7 +99,7 @@ class PulsAppState extends ChangeNotifier {
     return _markets
         .where((m) => m.createdByAgent && !tradedIds.contains(m.id))
         .toList()
-      ..sort((a, b) => b.hotness.compareTo(a.hotness));
+      ..sort(_byHotness);
   }
 
   List<Market> get watchlistMarkets =>
@@ -160,6 +177,14 @@ class PulsAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set the reduce-motion override (true = reduce, false = full motion).
+  /// Overrides the OS "reduce motion" setting app-wide.
+  void setReduceMotion(bool value) {
+    reduceMotionOverride = value;
+    kvSet(_kReduceMotionKey, value ? 'on' : 'off');
+    notifyListeners();
+  }
+
   void setFastBuyAmount(double amount) {
     fastBuyAmount = amount;
     notifyListeners();
@@ -211,4 +236,7 @@ class PulsStateScope extends InheritedNotifier<PulsAppState> {
     assert(scope != null, 'PulsStateScope not found');
     return scope!.notifier!;
   }
+
+  static PulsAppState? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PulsStateScope>()?.notifier;
 }
