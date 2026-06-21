@@ -1376,6 +1376,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     final isAgent = act.username.runes.any((r) => r > 0x2600);
     final tappable = act.userId.isNotEmpty && !act.userId.startsWith('mock');
     return FadeTransition(
+      key: ValueKey(act.id),
       opacity: animation,
       child: SizeTransition(
         sizeFactor: CurvedAnimation(
@@ -1696,9 +1697,10 @@ class _ActivityAvatar extends StatelessWidget {
 }
 
 /// Wraps a live-feed activity row: hover highlight + tap-to-open the trader's
-/// profile (the same UserProfileScreen used in the Creators hub). Non-tappable
-/// (no hover/cursor) for mock fallback rows that have no real userId.
-class _ActivityRowCard extends StatefulWidget {
+/// profile (the same UserProfileScreen used in the Creators hub). Uses a
+/// framework-managed InkWell (no custom MouseRegion/setState) so it stays robust
+/// while rows stream into the AnimatedList. Non-tappable for mock fallback rows.
+class _ActivityRowCard extends StatelessWidget {
   const _ActivityRowCard({
     required this.isAgent,
     required this.t,
@@ -1712,43 +1714,28 @@ class _ActivityRowCard extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_ActivityRowCard> createState() => _ActivityRowCardState();
-}
-
-class _ActivityRowCardState extends State<_ActivityRowCard> {
-  bool _hover = false;
-
-  @override
   Widget build(BuildContext context) {
-    final t = widget.t;
-    final tappable = widget.onTap != null;
-    final hovered = _hover && tappable;
-    return MouseRegion(
-      cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: tappable ? (_) => setState(() => _hover = true) : null,
-      onExit: tappable ? (_) => setState(() => _hover = false) : null,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: hovered
-                ? t.brand.withValues(alpha: 0.10)
-                : (widget.isAgent
-                    ? t.brand.withValues(alpha: 0.05)
-                    : Colors.transparent),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: hovered
-                  ? t.brand.withValues(alpha: 0.45)
-                  : (widget.isAgent
-                      ? t.brand.withValues(alpha: 0.18)
-                      : t.border),
-            ),
-          ),
-          child: widget.child,
+    final content = Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isAgent ? t.brand.withValues(alpha: 0.05) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isAgent ? t.brand.withValues(alpha: 0.18) : t.border,
         ),
+      ),
+      child: child,
+    );
+    if (onTap == null) return content;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: t.brand.withValues(alpha: 0.08),
+        highlightColor: t.brand.withValues(alpha: 0.06),
+        splashColor: t.brand.withValues(alpha: 0.12),
+        child: content,
       ),
     );
   }
