@@ -18,6 +18,14 @@ Future<void> showTradePreviewSheet({
   double? maxShares,
   String owner = 'user',
 }) {
+  // Pre-deploy the market on trade intent (the moment this sheet opens) — only
+  // when actually about to trade, so browsing costs nothing. The deploy
+  // overlaps amount entry, so the buy/sell skips the cold on-chain deploy and
+  // confirms in ~2-3s. No-op if the market is already deployed.
+  if (market.contractAddress == null || market.contractAddress!.isEmpty) {
+    WalletServiceScope.of(context).prewarmMarket(
+        market.slug, market.deadline.millisecondsSinceEpoch ~/ 1000);
+  }
   return PulsSheet.show<void>(
     context,
     builder: (_) => TradePreviewSheet(
