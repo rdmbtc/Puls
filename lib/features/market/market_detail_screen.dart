@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
+import '../../app/puls_app.dart' show WalletServiceScope;
 import '../../core/theme/app_theme.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/puls_loader.dart';
@@ -35,11 +36,21 @@ class MarketDetailScreen extends StatefulWidget {
 class _MarketDetailScreenState extends State<MarketDetailScreen> {
   List<double> _history = [];
   bool _historyLoading = true;
+  bool _prewarmed = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final market = PulsStateScope.of(context).marketById(widget.marketId);
+    // Pre-deploy the market's on-chain contract while the user reads the
+    // details, so their first trade skips the cold deploy and confirms in a
+    // couple seconds. Fires once; no-op if the market is already deployed.
+    if (!_prewarmed &&
+        (market.contractAddress == null || market.contractAddress!.isEmpty)) {
+      _prewarmed = true;
+      WalletServiceScope.of(context).prewarmMarket(
+          market.slug, market.deadline.millisecondsSinceEpoch ~/ 1000);
+    }
     PriceHistoryService.fetchForMarket(market).then((h) {
       if (mounted) setState(() { _history = h; _historyLoading = false; });
     });
