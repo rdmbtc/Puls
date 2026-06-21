@@ -29,6 +29,7 @@ class Market {
     this.liquidityNum = 0,
     this.competitive = 0,
     this.createdByAgent = false,
+    this.volumeNum = 0,
   });
 
   final String id;
@@ -58,8 +59,18 @@ class Market {
   final double liquidityNum;
   final double competitive;
   final bool createdByAgent;
+  final double volumeNum;
 
   bool get trendIsPositive => trend >= 0;
+
+  /// Agent-created markets live in their own "AI Agents" category instead of
+  /// cluttering the real category feeds.
+  String get displayCategory => createdByAgent ? 'AI Agents' : category;
+
+  /// Feed ranking signal — surfaces markets with real trading activity
+  /// (24h + total volume, competitiveness) ahead of empty/just-created ones.
+  double get hotness =>
+      volume24hr + volumeNum * 0.25 + competitive * 500 + liquidityNum * 0.05;
 
   Market copyWith({String? contractAddress, String? slug}) => Market(
         id: id,
@@ -88,6 +99,8 @@ class Market {
         clobTokenId: clobTokenId,
         liquidityNum: liquidityNum,
         competitive: competitive,
+        createdByAgent: createdByAgent,
+        volumeNum: volumeNum,
       );
 }
 

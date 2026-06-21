@@ -1128,7 +1128,9 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     // Filter markets by category
     final filteredMarkets = _selectedCategory == null
         ? allMarkets
-        : allMarkets.where((m) => m.category == _selectedCategory).toList();
+        : _selectedCategory == 'AI Agents'
+            ? appState.agentMarkets
+            : allMarkets.where((m) => m.category == _selectedCategory).toList();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1167,9 +1169,11 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
                               'All Markets', null, allMarkets.length),
                           const Divider(height: 16),
                           ...appState.categories.map((cat) {
-                            final count = allMarkets
-                                .where((m) => m.category == cat)
-                                .length;
+                            final count = cat == 'AI Agents'
+                                ? appState.agentMarkets.length
+                                : allMarkets
+                                    .where((m) => m.category == cat)
+                                    .length;
                             return _buildCategoryRow(cat, cat, count);
                           }),
                         ],
