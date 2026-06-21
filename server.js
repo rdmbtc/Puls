@@ -25,18 +25,6 @@ import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
 import { registerPoints } from './lib/points.js';
 
-// Keep outbound HTTPS connections (Supabase, Arc RPC, Circle) warm. Node's
-// default keep-alive timeout is ~4s; bumping it lets the frequent RPC/DB/Circle
-// calls reuse TLS sockets instead of re-handshaking. Best-effort: if undici
-// isn't available the app still runs on Node's default keep-alive.
-try {
-  const { setGlobalDispatcher, Agent } = await import('undici');
-  setGlobalDispatcher(new Agent({ keepAliveTimeout: 30_000, keepAliveMaxTimeout: 60_000, connections: 128 }));
-  console.log('[net] outbound keep-alive tuned (undici, 30s)');
-} catch (e) {
-  console.warn('[net] keep-alive tuning skipped:', e.message);
-}
-
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[UNHANDLED REJECTION]', reason?.message || reason);
