@@ -16,6 +16,7 @@ import { registerComments } from './lib/comments.js';
 import { registerSupport } from './lib/support.js';
 import { registerReferrals } from './lib/referrals.js';
 import { registerCreatorSignals } from './lib/creator_signals.js';
+import { registerAgentBond } from './lib/agent_bond.js';
 import { registerSwap } from './lib/swap.js';
 import { registerBlog } from './lib/blog.js';
 import { registerAgentOracle } from './lib/agent_oracle.js';
@@ -2925,6 +2926,22 @@ registerCreatorSignals(app, {
   keccak256,
   toHex,
   awardPoints,
+});
+
+// ── Agent skin-in-the-game (AgentBond) — gated reconciler + read endpoint ─────
+// Agents stake USDC on their published calls; slashed if wrong, returned if
+// right (settled on resolution). Decoupled + best-effort + gated by
+// AGENT_BOND_ENABLED; /api/agents/bonds is always read-safe.
+registerAgentBond(app, {
+  supabase,
+  circle,
+  USDC,
+  getWalletId,
+  getWalletInfo,
+  walletClient,
+  publicClient,
+  keccak256,
+  toHex,
 });
 
 // ── Token swap (Circle App Kit) — USDC <-> EURC on Arc ────────────────────────
