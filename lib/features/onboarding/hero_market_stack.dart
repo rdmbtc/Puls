@@ -38,6 +38,7 @@ class _HeroMarketStackState extends State<HeroMarketStack>
     with SingleTickerProviderStateMixin {
   List<_HeroMarket> _markets = _fallbackMarkets;
   bool _live = false;
+  Offset _tilt = Offset.zero;
   late final AnimationController _float;
 
   @override
@@ -110,9 +111,11 @@ class _HeroMarketStackState extends State<HeroMarketStack>
     final compact = widget.compact;
     final w = compact ? 300.0 : 380.0;
     final h = compact ? 320.0 : 420.0;
+    final totalW = w + 70;
+    final reduce = context.reduceMotion;
 
-    return SizedBox(
-      width: w + 70,
+    final Widget stack = SizedBox(
+      width: totalW,
       height: h,
       child: AnimatedBuilder(
         animation: _float,
@@ -177,6 +180,27 @@ class _HeroMarketStackState extends State<HeroMarketStack>
             ],
           );
         },
+      ),
+    );
+
+    if (reduce) return stack;
+
+    // Subtle 3D tilt toward the cursor for a tactile, premium feel.
+    return MouseRegion(
+      onHover: (e) => setState(() => _tilt = Offset(
+            (e.localPosition.dx / totalW - 0.5) * 2,
+            (e.localPosition.dy / h - 0.5) * 2,
+          )),
+      onExit: (_) => setState(() => _tilt = Offset.zero),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        transformAlignment: Alignment.center,
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.0012)
+          ..rotateX(-_tilt.dy * 0.10)
+          ..rotateY(_tilt.dx * 0.10),
+        child: stack,
       ),
     );
   }

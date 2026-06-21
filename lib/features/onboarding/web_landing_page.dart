@@ -8,6 +8,12 @@ import 'hero_market_stack.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
+import 'agents_leaderboard.dart';
+import 'architecture_diagram.dart';
+import 'landing_faq.dart';
+import 'landing_kit.dart';
+import 'live_on_arc.dart';
+import 'phone_demo.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +36,9 @@ class _WebLandingPageState extends State<WebLandingPage>
   final _scrollCtrl = ScrollController();
   double _scrollOffset = 0;
   late final AnimationController _aurora;
+  // Normalized cursor position (-0.5..0.5 on each axis) for the reactive aurora.
+  // A ValueNotifier so mouse moves repaint only the aurora, not the whole page.
+  final _pointer = ValueNotifier<Offset>(Offset.zero);
 
   @override
   void initState() {
@@ -46,6 +55,7 @@ class _WebLandingPageState extends State<WebLandingPage>
   void dispose() {
     _aurora.dispose();
     _scrollCtrl.dispose();
+    _pointer.dispose();
     super.dispose();
   }
 
@@ -68,52 +78,113 @@ class _WebLandingPageState extends State<WebLandingPage>
         ? Colors.white.withValues(alpha: 0.03)
         : const Color(0xFFEC4899).withValues(alpha: 0.03);
 
+    // Scroll progress (0..1) for the top progress bar.
+    final maxExtent = _scrollCtrl.hasClients &&
+            _scrollCtrl.position.hasContentDimensions
+        ? _scrollCtrl.position.maxScrollExtent
+        : 0.0;
+    final progress = maxExtent > 0 ? (_scrollOffset / maxExtent).clamp(0.0, 1.0) : 0.0;
+
     return Scaffold(
       backgroundColor: t.bg,
-      body: Stack(
-        children: [
-          // ── Animated Aurora Background ──────────────────────────────────
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _aurora,
-              builder: (context, _) => CustomPaint(
-                painter: _AuroraPainter(
-                  progress: _aurora.value,
-                  isDark: isDark,
-                  bg: t.bg,
+      body: MouseRegion(
+        opaque: false,
+        onHover: (e) {
+          if (context.reduceMotion) return;
+          final size = MediaQuery.sizeOf(context);
+          if (size.width == 0 || size.height == 0) return;
+          _pointer.value = Offset(
+            e.position.dx / size.width - 0.5,
+            e.position.dy / size.height - 0.5,
+          );
+        },
+        child: Stack(
+          children: [
+            // ── Animated, cursor-reactive Aurora ──────────────────────────
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_aurora, _pointer]),
+                builder: (context, _) => CustomPaint(
+                  painter: _AuroraPainter(
+                    progress: _aurora.value,
+                    isDark: isDark,
+                    bg: t.bg,
+                    pointer: _pointer.value,
+                  ),
                 ),
               ),
             ),
-          ),
-          // ── Dot Grid ────────────────────────────────────────────────────
-          Positioned.fill(
-            child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
-          ),
-          // ── Content ─────────────────────────────────────────────────────
-          SmoothScrollWeb(
-            controller: _scrollCtrl,
-            config: SmoothScrollConfig.lenis(
-              scrollSpeed: 1.1,
-              damping: 0.09,
+            // ── Dot Grid ──────────────────────────────────────────────────
+            Positioned.fill(
+              child: CustomPaint(painter: _DotGridPainter(color: dotColor)),
             ),
-            child: SingleChildScrollView(
-              controller: _scrollCtrl,
-              child: Column(
-                children: [
-                  _HeroSection(scrollOffset: _scrollOffset),
-                  _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const _FeaturesSection()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
-                  _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
-                  const _FooterSection(),
-                ],
+            // ── Film grain (depth) ────────────────────────────────────────
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _GrainPainter(
+                    color: (isDark ? Colors.white : Colors.black)
+                        .withValues(alpha: 0.025),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            // ── Content ───────────────────────────────────────────────────
+            SmoothScrollWeb(
+              controller: _scrollCtrl,
+              config: SmoothScrollConfig.lenis(
+                scrollSpeed: 1.1,
+                damping: 0.09,
+              ),
+              child: SingleChildScrollView(
+                controller: _scrollCtrl,
+                child: Column(
+                  children: [
+                    _HeroSection(scrollOffset: _scrollOffset),
+                    _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
+                    _Reveal(scrollOffset: _scrollOffset, child: _FeaturesSection(scrollOffset: _scrollOffset)),
+                    _Reveal(scrollOffset: _scrollOffset, child: const PhoneDemoSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const LiveOnArcSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const AgentsLeaderboardSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const ArchitectureSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const FaqSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
+                    const _FooterSection(),
+                  ],
+                ),
+              ),
+            ),
+            // ── Scroll progress bar (top) ─────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: SizedBox(
+                  height: 3,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: progress == 0 ? 0.0001 : progress,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: PulsColors.pulseGradient,
+                          boxShadow: [
+                            BoxShadow(color: Color(0x66F65FA9), blurRadius: 8),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -356,6 +427,18 @@ class _HeroSectionState extends State<_HeroSection> {
               ),
             ),
           ),
+          // Scroll cue (fades out as the hero scrolls away)
+          Positioned(
+            bottom: 22,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: heroOpacity,
+                child: const Center(child: _ScrollCue()),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -494,13 +577,12 @@ class _HeroCopy extends StatelessWidget {
               child: child,
             ),
           ),
-          child: Text(
+          child: AnimatedGradientText(
             phrase,
             key: ValueKey(phraseIndex),
             textAlign: align,
             style: TextStyle(
               fontFamily: PulsColors.fontDisplay,
-              color: t.brand,
               fontSize: titleSize,
               fontWeight: FontWeight.w600,
               fontStyle: FontStyle.italic,
@@ -734,7 +816,8 @@ class _TrustStrip extends StatelessWidget {
 // honours reduce-motion (holds a composed still frame) and is isolated behind a
 // RepaintBoundary so the buttery lenis scroll never pays for it.
 class _FeaturesSection extends StatelessWidget {
-  const _FeaturesSection();
+  const _FeaturesSection({required this.scrollOffset});
+  final double scrollOffset;
 
   @override
   Widget build(BuildContext context) {
@@ -772,7 +855,7 @@ class _FeaturesSection extends StatelessWidget {
                 ),
               ),
               SizedBox(height: isMobile ? 38 : 66),
-              const _Bento(),
+              _Bento(scrollOffset: scrollOffset),
               SizedBox(height: isMobile ? 30 : 44),
               const _CapabilityStrip(),
             ],
@@ -846,20 +929,15 @@ class _GradientHeadline extends StatelessWidget {
             letterSpacing: -1.4,
           ),
         ),
-        ShaderMask(
-          shaderCallback: (r) => PulsColors.pulseGradient.createShader(r),
-          child: Text(
-            accent,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: PulsColors.fontDisplay,
-              color: Colors.white,
-              fontSize: size,
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-              height: 1.12,
-              letterSpacing: -1.4,
-            ),
+        AnimatedGradientText(
+          accent,
+          style: TextStyle(
+            fontFamily: PulsColors.fontDisplay,
+            fontSize: size,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+            height: 1.12,
+            letterSpacing: -1.4,
           ),
         ),
       ],
@@ -868,8 +946,57 @@ class _GradientHeadline extends StatelessWidget {
 }
 
 // ── Bento layout ───────────────────────────────────────────────────────────────
-class _Bento extends StatelessWidget {
-  const _Bento();
+class _Bento extends StatefulWidget {
+  const _Bento({required this.scrollOffset});
+  final double scrollOffset;
+
+  @override
+  State<_Bento> createState() => _BentoState();
+}
+
+class _BentoState extends State<_Bento> {
+  bool _revealed = false;
+  double? _top;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeReveal());
+  }
+
+  @override
+  void didUpdateWidget(covariant _Bento old) {
+    super.didUpdateWidget(old);
+    if (!_revealed) _maybeReveal();
+  }
+
+  void _maybeReveal() {
+    if (!mounted || _revealed) return;
+    if (context.reduceMotion) {
+      setState(() => _revealed = true);
+      return;
+    }
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    _top = box.localToGlobal(Offset.zero).dy + widget.scrollOffset;
+    final h = MediaQuery.sizeOf(context).height;
+    if (widget.scrollOffset + h * 0.9 > _top!) {
+      setState(() => _revealed = true);
+    } else {
+      setState(() {}); // keep the measured position for the next scroll tick
+    }
+  }
+
+  // Staggered entrance per cell once the bento scrolls into view.
+  Widget _cell(Widget cell, int i) {
+    if (context.reduceMotion) return cell;
+    if (!_revealed) return Opacity(opacity: 0, child: cell);
+    final delay = (i * 80).ms;
+    return cell
+        .animate()
+        .fadeIn(duration: 460.ms, delay: delay)
+        .slideY(begin: 0.14, end: 0, duration: 540.ms, delay: delay, curve: Curves.easeOutCubic);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -931,50 +1058,50 @@ class _Bento extends StatelessWidget {
       if (!wide) {
         return Column(
           children: [
-            const SizedBox(height: 430, child: hero),
+            SizedBox(height: 430, child: _cell(hero, 0)),
             const SizedBox(height: gap),
-            const SizedBox(height: 300, child: pay),
+            SizedBox(height: 300, child: _cell(pay, 1)),
             const SizedBox(height: gap),
-            const SizedBox(height: 280, child: bond),
+            SizedBox(height: 280, child: _cell(bond, 2)),
             const SizedBox(height: gap),
-            const SizedBox(height: 300, child: signal),
+            SizedBox(height: 300, child: _cell(signal, 3)),
             const SizedBox(height: gap),
-            const SizedBox(height: 280, child: versus),
+            SizedBox(height: 280, child: _cell(versus, 4)),
             const SizedBox(height: gap),
-            SizedBox(height: 300, child: swipe),
+            SizedBox(height: 300, child: _cell(swipe, 5)),
           ],
         );
       }
 
       return Column(
         children: [
-          const SizedBox(
+          SizedBox(
             height: 384,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(flex: 7, child: hero),
-                SizedBox(width: gap),
-                Expanded(flex: 5, child: pay),
+                Expanded(flex: 7, child: _cell(hero, 0)),
+                const SizedBox(width: gap),
+                Expanded(flex: 5, child: _cell(pay, 1)),
               ],
             ),
           ),
           const SizedBox(height: gap),
-          const SizedBox(
+          SizedBox(
             height: 292,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: bond),
-                SizedBox(width: gap),
-                Expanded(child: signal),
-                SizedBox(width: gap),
-                Expanded(child: versus),
+                Expanded(child: _cell(bond, 2)),
+                const SizedBox(width: gap),
+                Expanded(child: _cell(signal, 3)),
+                const SizedBox(width: gap),
+                Expanded(child: _cell(versus, 4)),
               ],
             ),
           ),
           const SizedBox(height: gap),
-          SizedBox(height: 208, child: swipe),
+          SizedBox(height: 208, child: _cell(swipe, 5)),
         ],
       );
     });
@@ -2686,10 +2813,16 @@ class _FinalCtaSection extends StatelessWidget {
 
 // ── Aurora background painter ─────────────────────────────────────────────────
 class _AuroraPainter extends CustomPainter {
-  const _AuroraPainter({required this.progress, required this.isDark, required this.bg});
+  const _AuroraPainter({
+    required this.progress,
+    required this.isDark,
+    required this.bg,
+    this.pointer = Offset.zero,
+  });
   final double progress;
   final bool isDark;
   final Color bg;
+  final Offset pointer;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2710,14 +2843,39 @@ class _AuroraPainter extends CustomPainter {
     }
 
     final w = size.width, h = size.height;
-    blob(blobs[0], w * (0.28 + 0.06 * math.sin(t)), h * (0.18 + 0.05 * math.cos(t * 0.8)), w * 0.42);
-    blob(blobs[1], w * (0.78 + 0.05 * math.cos(t * 0.9)), h * (0.30 + 0.06 * math.sin(t * 0.7)), w * 0.38);
-    blob(blobs[2], w * (0.55 + 0.07 * math.sin(t * 0.6 + 2)), h * (0.74 + 0.04 * math.cos(t + 1)), w * 0.34);
+    // Parallax toward the cursor — each blob drifts a different amount for depth.
+    final px = pointer.dx, py = pointer.dy;
+    blob(blobs[0], w * (0.28 + 0.06 * math.sin(t)) + px * 150, h * (0.18 + 0.05 * math.cos(t * 0.8)) + py * 120, w * 0.42);
+    blob(blobs[1], w * (0.78 + 0.05 * math.cos(t * 0.9)) - px * 120, h * (0.30 + 0.06 * math.sin(t * 0.7)) + py * 90, w * 0.38);
+    blob(blobs[2], w * (0.55 + 0.07 * math.sin(t * 0.6 + 2)) + px * 80, h * (0.74 + 0.04 * math.cos(t + 1)) - py * 110, w * 0.34);
   }
 
   @override
   bool shouldRepaint(_AuroraPainter old) =>
-      old.progress != progress || old.isDark != isDark || old.bg != bg;
+      old.progress != progress || old.isDark != isDark || old.bg != bg || old.pointer != pointer;
+}
+
+// ── Film grain overlay ────────────────────────────────────────────────────────
+/// A faint, static noise field that adds texture/depth without hurting text
+/// crispness (it sits beneath the content). Cheap: a fixed sparse dot field.
+class _GrainPainter extends CustomPainter {
+  const _GrainPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rnd = math.Random(42); // deterministic — never shimmers
+    final paint = Paint()..color = color;
+    final count = (size.width * size.height / 900).clamp(0, 1400).toInt();
+    for (var i = 0; i < count; i++) {
+      final dx = rnd.nextDouble() * size.width;
+      final dy = rnd.nextDouble() * size.height;
+      canvas.drawCircle(Offset(dx, dy), 0.6, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GrainPainter old) => old.color != color;
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
@@ -2881,36 +3039,57 @@ class _PrimaryButton extends StatefulWidget {
 
 class _PrimaryButtonState extends State<_PrimaryButton> {
   bool _hovered = false;
+  Offset _magnet = Offset.zero;
+
+  void _onHover(PointerHoverEvent e) {
+    if (context.reduceMotion) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final s = box.size;
+    final dx = (e.localPosition.dx - s.width / 2) / (s.width / 2);
+    final dy = (e.localPosition.dy - s.height / 2) / (s.height / 2);
+    setState(() => _magnet = Offset(dx.clamp(-1.0, 1.0) * 6, dy.clamp(-1.0, 1.0) * 5));
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onHover: _onHover,
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _magnet = Offset.zero;
+      }),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _hovered ? 1.03 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.small ? 18 : 32,
-              vertical: widget.small ? 10 : 16,
-            ),
-            decoration: BoxDecoration(
-              gradient: PulsColors.pulseGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _hovered
-                  ? [BoxShadow(color: PulsColors.brandPink.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 4))]
-                  : [],
-            ),
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          transformAlignment: Alignment.center,
+          transform: Matrix4.translationValues(_magnet.dx, _magnet.dy, 0),
+          child: AnimatedScale(
+            scale: _hovered ? 1.04 : 1.0,
+            duration: const Duration(milliseconds: 150),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.small ? 18 : 32,
+                vertical: widget.small ? 10 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: PulsColors.pulseGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: _hovered
+                    ? [BoxShadow(color: PulsColors.brandPink.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 4))]
+                    : [],
+              ),
+              child: Text(
+                widget.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -3054,6 +3233,75 @@ class _RevealState extends State<_Reveal> {
         offset: _shown || visibleNow ? Offset.zero : const Offset(0, 0.045),
         child: widget.child,
       ),
+    );
+  }
+}
+
+// ── Scroll cue ────────────────────────────────────────────────────────────────
+class _ScrollCue extends StatefulWidget {
+  const _ScrollCue();
+
+  @override
+  State<_ScrollCue> createState() => _ScrollCueState();
+}
+
+class _ScrollCueState extends State<_ScrollCue>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'SCROLL',
+          style: TextStyle(
+            color: t.textSubtle,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        AnimatedBuilder(
+          animation: _c,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, reduce ? 0 : _c.value * 5),
+            child: child,
+          ),
+          child: Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: t.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: t.border),
+            ),
+            child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: t.textMuted),
+          ),
+        ),
+      ],
     );
   }
 }
