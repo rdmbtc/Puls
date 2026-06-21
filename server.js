@@ -100,12 +100,20 @@ const PUBLIC_CACHE_RULES = [
 ];
 app.use((req, res, next) => {
   if (req.method === 'GET') {
+    let cacheable = false;
     for (const [re, s] of PUBLIC_CACHE_RULES) {
       if (re.test(req.path)) {
         res.set('Cache-Control', `public, max-age=${s}, s-maxage=${s}, stale-while-revalidate=${s * 3}`);
+        cacheable = true;
         break;
       }
     }
+    // Everything else (trade status polling, wallet, portfolio, notifications,
+    // agent status, …) MUST NOT be cached by the CDN. Without this, Cloudflare
+    // caches the first 200 and serves it on every poll — e.g. /api/trade/status
+    // returns a stale INITIATED/SENT forever, so a trade that actually
+    // completed on-chain shows "Processing" then "Trade Failed".
+    if (!cacheable) res.set('Cache-Control', 'no-store');
   }
   next();
 });
