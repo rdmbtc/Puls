@@ -57,14 +57,16 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Honor reduce-motion: hold the marquee + LIVE pulse still.
+    // The marquee is essential live content — keep it scrolling continuously
+    // (it was previously frozen under the OS "reduce motion" setting). The
+    // pulsing LIVE dot is decorative, so that still honors reduce-motion.
+    if (!_marquee.isAnimating) _marquee.repeat();
     if (context.reduceMotion) {
-      _marquee.stop();
       _pulse
         ..stop()
         ..value = 1.0; // keep the LIVE dot fully visible, just not pulsing
-    } else {
-      if (!_marquee.isAnimating) _marquee.repeat();
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
     }
   }
 
@@ -172,7 +174,7 @@ class _LiveMarketTickerState extends State<LiveMarketTicker>
           // ── Marquee tape ──────────────────────────────────────────────
           MouseRegion(
             onEnter: (_) { if (_marquee.isAnimating) _marquee.stop(canceled: false); },
-            onExit: (_) { if (!context.reduceMotion && _items.isNotEmpty && !_marquee.isAnimating) _marquee.repeat(); },
+            onExit: (_) { if (_items.isNotEmpty && !_marquee.isAnimating) _marquee.repeat(); },
             child: SizedBox(
               height: 76,
               child: ClipRect(
