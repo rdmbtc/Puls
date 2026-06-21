@@ -1200,13 +1200,22 @@ class _PositionCardState extends State<_PositionCard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: t.surfaceRaised,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            t.surfaceRaised,
+            Color.alphaBlend(sideFg.withValues(alpha: 0.05), t.surfaceRaised),
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.border),
+        border: Border.all(
+            color: userWon ? t.yes.withValues(alpha: 0.45) : t.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFEC4899).withValues(alpha: 0.04),
-            blurRadius: 10,
+            color: (userWon ? t.yes : const Color(0xFFEC4899))
+                .withValues(alpha: userWon ? 0.10 : 0.04),
+            blurRadius: userWon ? 16 : 10,
             offset: const Offset(0, 2),
           ),
         ],

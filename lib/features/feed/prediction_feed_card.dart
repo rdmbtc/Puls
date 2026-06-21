@@ -325,7 +325,20 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                                 _Tag(label: market.volume, t: t),
                                 if (market.createdByAgent) ...[
                                   const SizedBox(width: 8),
-                                  _Tag(label: '🤖 Agent', t: t),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF8B5CF6)
+                                          .withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text('🤖 Agent',
+                                        style: TextStyle(
+                                            color: Color(0xFF8B5CF6),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800)),
+                                  ),
                                 ],
                                 const Spacer(),
                                 ValueListenableBuilder<double>(
@@ -530,14 +543,36 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Center(
-                              child: Text(
-                                'Swipe right for Yes · left for No',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall,
-                              ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.arrow_back_rounded,
+                                    size: 13,
+                                    color: t.no.withValues(alpha: 0.7)),
+                                const SizedBox(width: 4),
+                                Text('NO',
+                                    style: TextStyle(
+                                        color: t.no.withValues(alpha: 0.85),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5)),
+                                const SizedBox(width: 10),
+                                Text('swipe',
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall),
+                                const SizedBox(width: 10),
+                                Text('YES',
+                                    style: TextStyle(
+                                        color: t.yes.withValues(alpha: 0.9),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5)),
+                                const SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_rounded,
+                                    size: 13,
+                                    color: t.yes.withValues(alpha: 0.7)),
+                              ],
                             ),
                     ],
                   ),

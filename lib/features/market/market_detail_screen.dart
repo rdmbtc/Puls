@@ -81,7 +81,13 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
         const SizedBox(height: 12),
 
         // ── Question ─────────────────────────────────────────────────────
-        Text(market.question, style: Theme.of(context).textTheme.headlineMedium),
+        Text(market.question,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  letterSpacing: -0.5,
+                )),
         if (market.context.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(market.context,
