@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/config.dart' show appBaseUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
@@ -48,10 +49,10 @@ class ShareMarketSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            Text(
+            const AnimatedGradientText(
               'Share this market',
+              textAlign: TextAlign.left,
               style: TextStyle(
-                color: t.text,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.3,

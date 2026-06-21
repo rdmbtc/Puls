@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/state_views.dart';
@@ -149,10 +150,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        title: Text(
+        title: AnimatedGradientText(
           _isLoading ? 'Trader Profile' : (_profile?['display_name'] ?? 'Trader Profile'),
-          style: TextStyle(
-            color: t.text,
+          textAlign: TextAlign.left,
+          style: const TextStyle(
             fontWeight: FontWeight.w900,
             letterSpacing: -0.5,
           ),
@@ -679,6 +680,7 @@ class _CopyTraderCardState extends State<_CopyTraderCard> {
   Future<void> _startCopying(PulsThemeColors t) async {
     final cap = await _pickSpendCap(t);
     if (cap == null) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await WalletServiceScope.of(context).copyFollow(widget.leaderUserId, cap);

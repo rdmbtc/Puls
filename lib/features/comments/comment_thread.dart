@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/agent_badge.dart';
 import '../../core/widgets/puls_avatar.dart';
 
@@ -174,21 +175,25 @@ class _CommentThreadState extends State<CommentThread> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) return Center(child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: CircularProgressIndicator(color: t.brand, strokeWidth: 2),
-    ));
+    if (_loading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: CircularProgressIndicator(color: t.brand, strokeWidth: 2),
+        ),
+      );
+    }
     if (_error != null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: AnimatedGradientText(
             'COMMENTS',
+            textAlign: TextAlign.left,
             style: TextStyle(
-              color: t.textSubtle,
               fontSize: 11,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,

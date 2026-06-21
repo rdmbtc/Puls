@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
 import 'package:puls/core/theme/app_theme.dart';
+import 'package:puls/core/widgets/gradient_text.dart';
 import 'package:puls/app/puls_app.dart';
 
 class CreateMarketDialog extends StatefulWidget {
@@ -155,11 +156,11 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
                         child: Icon(Icons.add_chart_rounded, color: t.brand, size: 20),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
+                      const Expanded(
+                        child: AnimatedGradientText(
                           'Create Custom Market',
+                          textAlign: TextAlign.left,
                           style: TextStyle(
-                            color: t.text,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -204,7 +205,7 @@ class _CreateMarketDialogState extends State<CreateMarketDialog> {
 
                   // Category Selector
                   DropdownButtonFormField<String>(
-                    value: _category,
+                    initialValue: _category,
                     dropdownColor: t.surfaceRaised,
                     style: TextStyle(color: t.text, fontSize: 14),
                     decoration: InputDecoration(

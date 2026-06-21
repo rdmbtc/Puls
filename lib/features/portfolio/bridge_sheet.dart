@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 import '../wallet/web3_wallet_bridge.dart';
@@ -114,8 +115,9 @@ class _BridgeSheetState extends State<BridgeSheet> {
             children: [
               Icon(Icons.swap_horiz_rounded, color: t.brand, size: 20),
               const SizedBox(width: 8),
-              Text('Bridge USDC to Arc',
-                  style: TextStyle(color: t.text, fontSize: 17, fontWeight: FontWeight.w900)),
+              const AnimatedGradientText('Bridge USDC to Arc',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 6),

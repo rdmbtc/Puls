@@ -228,11 +228,12 @@ class _FundsSheetState extends State<FundsSheet> {
         padding: const EdgeInsets.symmetric(vertical: 9),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: sel ? t.brand.withValues(alpha: 0.14) : Colors.transparent,
+          gradient: sel ? PulsColors.pulseGradient : null,
+          color: sel ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: sel ? t.brand : Colors.transparent, width: sel ? 1.2 : 1),
+          border: Border.all(color: Colors.transparent, width: sel ? 1.2 : 1),
         ),
-        child: Text(label, style: TextStyle(color: sel ? t.brand : t.textSubtle, fontSize: 13, fontWeight: FontWeight.w800)),
+        child: Text(label, style: TextStyle(color: sel ? Colors.white : t.textSubtle, fontSize: 13, fontWeight: FontWeight.w800)),
       ),
     );
   }

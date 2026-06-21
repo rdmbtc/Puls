@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../app/puls_app.dart';
 
@@ -106,7 +107,7 @@ class _SwapSheetState extends State<SwapSheet> {
           Row(children: [
             Icon(Icons.currency_exchange_rounded, color: t.brand, size: 20),
             const SizedBox(width: 8),
-            Text('Swap stablecoins', style: TextStyle(color: t.text, fontSize: 17, fontWeight: FontWeight.w900)),
+            const AnimatedGradientText('Swap stablecoins', textAlign: TextAlign.left, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
           ]),
           const SizedBox(height: 6),
           Text('Swap USDC ↔ EURC on Arc, powered by Circle. Settles from your Puls wallet.',
