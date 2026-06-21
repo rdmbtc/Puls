@@ -14,6 +14,11 @@ class _WebTickerStripState extends State<WebTickerStrip>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   final _scrollCtrl = ScrollController();
+  // Snapshot of markets captured once. The live feed re-sorts/refreshes every
+  // few seconds; if the tape read it directly the item count (and thus
+  // maxScrollExtent) would shift under the marquee and make it jump back and
+  // forth. A stable snapshot keeps the scroll extent constant → smooth glide.
+  List<dynamic>? _items;
 
   @override
   void initState() {
@@ -36,9 +41,13 @@ class _WebTickerStripState extends State<WebTickerStrip>
 
   void _scroll() {
     if (!_scrollCtrl.hasClients) return;
-    final max = _scrollCtrl.position.maxScrollExtent;
+    final pos = _scrollCtrl.position;
+    final max = pos.maxScrollExtent;
     if (max <= 0) return;
-    _scrollCtrl.jumpTo(_ctrl.value * max);
+    // Map the loop onto ONE copy's width so the doubled tape wraps seamlessly
+    // (mapping onto the full extent snaps end→start once per cycle).
+    final oneRow = (max + pos.viewportDimension) / 2;
+    _scrollCtrl.jumpTo((_ctrl.value * oneRow).clamp(0.0, max));
   }
 
   @override
@@ -53,7 +62,12 @@ class _WebTickerStripState extends State<WebTickerStrip>
   Widget build(BuildContext context) {
     final appState = PulsStateScope.of(context);
     final t = context.puls;
-    final markets = appState.feedMarkets.take(20).toList();
+    // Capture a stable snapshot once the feed has enough markets, then keep it
+    // fixed so the marquee's width never changes under it (no jitter).
+    if (_items == null && appState.feedMarkets.length >= 6) {
+      _items = appState.feedMarkets.take(20).toList();
+    }
+    final markets = _items ?? const <dynamic>[];
     if (markets.isEmpty) return const SizedBox.shrink();
 
     // Duplicate for seamless loop
