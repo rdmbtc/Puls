@@ -21,6 +21,7 @@ import 'economy_feed.dart';
 import 'x402_payments.dart';
 import 'swarm_view.dart';
 import '../market/signals_marketplace.dart';
+import 'finance_director_card.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text,
@@ -582,7 +583,7 @@ class _AgentScreenState extends State<AgentScreen>
 
   Widget _strategySelector(PulsThemeColors t) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: t.surface,
@@ -634,10 +635,6 @@ class _AgentScreenState extends State<AgentScreen>
               const SizedBox(width: 8),
               Expanded(
                   child: _strategyOption(
-                      t, 'ARBITRAGE', 'Arbitrage', Icons.trending_up_rounded)),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _strategyOption(
                       t, 'DCA', 'DCA Mode', Icons.schedule_rounded)),
             ],
           ),
@@ -684,18 +681,22 @@ class _AgentScreenState extends State<AgentScreen>
     return Column(
       children: [
         _header(t),
-        _strategySelector(t),
         Expanded(
           child: ListView.builder(
             controller: _scroll,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            itemCount: _msgs.length,
-            itemBuilder: (_, i) => FadeInUp(
-              key: ValueKey(i),
-              duration: const Duration(milliseconds: 300),
-              from: 12,
-              child: _bubble(_msgs[i], t),
-            ),
+            itemCount: _msgs.length + 2,
+            itemBuilder: (_, i) {
+              if (i == 0) return const FinanceDirectorCard();
+              if (i == 1) return _strategySelector(t);
+              final mi = i - 2;
+              return FadeInUp(
+                key: ValueKey(mi),
+                duration: const Duration(milliseconds: 300),
+                from: 12,
+                child: _bubble(_msgs[mi], t),
+              );
+            },
           ),
         ),
         if (_msgs.length <= 1 && !_busy) _suggestions(t),
