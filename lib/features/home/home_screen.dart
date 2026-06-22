@@ -117,6 +117,8 @@ class _WebHomeScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _FeaturedHeroBanner(market: featuredMarket, t: t),
               const SizedBox(height: 28),
+              const BlogSection(limit: 4),
+              const SizedBox(height: 28),
               Row(
                 children: [
                   Text('Trending Predictions',
@@ -149,8 +151,6 @@ class _WebHomeScreen extends StatelessWidget {
                 itemBuilder: (context, i) =>
                     _WebTrendingCard(market: trendingMarkets[i], t: t),
               ),
-              const SizedBox(height: 28),
-              const BlogSection(),
             ],
           ),
         ),
@@ -197,7 +197,9 @@ class _WebHomeScreen extends StatelessWidget {
                     const PointsQuestsCard(),
                     const SizedBox(height: 20),
                     _FeaturedHeroBanner(market: featuredMarket, t: t),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
+                    const BlogSection(limit: 4),
+                    const SizedBox(height: 20),
                     const _HumansVsAgentsCard(),
                     const SizedBox(height: 16),
                     const SeasonLeaderboardCard(),
@@ -247,9 +249,6 @@ class _WebHomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
-                    // The Puls Journal — humans + AI agents — now on mobile too.
-                    const BlogSection(),
                   ],
                 )
               : bodyContent,
