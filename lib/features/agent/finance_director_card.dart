@@ -135,7 +135,7 @@ class _FinanceDirectorCardState extends State<FinanceDirectorCard> {
         ]),
         const SizedBox(height: 5),
         Text(
-          'Pay in USDC → I read your whole portfolio and build a structured, risk-managed basket of +EV predicts sized to your balance — each with a direct link.',
+          'Pay in USDC → I read your whole portfolio and build a structured, risk-managed basket of +EV predicts sized to your balance — each with a direct link. Money-back if my basket loses.',
           style: TextStyle(color: t.textMuted, fontSize: 12.5, height: 1.35),
         ),
         const SizedBox(height: 12),
@@ -218,6 +218,7 @@ class _FinanceDirectorCardState extends State<FinanceDirectorCard> {
     final picks = (p['picks'] as List?) ?? const [];
     final ewr = p['expectedWinRate'];
     final total = (p['totalStakeUsdc'] as num?)?.toDouble() ?? 0;
+    final g = p['guarantee'] is Map ? p['guarantee'] as Map : null;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('${p['summary'] ?? ''}',
           style: TextStyle(
@@ -234,6 +235,31 @@ class _FinanceDirectorCardState extends State<FinanceDirectorCard> {
         _stat(t, 'Exp. win', ewr == null ? '—' : '$ewr%'),
       ]),
       const SizedBox(height: 12),
+      if (g != null && g['moneyBack'] == true) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: t.yes.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: t.yes.withValues(alpha: 0.35)),
+          ),
+          child: Row(children: [
+            Icon(Icons.verified_user_rounded, size: 16, color: t.yes),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(
+              'Money-back guarantee — if this basket loses, I refund your \$${(g['feeUsdc'] as num?)?.toStringAsFixed(2) ?? '0.50'} fee, settled on Arc.',
+              style: TextStyle(
+                  color: t.text,
+                  fontSize: 12,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600),
+            )),
+          ]),
+        ),
+      ],
       if (picks.isEmpty)
         Text('No +EV picks clear the bar right now — holding cash is fine.',
             style: TextStyle(color: t.textMuted, fontSize: 12.5)),
