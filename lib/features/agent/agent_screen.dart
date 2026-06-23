@@ -16,10 +16,8 @@ import '../../core/widgets/shimmer_text.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
-import 'pulse_feed.dart';
-import 'economy_feed.dart';
-import 'x402_payments.dart';
-import 'swarm_view.dart';
+import 'live_swarm_view.dart';
+import 'proof_view.dart';
 import '../market/signals_marketplace.dart';
 import 'finance_director_card.dart';
 
@@ -34,7 +32,7 @@ class _Msg {
 }
 
 /// Lets other tabs deep-link into one of the Agent screen's sub-tabs.
-/// Index map: 0 Pulse · 1 My Agent · 2 Earnings · 3 Economy.
+/// Index map: 0 Live Swarm · 1 My Agent · 2 Signals · 3 Proof.
 /// Set the value, then switch to PulsTab.agent — the live AgentScreen picks it
 /// up and animates to the requested sub-tab.
 final ValueNotifier<int> agentSubTabRequest = ValueNotifier<int>(0);
@@ -49,7 +47,7 @@ class AgentScreen extends StatefulWidget {
 class _AgentScreenState extends State<AgentScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController =
-      TabController(length: 6, vsync: this);
+      TabController(length: 4, vsync: this);
   final _client = http.Client();
   final _input = TextEditingController();
   final _budget = TextEditingController(text: '5');
@@ -71,7 +69,7 @@ class _AgentScreenState extends State<AgentScreen>
   void initState() {
     super.initState();
     // Honor a deep-link request that was set before this screen mounted.
-    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 6) {
+    if (agentSubTabRequest.value > 0 && agentSubTabRequest.value < 4) {
       _tabController.index = agentSubTabRequest.value;
     }
     agentSubTabRequest.addListener(_onSubTabRequest);
@@ -79,7 +77,7 @@ class _AgentScreenState extends State<AgentScreen>
 
   void _onSubTabRequest() {
     final i = agentSubTabRequest.value;
-    if (mounted && i >= 0 && i < 6) _tabController.animateTo(i);
+    if (mounted && i >= 0 && i < 4) _tabController.animateTo(i);
   }
 
   @override
@@ -367,25 +365,21 @@ class _AgentScreenState extends State<AgentScreen>
               labelStyle:
                   const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
               tabs: const [
-                Tab(text: 'Swarm'),
-                Tab(text: 'Pulse · House Agent'),
+                Tab(text: 'Live Swarm'),
                 Tab(text: 'My Agent'),
                 Tab(text: 'Signals'),
-                Tab(text: 'Earnings'),
-                Tab(text: 'Economy'),
+                Tab(text: 'Proof'),
               ],
             ),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  const WebLayout(maxWidth: 760, child: SwarmView()),
-                  const WebLayout(maxWidth: 720, child: PulseFeed()),
+                  const WebLayout(maxWidth: 760, child: LiveSwarmView()),
                   WebLayout(
                       maxWidth: 720, child: _started ? _chat(t) : _setup(t)),
                   const WebLayout(maxWidth: 720, child: SignalsMarketplace()),
-                  const WebLayout(maxWidth: 720, child: X402Payments()),
-                  const WebLayout(maxWidth: 720, child: EconomyFeed()),
+                  const WebLayout(maxWidth: 720, child: ProofView()),
                 ],
               ),
             ),

@@ -26,7 +26,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'prediction_feed_card.dart';
 import 'ticker_strip.dart';
-import '../profile/leaderboard_screen.dart' show LeaderboardScreen;
+import '../agent/agent_screen.dart' show agentSubTabRequest;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -1526,10 +1526,10 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
   }
 
   void _openAlpha() {
-    // Alpha now lives in the Creators hub (Leaderboard tab) as a segment.
-    LeaderboardScreen.pendingSegment = 'alpha';
+    // Alpha lives in the Agent section's Signals sub-tab (not the Creators hub).
+    agentSubTabRequest.value = 2; // Signals (AI Alpha Market) sub-tab
     final nav = ShellNavScope.maybeOf(context);
-    nav?.goToTab(PulsTab.leaderboard);
+    nav?.goToTab(PulsTab.agent);
   }
 
   @override

@@ -1046,7 +1046,7 @@ class _HomePromoCarousel extends StatelessWidget {
             'Read top forecasts for \$0.001 — paid straight to the creator',
         cta: 'Explore Alpha →',
         onTap: () {
-          agentSubTabRequest.value = 3; // Signals (AI Alpha Market) sub-tab
+          agentSubTabRequest.value = 2; // Signals (AI Alpha Market) sub-tab
           nav?.goToTab(PulsTab.agent);
         },
       ),
