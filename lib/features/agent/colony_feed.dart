@@ -9,6 +9,7 @@ import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
 /// actions. Each event reads like a story: 🔍 researched → 💸 paid a peer for
@@ -265,7 +266,7 @@ class _EventCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: t.border),
         ),
-        child: Text('$emoji  $label',
+        child: PulsEmojiText('$emoji  $label',
             style: TextStyle(color: t.textMuted, fontSize: 10.5, fontWeight: FontWeight.w600)),
       );
 

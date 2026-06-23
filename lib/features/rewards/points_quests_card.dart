@@ -3,6 +3,9 @@ import '../../core/widgets/puls_snack.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/puls_emoji.dart';
+import '../../core/widgets/puls_emoji_text.dart';
+import '../../core/widgets/puls_svg_illustration.dart';
 import '../../core/widgets/count_up_text.dart';
 import '../../core/widgets/confetti_burst.dart';
 
@@ -133,9 +136,21 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
               ...pending.map((q) => _questRow(t, q, claimable: false)),
               if (claimable.isEmpty && pending.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text('All quests complete — nice. New ones each season. 🏆',
-                      style: TextStyle(color: t.textMuted, fontSize: 12.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    children: [
+                      const PulsSvgIllustration(
+                        asset: 'assets/illustrations/lucent-chatbot-high-fives-and-answers-the-question.svg',
+                        height: 80,
+                      ),
+                      const SizedBox(height: 12),
+                      PulsEmojiText(
+                        'All quests complete — nice. New ones each season. 🏆',
+                        style: TextStyle(color: t.textMuted, fontSize: 12.5),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -167,7 +182,7 @@ class _PointsQuestsCardState extends State<PointsQuestsCard> {
           const Spacer(),
           if (streak > 0)
             Row(mainAxisSize: MainAxisSize.min, children: [
-              const Text('🔥', style: TextStyle(fontSize: 13)),
+              PulsEmoji.icon('🔥', size: 13),
               const SizedBox(width: 3),
               Text('$streak-day', style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
             ]),

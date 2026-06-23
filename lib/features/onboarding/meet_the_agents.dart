@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/widgets/puls_emoji_text.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 
 /// "Meet the agents" — the live AI economy on the landing page.
 /// Pulls the autonomous-agent roster from the backend and shows each agent's
@@ -201,11 +203,7 @@ class _AgentCardState extends State<_AgentCard> {
 
   bool _isEmoji(String s) => s.runes.any((r) => r > 0x2000);
 
-  String _glyph(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length > 1 && _isEmoji(parts.last)) return parts.last;
-    return name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '🤖';
-  }
+
 
   String _displayName(String name) {
     final parts = name.trim().split(' ');
@@ -282,16 +280,18 @@ class _AgentCardState extends State<_AgentCard> {
                   ),
                   child: () {
                     final p = agentPfpAsset(a.name);
-                    return p != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.asset(p,
-                                width: 52, height: 52, fit: BoxFit.cover))
-                        : Text(_glyph(a.name),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800));
+                    if (p != null) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: Image.asset(p, width: 52, height: 52, fit: BoxFit.cover),
+                      );
+                    }
+                    return const PulsVideoIllustration(
+                      asset: 'assets/illustrations/black-cute-robot-standing.mp4',
+                      width: 52,
+                      height: 52,
+                      borderRadius: 15,
+                    );
                   }(),
                 ),
                 const SizedBox(width: 13),
@@ -338,7 +338,7 @@ class _AgentCardState extends State<_AgentCard> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: t.border),
                 ),
-                child: Text('🧠 AI engine',
+                child: PulsEmojiText('🧠 AI engine',
                     style: TextStyle(
                         color: t.textMuted,
                         fontSize: 11.5,

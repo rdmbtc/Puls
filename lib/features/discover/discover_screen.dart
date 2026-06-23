@@ -9,8 +9,10 @@ import '../../core/widgets/puls_page_route.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/utils/trade_math.dart';
 import '../../core/widgets/gradient_text.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -278,7 +280,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         ),
                         child: Row(
                           children: [
-                            Text(emoji, style: const TextStyle(fontSize: 14)),
+                            PulsEmoji.icon(emoji, size: 14),
                             const SizedBox(width: 6),
                             Text(
                               cat,
@@ -583,7 +585,7 @@ class _MarketCardState extends State<_MarketCard> {
                             color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('🤖 AGENT',
+                          child: const PulsEmojiText('🤖 AGENT',
                               style: TextStyle(
                                   color: Color(0xFF8B5CF6),
                                   fontSize: 9.5,
@@ -901,7 +903,7 @@ class _FeaturedMarketCardState extends State<_FeaturedMarketCard> {
                         color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text('🤖 AGENT',
+                      child: const PulsEmojiText('🤖 AGENT',
                           style: TextStyle(
                               color: Color(0xFF8B5CF6),
                               fontSize: 9.5,

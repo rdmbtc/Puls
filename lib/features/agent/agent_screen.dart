@@ -10,6 +10,8 @@ import 'package:haptic_kit/haptic_kit.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_video_illustration.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/shimmer_text.dart';
@@ -399,25 +401,10 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             ZoomIn(
               duration: const Duration(milliseconds: 500),
-              child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [t.brand, PulsColors.brandMint],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                        color: t.brand.withValues(alpha: 0.35),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8))
-                  ],
-                ),
-                child: const Icon(Icons.smart_toy_rounded,
-                    size: 42, color: Colors.white),
+              child: const PulsVideoIllustration(
+                asset: 'assets/illustrations/ai-agent-avatar.mp4',
+                width: 140,
+                height: 140,
               ),
             ),
             const SizedBox(height: 20),
@@ -916,7 +903,7 @@ class _AgentScreenState extends State<AgentScreen>
               borderRadius: BorderRadius.circular(14),
               border: m.fromAgent ? Border.all(color: t.border) : null,
             ),
-            child: Text(m.text,
+            child: PulsEmojiText(m.text,
                 style: TextStyle(color: fg, fontSize: 14, height: 1.35)),
           ),
           if (m.fromAgent && m.sources.isNotEmpty) ...[

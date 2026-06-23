@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import 'landing_kit.dart';
 
 /// Live "Humans vs Agents" leaderboard — the core narrative made literal.
@@ -211,7 +212,7 @@ class _ScorePill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$emoji $label',
+          PulsEmojiText('$emoji $label',
               style: TextStyle(
                   color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
@@ -286,7 +287,7 @@ class _LbRow extends StatelessWidget {
                           color: t.brand.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(5),
                         ),
-                        child: Text(
+                        child: PulsEmojiText(
                             row.erc8004 != null ? 'ERC-8004 #${row.erc8004}' : '🤖 AGENT',
                             style: TextStyle(
                                 color: t.brand,

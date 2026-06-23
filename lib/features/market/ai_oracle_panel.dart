@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
-import '../wallet/wallet_service.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 
 /// The AI layer over a market: shows three "sources of truth" — the crowd
 /// (Polymarket consensus), the AI panel (swarm agent consensus), lets the user
@@ -85,17 +85,35 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
         border: Border.all(color: t.brand.withValues(alpha: 0.25)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.hub_rounded, color: t.brand, size: 18),
-          const SizedBox(width: 8),
-          Text('AI Oracle Panel', style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
-          const Spacer(),
-          if (agentCount > 0)
-            Text('$agentCount agents', style: TextStyle(color: t.textSubtle, fontSize: 11)),
-        ]),
-        const SizedBox(height: 4),
-        Text('Two reads on this market: the crowd vs the AI swarm.',
-            style: TextStyle(color: t.textMuted, fontSize: 12)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.hub_rounded, color: t.brand, size: 18),
+                    const SizedBox(width: 8),
+                    Text('AI Oracle Panel', style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                    const Spacer(),
+                    if (agentCount > 0)
+                      Text('$agentCount agents', style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('Two reads on this market: the crowd vs the AI swarm.',
+                      style: TextStyle(color: t.textMuted, fontSize: 12)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const PulsVideoIllustration(
+              asset: 'assets/illustrations/3d-enterprise-ai-icon-app-button-for-artificial-intelligence.mp4',
+              width: 48,
+              height: 48,
+            ),
+          ],
+        ),
         const SizedBox(height: 14),
         Row(children: [
           Expanded(child: _gauge(t, 'Crowd', 'Polymarket', crowdYes, t.textMuted)),
@@ -219,7 +237,7 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
             for (final s in sources)
               InkWell(
                 onTap: () {
-                  final url = (s as Map)['url'] as String?;
+                  final url = s['url'] as String?;
                   if (url != null) { final u = Uri.tryParse(url); if (u != null) launchUrl(u, mode: LaunchMode.externalApplication); }
                 },
                 child: Container(
@@ -228,7 +246,7 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.link_rounded, size: 11, color: t.brand),
                     const SizedBox(width: 4),
-                    Text(((s as Map)['source'] as String?) ?? 'source', style: TextStyle(color: t.text, fontSize: 10.5, fontWeight: FontWeight.w600)),
+                    Text((s['source'] as String?) ?? 'source', style: TextStyle(color: t.text, fontSize: 10.5, fontWeight: FontWeight.w600)),
                   ]),
                 ),
               ),

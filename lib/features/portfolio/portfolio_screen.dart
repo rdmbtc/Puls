@@ -23,6 +23,9 @@ import 'share_bet_card_dialog.dart';
 import '../../core/widgets/count_up_text.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/gradient_text.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/puls_video_illustration.dart';
+import '../../core/widgets/puls_svg_illustration.dart';
 
 import '../../core/config.dart' show backendUrl;
 
@@ -902,12 +905,18 @@ class _HeroCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Positioned(
+          const Positioned(
             right: -20,
-            top: -20,
-            child: CircleAvatar(
-              radius: 80,
-              backgroundColor: Colors.white.withValues(alpha: 0.06),
+            top: -10,
+            bottom: -10,
+            width: 150,
+            child: Opacity(
+              opacity: 0.22,
+              child: PulsVideoIllustration(
+                asset: 'assets/illustrations/lucent-analyzing-statistics-in-interactive-dashboard.mp4',
+                fit: BoxFit.cover,
+                borderRadius: 20,
+              ),
             ),
           ),
           Padding(
@@ -981,6 +990,14 @@ class _HeroCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (pnlPositive) ...[
+                        const SizedBox(width: 6),
+                        const PulsSvgIllustration(
+                          asset: 'assets/illustrations/lucent-financial-income-growth-with-upward-arrow-and-falling-coins.svg',
+                          width: 18,
+                          height: 18,
+                        ),
+                      ],
                     ] else ...[
                       Text('Place your first trade to see P&L',
                           style: TextStyle(
@@ -1560,57 +1577,13 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (imageUrl != null)
-            Image.network(
-              imageUrl!,
-              width: 80,
-              height: 80,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) =>
-                  Icon(icon, color: t.textSubtle, size: 36),
-            )
-          else
-            Icon(icon, color: t.textSubtle, size: 36),
-          const SizedBox(height: 14),
-          Text(message,
-              style: TextStyle(
-                  color: t.text, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(sub,
-              style: TextStyle(color: t.textMuted, fontSize: 13),
-              textAlign: TextAlign.center),
-          if (ctaLabel != null && onCta != null) ...[
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onCta,
-              icon: Icon(ctaIcon ?? Icons.arrow_forward_rounded, size: 18),
-              label: Text(ctaLabel!,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: t.brand,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return PulsEmptyState(
+      title: message,
+      message: sub,
+      icon: icon,
+      actionLabel: ctaLabel,
+      actionIcon: ctaIcon,
+      onAction: onCta,
     );
   }
 }

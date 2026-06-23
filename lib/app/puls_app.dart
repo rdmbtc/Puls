@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/utils/puls_emoji.dart';
 import '../core/widgets/puls_page_route.dart';
 import '../data/mock/mock_market_repository.dart';
 import '../features/market/market_detail_screen.dart';
@@ -61,6 +62,12 @@ class _PulsAppState extends State<PulsApp> {
         ),
       );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    PulsEmoji.precacheAll(context);
   }
 
   @override

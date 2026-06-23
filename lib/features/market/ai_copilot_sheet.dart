@@ -8,6 +8,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/shimmer_text.dart';
 import '../../core/widgets/puls_sheet.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../data/models/market.dart';
 import 'trade_preview_sheet.dart';
@@ -155,13 +156,11 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: t.brandSubtle,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.auto_awesome_rounded, color: t.brand, size: 18),
+                const PulsVideoIllustration(
+                  asset: 'assets/illustrations/lucent-ai-helping-make-decisions-with-use-of-flowchart.mp4',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

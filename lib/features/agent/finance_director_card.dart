@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/tactile.dart';
 import '../../core/widgets/puls_snack.dart';
@@ -125,7 +126,7 @@ class _FinanceDirectorCardState extends State<FinanceDirectorCard> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('🎯', style: TextStyle(fontSize: 18)),
+          PulsEmoji.icon('🎯', size: 18),
           const SizedBox(width: 8),
           Text('Finance Director',
               style: TextStyle(

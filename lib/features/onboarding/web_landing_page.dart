@@ -5,6 +5,7 @@ import '../../core/widgets/puls_snack.dart';
 import 'package:flutter_web_scroll/flutter_web_scroll.dart';
 
 import 'hero_market_stack.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
@@ -532,6 +533,14 @@ class _HeroCopy extends StatelessWidget {
       crossAxisAlignment: cross,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Animated Agent Hero Avatar
+        const PulsVideoIllustration(
+          asset: 'assets/illustrations/circular-icon-of-virtual-assistant.mp4',
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.15),
+        const SizedBox(height: 18),
         // Live badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

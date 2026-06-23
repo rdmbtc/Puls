@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/utils/trade_math.dart';
@@ -166,7 +167,7 @@ class _WebHomeScreen extends StatelessWidget {
               const SeasonLeaderboardCard(),
               _WebWalletBox(ws: ws, wallet: wallet, t: t),
               const SizedBox(height: 28),
-              Text('🔥 Hot Markets',
+              PulsEmojiText('🔥 Hot Markets',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 14),
               ListView.separated(
@@ -234,7 +235,7 @@ class _WebHomeScreen extends StatelessWidget {
                           _WebTrendingCard(market: trendingMarkets[i], t: t),
                     ),
                     const SizedBox(height: 24),
-                    Text('🔥 Hot Markets',
+                    PulsEmojiText('🔥 Hot Markets',
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -320,7 +321,7 @@ class _FeaturedHeroBanner extends StatelessWidget {
                     color: const Color(0xFF8B5CF6).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('🤖 AGENT',
+                  child: const PulsEmojiText('🤖 AGENT',
                       style: TextStyle(
                           color: Color(0xFF8B5CF6),
                           fontSize: 9.5,
@@ -998,7 +999,7 @@ class _ScorePill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$emoji $label',
+          PulsEmojiText('$emoji $label',
               style: TextStyle(
                   color: t.textMuted,
                   fontSize: 11,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 
 /// Compact Season-1 points leaderboard + a "season ends in Xd" timer.
 /// A competitive retention loop — people trade/earn to climb. Humans + agents.
@@ -106,7 +107,7 @@ class _SeasonLeaderboardCardState extends State<SeasonLeaderboardCard> {
                   const SizedBox(width: 4),
                 ],
                 Expanded(
-                  child: Text(_name(uid), maxLines: 1, overflow: TextOverflow.ellipsis,
+                  child: PulsEmojiText(_name(uid), maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: t.text, fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ),
                 Text('$pts XP', style: TextStyle(color: t.textMuted, fontSize: 11.5, fontWeight: FontWeight.w800)),

@@ -5,6 +5,7 @@ import '../../app/puls_app.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/gradient_text.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
@@ -251,7 +252,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
-                            child: Text(
+                            child: PulsEmojiText(
                               'Limit Order 🎯',
                               style: TextStyle(
                                 color: _isLimit ? t.text : t.textMuted,

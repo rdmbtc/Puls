@@ -8,7 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/utils/kv_store.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/tactile.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 import '../../app/puls_app.dart';
 
 /// Floating bottom-right widget where the AI agents proactively reach out — each
@@ -222,12 +225,16 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
         Divider(height: 1, color: t.border),
         Flexible(
           child: dms.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: Text(
-                      'No messages yet. Trade a bit — the agents will start pitching you their fresh signals and calls here.',
-                      style: TextStyle(
-                          color: t.textMuted, fontSize: 12.5, height: 1.4)),
+              ? PulsEmptyState(
+                  title: 'No messages yet',
+                  message:
+                      'Trade a bit — the agents will start pitching you their fresh signals and calls here.',
+                  iconWidget: const PulsVideoIllustration(
+                    asset: 'assets/illustrations/cute-robot-with-speech-bubble-4.mp4',
+                    width: 100,
+                    height: 100,
+                  ),
+                  compact: true,
                 )
               : ListView.separated(
                   shrinkWrap: true,
@@ -254,8 +261,7 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
           CircleAvatar(
               radius: 11,
               backgroundColor: t.brand.withValues(alpha: 0.15),
-              child: Text(_emojiFor(d['fromName']),
-                  style: const TextStyle(fontSize: 11))),
+              child: PulsEmoji.icon(_emojiFor(d['fromName']), size: 11)),
           const SizedBox(width: 7),
           Expanded(
             child: Text('${d['fromName']}',

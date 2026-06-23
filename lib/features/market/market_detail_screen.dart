@@ -7,6 +7,7 @@ import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/utils/image_util.dart';
 import '../../core/widgets/market_hero.dart';
 import '../../core/widgets/animated_count.dart';
@@ -801,7 +802,7 @@ class _Chip extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: highlight ? t.brand : t.border),
       ),
-      child: Text(label,
+      child: PulsEmojiText(label,
           style: TextStyle(color: highlight ? t.brand : t.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }

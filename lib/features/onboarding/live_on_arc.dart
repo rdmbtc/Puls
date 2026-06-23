@@ -12,6 +12,8 @@ import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/count_up_text.dart';
 import '../../core/widgets/pulse_dot.dart';
+import '../../core/utils/puls_emoji.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import 'landing_kit.dart';
 
 /// "Live on Arc right now" — the proof-of-life band. Pulls real protocol stats
@@ -393,7 +395,7 @@ class _PulseNowCard extends StatelessWidget {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(gradient: PulsColors.pulseGradient, borderRadius: BorderRadius.circular(12)),
-                child: const Text('🤖', style: TextStyle(fontSize: 20)),
+                child: PulsEmoji.icon('🤖', size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -478,13 +480,14 @@ class _PulseNowCard extends StatelessWidget {
   }
 
   Widget _chip(PulsThemeColors t, String label) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: t.bg,
-          borderRadius: BorderRadius.circular(7),
+          color: t.surfaceRaised,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: t.border),
         ),
-        child: Text(label, style: TextStyle(color: t.textMuted, fontSize: 11.5, fontWeight: FontWeight.w700)),
+        child: PulsEmojiText(label,
+            style: TextStyle(color: t.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
       );
 }
 
@@ -546,7 +549,7 @@ class _OracleVsCrowdCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(label, style: TextStyle(color: t.text, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            PulsEmojiText(label, style: TextStyle(color: t.text, fontSize: 12.5, fontWeight: FontWeight.w700)),
             const Spacer(),
             Text(value, style: TextStyle(color: color, fontSize: 12.5, fontWeight: FontWeight.w800)),
           ],
@@ -736,7 +739,7 @@ class _X402LaneState extends State<_X402Lane> with SingleTickerProviderStateMixi
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: c.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 5))],
             ),
-            child: Text(glyph, style: const TextStyle(fontSize: 19)),
+            child: PulsEmoji.icon(glyph, size: 19),
           ),
           const SizedBox(height: 5),
           Text(name, style: TextStyle(color: t.text, fontSize: 11, fontWeight: FontWeight.w800)),

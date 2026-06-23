@@ -57,16 +57,19 @@ class PulsEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: t.brandSubtle,
+          if (iconWidget != null)
+            iconWidget!
+          else
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: t.brandSubtle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: t.brand, size: 30),
             ),
-            alignment: Alignment.center,
-            child: iconWidget ?? Icon(icon, color: t.brand, size: 30),
-          ),
           const SizedBox(height: 16),
           Semantics(
             header: true,

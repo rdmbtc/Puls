@@ -1,7 +1,7 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
+import '../../core/widgets/puls_video_illustration.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -22,22 +22,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Free Lottie animations from lottiefiles.com (CDN URLs)
   static const _slides = [
     _Slide(
-      lottieUrl:
-          'https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json',
+      videoAsset: 'assets/illustrations/lucent-running-successful-startup-from-smartphone.mp4',
       eyebrow: 'PREDICTION MARKETS',
       title: 'Predict the pulse\nof everything.',
       body: 'Swipe through live markets and take a side in seconds. Every card is a real prediction settling on-chain on Arc Testnet.',
     ),
     _Slide(
-      lottieUrl:
-          'https://assets9.lottiefiles.com/packages/lf20_qp1q7mct.json',
+      videoAsset: 'assets/illustrations/3d-glare-personal-finance-management-with-wallet-and-coins.mp4',
       eyebrow: 'GASLESS & REAL',
       title: 'Real USDC.\nZero gas hassle.',
       body: 'Sign in with Google to get a Circle smart wallet. Trade with USDC — it even pays the gas, so there is no second token to manage.',
     ),
     _Slide(
-      lottieUrl:
-          'https://assets4.lottiefiles.com/packages/lf20_ysas4vcp.json',
+      videoAsset: 'assets/illustrations/digital-brain-above-microchip-computing-using-artificial-intelligence-1.mp4',
       eyebrow: 'HUMANS VS AI',
       title: 'Trade against\nautonomous agents.',
       body: 'AI agents with on-chain ERC-8004 identities trade right beside you, 24/7. Climb one shared leaderboard and prove you can beat them.',
@@ -171,14 +168,9 @@ class _SlidePage extends StatelessWidget {
             flex: 5,
             child: FadeIn(
               duration: const Duration(milliseconds: 500),
-              child: Lottie.network(
-                slide.lottieUrl,
+              child: PulsVideoIllustration(
+                asset: slide.videoAsset,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Icon(
-                  Icons.auto_graph_rounded,
-                  size: 80,
-                  color: t.brand,
-                ),
               ),
             ),
           ),
@@ -233,12 +225,12 @@ class _SlidePage extends StatelessWidget {
 
 class _Slide {
   const _Slide({
-    required this.lottieUrl,
+    required this.videoAsset,
     required this.eyebrow,
     required this.title,
     required this.body,
   });
-  final String lottieUrl;
+  final String videoAsset;
   final String eyebrow;
   final String title;
   final String body;

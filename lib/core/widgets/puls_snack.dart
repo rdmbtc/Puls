@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'puls_emoji_text.dart';
 
 /// Visual intent of a [PulsSnack] message.
 enum PulsSnackType { info, success, error }
@@ -146,7 +147,7 @@ class PulsSnacker {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                child: PulsEmojiText(
                   message,
                   style: TextStyle(
                     color: _t.text,

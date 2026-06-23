@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/puls_emoji.dart';
 
 /// Puls "agency / on-chain" visual language.
 ///
@@ -160,7 +161,7 @@ class AgentBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('🤖', style: TextStyle(fontSize: compact ? 9 : 11)),
+          PulsEmoji.icon('🤖', size: compact ? 9 : 11),
           const SizedBox(width: 4),
           Text(
             label,

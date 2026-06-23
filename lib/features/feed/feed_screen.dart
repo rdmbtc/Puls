@@ -12,9 +12,11 @@ import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/pulse_dot.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../data/models/market.dart';
@@ -551,7 +553,7 @@ class _TopToastState extends State<_TopToast>
                   ),
                 ],
               ),
-              child: Text(
+              child: PulsEmojiText(
                 widget.message,
                 style: const TextStyle(
                   color: Colors.white,
@@ -1559,7 +1561,7 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
           ),
           child: Row(
             children: [
-              const Text('🔥', style: TextStyle(fontSize: 18)),
+              PulsEmoji.icon('🔥', size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1691,7 +1693,7 @@ class _ActivityAvatar extends StatelessWidget {
             : null,
       ),
       child: isAgent
-          ? Text(_glyph, style: const TextStyle(fontSize: 15))
+          ? PulsEmoji.icon(_glyph, size: 15)
           : Icon(Icons.person_rounded, size: 16, color: t.textSubtle),
     );
   }
