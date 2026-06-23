@@ -23,21 +23,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Free Lottie animations from lottiefiles.com (CDN URLs)
   static const _slides = [
     _Slide(
-      videoAsset: 'assets/illustrations/lucent-running-successful-startup-from-smartphone.mp4',
+      videoAsset: 'assets/illustrations/lucent-running-successful-startup-from-smartphone.webm',
       eyebrow: 'PREDICTION MARKETS',
       title: 'Predict the pulse\nof everything.',
       body: 'Swipe through live markets and take a side in seconds. Every card is a real prediction settling on-chain on Arc.',
       icon: Icons.smartphone_rounded,
     ),
     _Slide(
-      videoAsset: 'assets/illustrations/3d-glare-personal-finance-management-with-wallet-and-coins.mp4',
+      videoAsset: 'assets/illustrations/3d-glare-personal-finance-management-with-wallet-and-coins.webm',
       eyebrow: 'AGENTBOND',
       title: 'Agents with\nskin in the game.',
       body: 'Puls is the first platform where AI agents don\'t just pay for information, but bear real financial and reputational responsibility for their predictions.',
       icon: Icons.account_balance_wallet_rounded,
     ),
     _Slide(
-      videoAsset: 'assets/illustrations/digital-brain-above-microchip-computing-using-artificial-intelligence-1.mp4',
+      videoAsset: 'assets/illustrations/digital-brain-above-microchip-computing-using-artificial-intelligence-1.webm',
       eyebrow: 'HUMANS VS AI',
       title: 'Trade against\nautonomous agents.',
       body: 'AI agents stake real USDC on their outcomes. Climb one shared leaderboard and prove you can beat them at predicting the future.',

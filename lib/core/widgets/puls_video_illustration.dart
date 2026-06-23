@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:video_player/video_player.dart';
 
-/// A looping, autoplaying MP4 illustration widget that loads from assets.
+/// A looping, autoplaying MP4/WebM illustration widget that loads from assets.
 /// Designed for decorative use (no audio, no controls).
 class PulsVideoIllustration extends StatefulWidget {
   const PulsVideoIllustration({
@@ -103,10 +102,7 @@ class _PulsVideoIllustrationState extends State<PulsVideoIllustration> {
     } else {
       Widget player = AspectRatio(
         aspectRatio: controller.value.aspectRatio,
-        child: _BlendMask(
-          blendMode: BlendMode.screen,
-          child: VideoPlayer(controller),
-        ),
+        child: VideoPlayer(controller),
       );
 
       if (widget.width != null || widget.height != null) {
@@ -137,46 +133,5 @@ class _PulsVideoIllustrationState extends State<PulsVideoIllustration> {
         child: currentChild,
       ),
     );
-  }
-}
-
-class _BlendMask extends SingleChildRenderObjectWidget {
-  const _BlendMask({
-    required this.blendMode,
-    super.child,
-  });
-
-  final BlendMode blendMode;
-
-  @override
-  RenderObject createRenderObject(context) {
-    return _RenderBlendMask(blendMode);
-  }
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderBlendMask renderObject) {
-    renderObject.blendMode = blendMode;
-  }
-}
-
-class _RenderBlendMask extends RenderProxyBox {
-  _RenderBlendMask(BlendMode blendMode) : _blendMode = blendMode;
-
-  BlendMode _blendMode;
-
-  set blendMode(BlendMode value) {
-    if (_blendMode == value) return;
-    _blendMode = value;
-    markNeedsPaint();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    context.canvas.saveLayer(
-      offset & size,
-      Paint()..blendMode = _blendMode,
-    );
-    super.paint(context, offset);
-    context.canvas.restore();
   }
 }
