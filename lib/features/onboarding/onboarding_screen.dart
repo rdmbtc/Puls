@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/puls_video_illustration.dart';
 
 import '../../app/puls_app_state.dart';
+import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/pulse_button.dart';
 import 'web_landing_page.dart';
@@ -56,7 +57,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final t = context.puls;
     final isLast = _index == _slides.length - 1;
 
-    if (kIsWeb) return const WebLandingPage();
+    if (kIsWeb) return const OverrideReduceMotion(child: WebLandingPage());
 
     return Scaffold(
       backgroundColor: t.bg,
