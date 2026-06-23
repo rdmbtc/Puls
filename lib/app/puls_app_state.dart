@@ -13,7 +13,10 @@ import '../data/polymarket/polymarket_repository.dart';
 enum FeedStatus { loading, loaded, error }
 
 class PulsAppState extends ChangeNotifier {
+  static PulsAppState? instance;
+
   PulsAppState({required this.mockRepo}) {
+    instance = this;
     _positions = List<Position>.from(mockRepo.initialPositions);
     _watchlistIds = mockRepo.initialWatchlistIds.toSet();
     // Restore the saved theme so a dark/light choice survives a reload.

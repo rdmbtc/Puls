@@ -38,7 +38,8 @@ extension PulsMotion on BuildContext {
   /// "reduce motion" setting (iOS / Android / desktop / browser).
   bool get reduceMotion =>
       !OverrideReduceMotion.shouldOverride(this) &&
-      (PulsStateScope.maybeOf(this)?.reduceMotionOverride ??
+      (PulsAppState.instance?.reduceMotionOverride ??
+          PulsStateScope.maybeOf(this)?.reduceMotionOverride ??
           (MediaQuery.maybeDisableAnimationsOf(this) ?? false));
 
   /// [normal] unless reduce-motion is on, in which case [Duration.zero] so
