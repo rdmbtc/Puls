@@ -147,10 +147,16 @@ class PulsAppState extends ChangeNotifier {
   Future<void> refresh() => _loadMarkets();
 
   void completeOnboarding() {
+    onboardingComplete = true;
+    notifyListeners();
+  }
+
+  bool webLandingDismissed = false;
+  void dismissWebLanding() {
     // On the marketing landing host (pulsmarket.tech) the product lives on the
     // app subdomain — send the visitor there so pulsmarket.tech stays the
     // landing and app.pulsmarket.tech is the app. Elsewhere (the app subdomain
-    // itself, or local dev) just reveal the in-app shell.
+    // itself, or local dev) just dismiss the landing to reveal onboarding slides.
     if (kIsWeb) {
       final host = Uri.base.host;
       if (host == 'pulsmarket.tech' || host == 'www.pulsmarket.tech') {
@@ -158,7 +164,7 @@ class PulsAppState extends ChangeNotifier {
         return;
       }
     }
-    onboardingComplete = true;
+    webLandingDismissed = true;
     notifyListeners();
   }
 

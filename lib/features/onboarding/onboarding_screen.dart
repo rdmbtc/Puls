@@ -57,7 +57,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final t = context.puls;
     final isLast = _index == _slides.length - 1;
 
-    if (kIsWeb) return const OverrideReduceMotion(child: WebLandingPage());
+    final onAppHost = kIsWeb && Uri.base.host == 'app.pulsmarket.tech';
+    if (kIsWeb && !onAppHost && !appState.webLandingDismissed) {
+      return const OverrideReduceMotion(child: WebLandingPage());
+    }
 
     return Scaffold(
       backgroundColor: t.bg,

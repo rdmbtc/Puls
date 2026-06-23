@@ -274,7 +274,7 @@ class _Navbar extends StatelessWidget {
           SizedBox(width: isMobile ? 8 : 16),
           _PrimaryButton(
             label: isMobile ? 'Launch' : 'Launch App',
-            onTap: appState.completeOnboarding,
+            onTap: appState.dismissWebLanding,
             small: true,
           ),
         ],
@@ -633,7 +633,7 @@ class _HeroCopy extends StatelessWidget {
                 onTap: () async {
                   await wallet.signInWithExternalWallet();
                   if (wallet.state.isExternalWallet && context.mounted) {
-                    appState.completeOnboarding();
+                    appState.dismissWebLanding();
                   }
                 },
               );
@@ -2796,7 +2796,7 @@ class _FinalCtaSection extends StatelessWidget {
                       ? null
                       : () {
                           if (wallet.state.userId != null) {
-                            appState.completeOnboarding();
+                            appState.dismissWebLanding();
                           } else {
                             wallet.signInWithGoogle();
                           }

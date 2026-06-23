@@ -83,8 +83,7 @@ class _PulsAppState extends State<PulsApp> {
       builder: (context, _) {
         // On the app subdomain (app.pulsmarket.tech) boot straight into the
         // product; pulsmarket.tech / www keep showing the marketing landing.
-        final onAppHost = kIsWeb && Uri.base.host == 'app.pulsmarket.tech';
-        final shellVisible = onAppHost ||
+        final shellVisible =
             _state.onboardingComplete ||
             _walletService.state.userId != null ||
             _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app

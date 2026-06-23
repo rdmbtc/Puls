@@ -1,0 +1,1360 @@
+[
+  {
+    "file": "shop.png",
+    "id": "lfBvFhEFhiTP",
+    "name": "Shop",
+    "commonName": "shop",
+    "category": "Business,Ecommerce,Shopping"
+  },
+  {
+    "file": "check.png",
+    "id": "HcrVMyIVFsZh",
+    "name": "Cheque",
+    "commonName": "check",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "bank-cards.png",
+    "id": "7pK9qrmTKp3D",
+    "name": "Bank Cards",
+    "commonName": "bank-cards",
+    "category": "Ecommerce,Finance"
+  },
+  {
+    "file": "delivery.png",
+    "id": "9PEAuzbtxbT2",
+    "name": "Delivery Time",
+    "commonName": "delivery",
+    "category": "Business,Ecommerce,Shopping"
+  },
+  {
+    "file": "shopping-basket.png",
+    "id": "8WCjwos0E2Ko",
+    "name": "Shopping Basket",
+    "commonName": "shopping-basket",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "shopping-bag.png",
+    "id": "GJWUYQidbvsH",
+    "name": "Shopping Bag",
+    "commonName": "shopping-bag",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "open-box.png",
+    "id": "W3Uip5so8c8i",
+    "name": "Open Box",
+    "commonName": "open-box",
+    "category": "Ecommerce"
+  },
+  {
+    "file": "online-store.png",
+    "id": "9yVFH9scULbC",
+    "name": "Online Store",
+    "commonName": "online-store",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "worldwide-delivery.png",
+    "id": "m37FlKl9wuUy",
+    "name": "Worldwide Delivery",
+    "commonName": "worldwide-delivery",
+    "category": "Ecommerce"
+  },
+  {
+    "file": "paypal.png",
+    "id": "QgoCJM8CWbsc",
+    "name": "PayPal",
+    "commonName": "paypal",
+    "category": "Ecommerce,Finance,Logos"
+  },
+  {
+    "file": "shopping-cart.png",
+    "id": "IrNbwGt5kjHz",
+    "name": "Shopping Cart",
+    "commonName": "shopping-cart",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "click-and-collect.png",
+    "id": "MFCjkDIGPjWO",
+    "name": "Click & Collect",
+    "commonName": "click-and-collect",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "average-2.png",
+    "id": "CMio99H8DrtK",
+    "name": "Average Price",
+    "commonName": "average-2",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "network.png",
+    "id": "Wt6vZwyzzM07",
+    "name": "Network",
+    "commonName": "network",
+    "category": "Network"
+  },
+  {
+    "file": "network-cable.png",
+    "id": "Rk2iRqPtUFxz",
+    "name": "Network Cable",
+    "commonName": "network-cable",
+    "category": "Computer Hardware,Network"
+  },
+  {
+    "file": "mail-network.png",
+    "id": "QjiWxCcsaCsW",
+    "name": "Mail Network",
+    "commonName": "mail-network",
+    "category": "Messaging,Network"
+  },
+  {
+    "file": "share-2.png",
+    "id": "PClBimo4GQGJ",
+    "name": "Connect",
+    "commonName": "share-2",
+    "category": "Popular,Social Media"
+  },
+  {
+    "file": "delete-from-cloud.png",
+    "id": "CZyfA8aCGfvs",
+    "name": "Delete from Cloud",
+    "commonName": "delete-from-cloud",
+    "category": "Network"
+  },
+  {
+    "file": "gmail.png",
+    "id": "ePctrpTJBgR6",
+    "name": "Gmail Logo",
+    "commonName": "gmail",
+    "category": "Logos"
+  },
+  {
+    "file": "security-wi-fi.png",
+    "id": "1IyiWn6rI6yt",
+    "name": "Security Wi-Fi",
+    "commonName": "security-wi-fi",
+    "category": "Mobile,Network,Security"
+  },
+  {
+    "file": "blockchain-technology.png",
+    "id": "0HAIfvTMQc2V",
+    "name": "Blockchain Technology",
+    "commonName": "blockchain-technology",
+    "category": "Data,Network"
+  },
+  {
+    "file": "without-internet.png",
+    "id": "HhgJ2rQz5wtz",
+    "name": "Without Internet",
+    "commonName": "without-internet",
+    "category": "Mobile,Network"
+  },
+  {
+    "file": "processor.png",
+    "id": "KDmZN631Ig1j",
+    "name": "Processor",
+    "commonName": "processor",
+    "category": "Computer Hardware,Industry"
+  },
+  {
+    "file": "add-database.png",
+    "id": "4vmHYLwaYRDd",
+    "name": "Add Database",
+    "commonName": "add-database",
+    "category": "Data"
+  },
+  {
+    "file": "medium-connection.png",
+    "id": "21njI3sPSuSk",
+    "name": "Signal",
+    "commonName": "medium-connection",
+    "category": "Mobile,Network"
+  },
+  {
+    "file": "connected.png",
+    "id": "1BIvVxvWTUzh",
+    "name": "Connected",
+    "commonName": "connected",
+    "category": "Network"
+  },
+  {
+    "file": "realtime-protection.png",
+    "id": "N5rfyDmvJYbt",
+    "name": "Realtime",
+    "commonName": "realtime-protection",
+    "category": "Security"
+  },
+  {
+    "file": "wifi-router.png",
+    "id": "VPuBdNVWMsGq",
+    "name": "Wi-Fi Router",
+    "commonName": "wifi-router",
+    "category": "Network"
+  },
+  {
+    "file": "messaging.png",
+    "id": "pw35pFM1ngUH",
+    "name": "Messaging",
+    "commonName": "messaging-",
+    "category": "Messaging"
+  },
+  {
+    "file": "privacy-policy.png",
+    "id": "mTDPYLMBW0N2",
+    "name": "Privacy Policy",
+    "commonName": "privacy-policy",
+    "category": "Business"
+  },
+  {
+    "file": "company.png",
+    "id": "hu4SFxCb4UXH",
+    "name": "Company",
+    "commonName": "company",
+    "category": "Business,City"
+  },
+  {
+    "file": "paper-clamp.png",
+    "id": "6PW6h0ymdfaW",
+    "name": "Paper Clamp",
+    "commonName": "paper-clamp",
+    "category": "Printing"
+  },
+  {
+    "file": "shipped.png",
+    "id": "mWzMQyLvw7OC",
+    "name": "Shipped",
+    "commonName": "shipped",
+    "category": "Ecommerce"
+  },
+  {
+    "file": "briefcase.png",
+    "id": "Z3STIRU4hxMn",
+    "name": "Briefcase",
+    "commonName": "briefcase",
+    "category": "Business,Popular"
+  },
+  {
+    "file": "handshake.png",
+    "id": "8Y1SrtCBXvmA",
+    "name": "Handshake",
+    "commonName": "handshake",
+    "category": "Ecommerce,Hands"
+  },
+  {
+    "file": "org-unit.png",
+    "id": "m6USBGXz3ryQ",
+    "name": "Unit",
+    "commonName": "org-unit",
+    "category": "Business,User Interface"
+  },
+  {
+    "file": "goal.png",
+    "id": "CfbNAg5WL6oZ",
+    "name": "Goal",
+    "commonName": "goal",
+    "category": "Business"
+  },
+  {
+    "file": "sprint-iteration.png",
+    "id": "0Mk1a1xCldgJ",
+    "name": "Sprint Iteration",
+    "commonName": "sprint-iteration",
+    "category": "Business"
+  },
+  {
+    "file": "visa-stamp.png",
+    "id": "m9rZaeqoDR6S",
+    "name": "Visa Stamp",
+    "commonName": "visa-stamp",
+    "category": "Business,Travel"
+  },
+  {
+    "file": "paralell-workflow.png",
+    "id": "RWMgPy4ACHJP",
+    "name": "Parallel Workflow",
+    "commonName": "paralell-workflow",
+    "category": "Business"
+  },
+  {
+    "file": "manufacturing.png",
+    "id": "z9SjLwF3CXUh",
+    "name": "Manufacturing",
+    "commonName": "manufacturing",
+    "category": "Industry"
+  },
+  {
+    "file": "factory.png",
+    "id": "X8uhgV7lGc1Y",
+    "name": "Factory",
+    "commonName": "factory",
+    "category": "Industry"
+  },
+  {
+    "file": "foundry.png",
+    "id": "hAWnBI58m7yC",
+    "name": "Foundry",
+    "commonName": "foundry",
+    "category": "Industry"
+  },
+  {
+    "file": "solar-energy.png",
+    "id": "kEnUzah66be3",
+    "name": "Solar Energy",
+    "commonName": "solar-energy",
+    "category": "Farming,Industry"
+  },
+  {
+    "file": "gas.png",
+    "id": "MFMoWT2oqQma",
+    "name": "Gas",
+    "commonName": "gas",
+    "category": "Industry,Transport"
+  },
+  {
+    "file": "gas-bottle.png",
+    "id": "okwbM6jkoVb0",
+    "name": "Gas Bottle",
+    "commonName": "gas-bottle",
+    "category": "Household,Industry,Travel"
+  },
+  {
+    "file": "fork-lift.png",
+    "id": "kiwLHxqIbtWn",
+    "name": "Fork Lift",
+    "commonName": "fork-lift",
+    "category": "Industry"
+  },
+  {
+    "file": "pickaxe.png",
+    "id": "0OolARCGFz3g",
+    "name": "pickaxe",
+    "commonName": "pickaxe",
+    "category": "DIY,Industry"
+  },
+  {
+    "file": "crane.png",
+    "id": "CuPBKE5sms9w",
+    "name": "Crane",
+    "commonName": "crane",
+    "category": "Transport"
+  },
+  {
+    "file": "bulldozer.png",
+    "id": "nVNk1Cd1FKmu",
+    "name": "Bulldozer",
+    "commonName": "bulldozer",
+    "category": "Transport"
+  },
+  {
+    "file": "services.png",
+    "id": "wuPAd75eU6lM",
+    "name": "Services",
+    "commonName": "services",
+    "category": "Popular"
+  },
+  {
+    "file": "digger.png",
+    "id": "xslMkmRZQ0Lb",
+    "name": "Digger",
+    "commonName": "digger",
+    "category": "Transport"
+  },
+  {
+    "file": "worker-male.png",
+    "id": "0G0sZYRxYPud",
+    "name": "Worker",
+    "commonName": "worker-male",
+    "category": "Industry,People"
+  },
+  {
+    "file": "mine-cart.png",
+    "id": "CF7dTyNE3tHV",
+    "name": "Mine Cart",
+    "commonName": "mine-cart",
+    "category": "Industry"
+  },
+  {
+    "file": "robot.png",
+    "id": "dDwygIezCPl2",
+    "name": "Robotic Arm",
+    "commonName": "robot",
+    "category": "Industry"
+  },
+  {
+    "file": "land-surveying.png",
+    "id": "sFLx7FCA5Ql0",
+    "name": "Land Surveying",
+    "commonName": "land-surveying",
+    "category": "Farming,Industry"
+  },
+  {
+    "file": "safety-hat.png",
+    "id": "f6x2DBdwKCwX",
+    "name": "Safety Hat",
+    "commonName": "safety-hat",
+    "category": "Industry"
+  },
+  {
+    "file": "worker-female.png",
+    "id": "pMmuWS8CWzGX",
+    "name": "Worker",
+    "commonName": "worker-female",
+    "category": "Industry,People"
+  },
+  {
+    "file": "pump-breast.png",
+    "id": "fa8EuFdbdIVA",
+    "name": "Bicycle Floor Pump",
+    "commonName": "pump-breast",
+    "category": "Farming,Farming,Industry"
+  },
+  {
+    "file": "resistor.png",
+    "id": "w9qiMXF9FFh8",
+    "name": "Resistor",
+    "commonName": "resistor",
+    "category": "Industry"
+  },
+  {
+    "file": "oil-pump-jack.png",
+    "id": "hdSUyuR5dC6X",
+    "name": "Oil Pump",
+    "commonName": "oil-pump-jack",
+    "category": "Industry"
+  },
+  {
+    "file": "video-editing.png",
+    "id": "FuRQKJ9zFv0K",
+    "name": "Video Editing",
+    "commonName": "video-editing",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "edit-file.png",
+    "id": "pVNiTZ947WCI",
+    "name": "Edit File",
+    "commonName": "edit-file",
+    "category": "Files"
+  },
+  {
+    "file": "copy.png",
+    "id": "zi6FzyIX81iZ",
+    "name": "Copy",
+    "commonName": "copy",
+    "category": "Editing,Files"
+  },
+  {
+    "file": "page-orientation.png",
+    "id": "GvKwghNqzV07",
+    "name": "Page Orientation",
+    "commonName": "page-orientation",
+    "category": "Editing,Files"
+  },
+  {
+    "file": "send-to-back.png",
+    "id": "wpS7NDKH4bd5",
+    "name": "Send To Back",
+    "commonName": "send-to-back",
+    "category": "Editing"
+  },
+  {
+    "file": "border-horizontal.png",
+    "id": "rKxaXNlSd5c8",
+    "name": "Border Horizontal",
+    "commonName": "border-horizontal",
+    "category": "Editing"
+  },
+  {
+    "file": "timecode.png",
+    "id": "Lg8ouleE3f5U",
+    "name": "Timecode",
+    "commonName": "timecode",
+    "category": "Cinema,Editing,Photo and Video"
+  },
+  {
+    "file": "border-vertical.png",
+    "id": "e9e3TkrC3D5l",
+    "name": "Border Vertical",
+    "commonName": "border-vertical",
+    "category": "Editing"
+  },
+  {
+    "file": "visual-effects.png",
+    "id": "vxQCRVZcvx9Y",
+    "name": "Visual Effects",
+    "commonName": "visual-effects",
+    "category": "Cinema,Editing,Photo and Video"
+  },
+  {
+    "file": "ball-point-pen.png",
+    "id": "MTuneadWQxuP",
+    "name": "Ball Point Pen",
+    "commonName": "ball-point-pen",
+    "category": "Editing,Printing"
+  },
+  {
+    "file": "map-editing.png",
+    "id": "EXdy9H36KfbY",
+    "name": "Map Editing",
+    "commonName": "map-editing",
+    "category": "Maps"
+  },
+  {
+    "file": "video-trimming.png",
+    "id": "d9nLPW1wxgr9",
+    "name": "Video Trimming",
+    "commonName": "video-trimming",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "showing-video-frames.png",
+    "id": "pe7b7I46xukD",
+    "name": "Showing Video Frames",
+    "commonName": "showing-video-frames",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "audio-wave.png",
+    "id": "rb8JZi5acjY6",
+    "name": "Audio Wave",
+    "commonName": "audio-wave",
+    "category": "Music"
+  },
+  {
+    "file": "vector.png",
+    "id": "3BNFCHvgUAvw",
+    "name": "Vector",
+    "commonName": "vector",
+    "category": "Editing"
+  },
+  {
+    "file": "contact.png",
+    "id": "69NT4MMdIuAw",
+    "name": "Contact",
+    "commonName": "contact",
+    "category": "Logos"
+  },
+  {
+    "file": "billing.png",
+    "id": "x7ZseMZCHjKM",
+    "name": "Billing",
+    "commonName": "billing",
+    "category": "Finance"
+  },
+  {
+    "file": "online-money-transfer.png",
+    "id": "LOIcMRNzGVNy",
+    "name": "Online Money Transfer",
+    "commonName": "online-money-transfer",
+    "category": "Business,Ecommerce"
+  },
+  {
+    "file": "stocks.png",
+    "id": "3RXS7CqaPSXc",
+    "name": "Stocks",
+    "commonName": "stocks",
+    "category": "Business"
+  },
+  {
+    "file": "card-in-use.png",
+    "id": "GWDOH1Tpg2UP",
+    "name": "Card Payment",
+    "commonName": "card-in-use",
+    "category": "Finance"
+  },
+  {
+    "file": "card-security.png",
+    "id": "VFvVrDaIQdwx",
+    "name": "Card Security",
+    "commonName": "card-security",
+    "category": "Ecommerce,Finance"
+  },
+  {
+    "file": "initiate-money-transfer.png",
+    "id": "N8lkMQyG5Hh0",
+    "name": "Initiate Money Transfer",
+    "commonName": "initiate-money-transfer",
+    "category": "Business"
+  },
+  {
+    "file": "web.png",
+    "id": "jBcUtHrwbb4O",
+    "name": "Web",
+    "commonName": "web",
+    "category": "User Interface"
+  },
+  {
+    "file": "browser-window.png",
+    "id": "P7yGjzZLEDOc",
+    "name": "Browse page",
+    "commonName": "browser-window",
+    "category": "User Interface"
+  },
+  {
+    "file": "hand-drag.png",
+    "id": "97WJygwygaNk",
+    "name": "Hand Drag",
+    "commonName": "hand-drag",
+    "category": "Hands,User Interface"
+  },
+  {
+    "file": "nui2.png",
+    "id": "jzyRRpdnsJRs",
+    "name": "Natural User Interface",
+    "commonName": "nui2",
+    "category": "User Interface"
+  },
+  {
+    "file": "user-male.png",
+    "id": "VQ4hRQLjAFt6",
+    "name": "Male User",
+    "commonName": "user-male",
+    "category": "Popular,People"
+  },
+  {
+    "file": "user-female.png",
+    "id": "V2apQOyk6Gmy",
+    "name": "User Female",
+    "commonName": "user-female",
+    "category": "Popular,People"
+  },
+  {
+    "file": "gender-neutral-user.png",
+    "id": "kvZhuw4KfgaP",
+    "name": "Customer",
+    "commonName": "gender-neutral-user",
+    "category": "Profile"
+  },
+  {
+    "file": "groups.png",
+    "id": "szArMo3hrE3o",
+    "name": "User Groups",
+    "commonName": "groups",
+    "category": "Profile"
+  },
+  {
+    "file": "new-notification.png",
+    "id": "uwN6wBGhQ1BC",
+    "name": "New Notification",
+    "commonName": "new-notification",
+    "category": "Mobile"
+  },
+  {
+    "file": "folder-invoices.png",
+    "id": "GPw1qokXpOJP",
+    "name": "Folder",
+    "commonName": "folder-invoices",
+    "category": "Folders,Popular"
+  },
+  {
+    "file": "buy.png",
+    "id": "xOOc020WXZGP",
+    "name": "Buy",
+    "commonName": "buy",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "product.png",
+    "id": "ThOfbJueSxEU",
+    "name": "Product",
+    "commonName": "product",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "market-square.png",
+    "id": "R5ppL2mBlPxD",
+    "name": "Market Square",
+    "commonName": "market-square",
+    "category": "City"
+  },
+  {
+    "file": "paid.png",
+    "id": "fnD5Ey0xEOv5",
+    "name": "Paid",
+    "commonName": "paid",
+    "category": "Ecommerce,Shopping"
+  },
+  {
+    "file": "move-stock.png",
+    "id": "1brdZY8jxDyb",
+    "name": "Move Stock",
+    "commonName": "move-stock",
+    "category": "Ecommerce"
+  },
+  {
+    "file": "trainers.png",
+    "id": "rMuvyqYyxruQ",
+    "name": "Trainers",
+    "commonName": "trainers",
+    "category": "Clothing,Sports"
+  },
+  {
+    "file": "online-payment-with-a-credit-card.png",
+    "id": "rkkYmdvcdcMo",
+    "name": "Online Payment with a Credit Card",
+    "commonName": "online-payment-with-a-credit-card",
+    "category": "Business,Ecommerce"
+  },
+  {
+    "file": "price-tag.png",
+    "id": "8OtuozmmMXfG",
+    "name": "Price Tag",
+    "commonName": "price-tag",
+    "category": "Shopping"
+  },
+  {
+    "file": "bag-front-view.png",
+    "id": "GhhEnkF8s6XS",
+    "name": "Bag",
+    "commonName": "bag-front-view",
+    "category": "Clothing"
+  },
+  {
+    "file": "pair-of-socks.png",
+    "id": "0oSD3RKMgZUu",
+    "name": "Pair Of Socks",
+    "commonName": "pair-of-socks",
+    "category": "Clothing"
+  },
+  {
+    "file": "stack-of-photos.png",
+    "id": "VXPsc8ZrJrlE",
+    "name": "Photo Gallery",
+    "commonName": "stack-of-photos",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "camera.png",
+    "id": "AODCZ9YBDIOD",
+    "name": "Camera",
+    "commonName": "camera",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "video-gallery.png",
+    "id": "E4v2zCwEGZEl",
+    "name": "Video Gallery",
+    "commonName": "video-gallery",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "video-call.png",
+    "id": "Kgez2JPJdWwu",
+    "name": "Video Call",
+    "commonName": "video-call",
+    "category": "Mobile"
+  },
+  {
+    "file": "camcorder-pro.png",
+    "id": "qBEHAUUd68L6",
+    "name": "Camcorder",
+    "commonName": "camcorder-pro",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "camcorder.png",
+    "id": "D4xZDVRDLPGO",
+    "name": "Camcorder",
+    "commonName": "camcorder",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "crop.png",
+    "id": "eFEtYtZtSgsb",
+    "name": "Crop",
+    "commonName": "crop",
+    "category": "Editing"
+  },
+  {
+    "file": "panorama.png",
+    "id": "bjl4DvqFTuDT",
+    "name": "Panorama",
+    "commonName": "panorama",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "camera-intelligence.png",
+    "id": "3UDXDWNuJlgU",
+    "name": "Camera Intelligence",
+    "commonName": "camera-intelligence",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "flash-on.png",
+    "id": "IXRQQ1CVssHI",
+    "name": "Flash On",
+    "commonName": "flash-on",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "mommy-and-me-classes.png",
+    "id": "mo8x2iQsZUVr",
+    "name": "Mommy and Me Classes",
+    "commonName": "mommy-and-me-classes",
+    "category": "Baby"
+  },
+  {
+    "file": "wine-and-glass.png",
+    "id": "EVToy4L5vVFD",
+    "name": "Wine And Glass",
+    "commonName": "wine-and-glass",
+    "category": "Drinks,Food"
+  },
+  {
+    "file": "joystick.png",
+    "id": "ChS4IFAJheP9",
+    "name": "Joystick",
+    "commonName": "joystick",
+    "category": "Gaming"
+  },
+  {
+    "file": "greek-helmet.png",
+    "id": "sKkkqfdQaDwf",
+    "name": "Greek Helmet",
+    "commonName": "greek-helmet",
+    "category": "Culture,Gaming,Military"
+  },
+  {
+    "file": "wallmount-camera.png",
+    "id": "bMC3vFx8P22a",
+    "name": "Wall Mount Camera",
+    "commonName": "wallmount-camera",
+    "category": "Security"
+  },
+  {
+    "file": "dome-camera.png",
+    "id": "6OMzL3CHt0z7",
+    "name": "Dome Camera",
+    "commonName": "dome-camera",
+    "category": "Security"
+  },
+  {
+    "file": "tv.png",
+    "id": "PHcpAedZ6cYn",
+    "name": "TV",
+    "commonName": "tv",
+    "category": "Household"
+  },
+  {
+    "file": "photo-reel.png",
+    "id": "VlScM1aSqiHo",
+    "name": "Film Roll",
+    "commonName": "photo-reel",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "change.png",
+    "id": "qfHrPY63QcxC",
+    "name": "Change",
+    "commonName": "change",
+    "category": "Business,Data"
+  },
+  {
+    "file": "documentary.png",
+    "id": "fu7cKFhRaLrV",
+    "name": "Documentary",
+    "commonName": "documentary",
+    "category": "Cinema"
+  },
+  {
+    "file": "biotech.png",
+    "id": "X30TOAkVBflB",
+    "name": "Biotech",
+    "commonName": "biotech",
+    "category": "Industry,Science"
+  },
+  {
+    "file": "controller.png",
+    "id": "8eio9KgDotj6",
+    "name": "Game Controller",
+    "commonName": "controller",
+    "category": "Gaming"
+  },
+  {
+    "file": "partly-cloudy-day.png",
+    "id": "aPRy2QajgpVW",
+    "name": "Partly Cloudy Day",
+    "commonName": "partly-cloudy-day",
+    "category": "Farming,Weather"
+  },
+  {
+    "file": "picture.png",
+    "id": "l8sUYFIq3YAP",
+    "name": "Picture",
+    "commonName": "picture",
+    "category": "Popular"
+  },
+  {
+    "file": "overtime.png",
+    "id": "rdvHQ7vLfgGq",
+    "name": "Schedule",
+    "commonName": "overtime",
+    "category": "Business,Time And Date"
+  },
+  {
+    "file": "partly-cloudy-night.png",
+    "id": "yVNOP60KdxUp",
+    "name": "Night",
+    "commonName": "partly-cloudy-night",
+    "category": "Weather"
+  },
+  {
+    "file": "doctors-bag.png",
+    "id": "orbrKGuIptgh",
+    "name": "Doctors Bag",
+    "commonName": "doctors-bag",
+    "category": "Healthcare"
+  },
+  {
+    "file": "dental-machine.png",
+    "id": "hzHWhbxvsMEZ",
+    "name": "Dental Machine",
+    "commonName": "dental-machine",
+    "category": "Healthcare"
+  },
+  {
+    "file": "medal2.png",
+    "id": "Nyz7sX2S8lDA",
+    "name": "Medal First Place",
+    "commonName": "medal2",
+    "category": "Sports"
+  },
+  {
+    "file": "strength.png",
+    "id": "meaoLhSwAEKy",
+    "name": "Strength",
+    "commonName": "strength",
+    "category": "Sports"
+  },
+  {
+    "file": "smartphone-tablet.png",
+    "id": "arECO48nSSlD",
+    "name": "Smartphone Tablet",
+    "commonName": "smartphone-tablet",
+    "category": "Mobile"
+  },
+  {
+    "file": "cocktail.png",
+    "id": "ZtxrXDDN46VY",
+    "name": "Cocktail",
+    "commonName": "cocktail",
+    "category": "Drinks,Farming"
+  },
+  {
+    "file": "database.png",
+    "id": "CjYpeVImOaFJ",
+    "name": "Database",
+    "commonName": "database",
+    "category": "Data"
+  },
+  {
+    "file": "cloud-folder.png",
+    "id": "j8kvRC7ycODW",
+    "name": "Cloud Folder",
+    "commonName": "cloud-folder",
+    "category": "Data,Folders"
+  },
+  {
+    "file": "bar-chart.png",
+    "id": "LpLJxlHRiabV",
+    "name": "Bar Chart",
+    "commonName": "bar-chart",
+    "category": "Business,Data"
+  },
+  {
+    "file": "view-file.png",
+    "id": "hDpkBbHRHwOG",
+    "name": "View",
+    "commonName": "view-file",
+    "category": "Files"
+  },
+  {
+    "file": "microsoft-forms-2019.png",
+    "id": "b9GiZ6kFHxg5",
+    "name": "Microsoft Forms 2019",
+    "commonName": "microsoft-forms-2019",
+    "category": "Logos"
+  },
+  {
+    "file": "layers.png",
+    "id": "aDHUjxUHcfez",
+    "name": "Layers",
+    "commonName": "layers",
+    "category": "Maps,Travel"
+  },
+  {
+    "file": "open-book.png",
+    "id": "lVciQ3vuIqSJ",
+    "name": "Open Book",
+    "commonName": "open-book",
+    "category": "Science"
+  },
+  {
+    "file": "filter.png",
+    "id": "sqegkxSSWjcX",
+    "name": "Filter",
+    "commonName": "filter",
+    "category": "Data"
+  },
+  {
+    "file": "download-from-cloud.png",
+    "id": "Wag4kNK9ujlx",
+    "name": "Download From Cloud",
+    "commonName": "download-from-cloud",
+    "category": "Network"
+  },
+  {
+    "file": "flow-chart.png",
+    "id": "0UHwSm43ZTSO",
+    "name": "Flow Chart",
+    "commonName": "flow-chart",
+    "category": "Business,Data"
+  },
+  {
+    "file": "electronics.png",
+    "id": "Afrs75i3ZB4Y",
+    "name": "Electronics",
+    "commonName": "electronics",
+    "category": "Industry"
+  },
+  {
+    "file": "usb-2.png",
+    "id": "KBgBFDGfXTvA",
+    "name": "USB 2",
+    "commonName": "usb-2",
+    "category": "Computer Hardware,Files"
+  },
+  {
+    "file": "usb-memory-stick.png",
+    "id": "rr5Sj0ie8jxg",
+    "name": "USB Memory Stick",
+    "commonName": "usb-memory-stick",
+    "category": "Computer Hardware,Files"
+  },
+  {
+    "file": "microsoft-office-delve-2020.png",
+    "id": "9EvNKrEmIZRI",
+    "name": "Microsoft Office Delve 2020",
+    "commonName": "microsoft-office-delve-2020",
+    "category": "Logos"
+  },
+  {
+    "file": "device-manager.png",
+    "id": "hfXCduDBihuz",
+    "name": "Device Manager",
+    "commonName": "device-manager",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "area-chart.png",
+    "id": "7T0Cyr0fO0fj",
+    "name": "Area Chart",
+    "commonName": "area-chart",
+    "category": "Business,Data"
+  },
+  {
+    "file": "burn-folder.png",
+    "id": "3bRpRccpLitD",
+    "name": "Burn Folder",
+    "commonName": "burn-folder",
+    "category": "Files,Folders"
+  },
+  {
+    "file": "vertical-timeline.png",
+    "id": "uwa2g9Gpesn2",
+    "name": "Vertical Timeline",
+    "commonName": "vertical-timeline",
+    "category": "Business,Data"
+  },
+  {
+    "file": "mac-folder.png",
+    "id": "sokGGJe0rIX1",
+    "name": "Mac Folder",
+    "commonName": "mac-folder",
+    "category": "Folders"
+  },
+  {
+    "file": "doughnut-chart.png",
+    "id": "YpaahOZ1ly00",
+    "name": "Doughnut Chart",
+    "commonName": "doughnut-chart",
+    "category": "Business,Data"
+  },
+  {
+    "file": "shared-folder.png",
+    "id": "hiEwLvyPwMGe",
+    "name": "Shared Folder",
+    "commonName": "shared-folder",
+    "category": "Folders,Network"
+  },
+  {
+    "file": "delete-file.png",
+    "id": "qNEIysVOdroc",
+    "name": "Delete File",
+    "commonName": "delete-file",
+    "category": "Files"
+  },
+  {
+    "file": "upload-to-cloud.png",
+    "id": "OJCURyueBqmX",
+    "name": "Upload to Cloud",
+    "commonName": "upload-to-cloud",
+    "category": "Network"
+  },
+  {
+    "file": "film-reel.png",
+    "id": "3wTWj3MozCm2",
+    "name": "Film Reel",
+    "commonName": "film-reel",
+    "category": "Photo and Video"
+  },
+  {
+    "file": "horror.png",
+    "id": "H5inoGfBXcae",
+    "name": "Horror",
+    "commonName": "horror",
+    "category": "Cinema,Crime"
+  },
+  {
+    "file": "ticket.png",
+    "id": "yrfcfVQobIBe",
+    "name": "Ticket",
+    "commonName": "ticket",
+    "category": "Cinema,Transport,Travel"
+  },
+  {
+    "file": "two-tickets.png",
+    "id": "gkrtoKIOSFiQ",
+    "name": "Two Tickets",
+    "commonName": "two-tickets",
+    "category": "Cinema,Transport"
+  },
+  {
+    "file": "one-ring.png",
+    "id": "PwFWnQkFJDGY",
+    "name": "One Ring",
+    "commonName": "one-ring",
+    "category": "Characters,Cinema"
+  },
+  {
+    "file": "the-flash-sign.png",
+    "id": "6f1Wrv8LrUa1",
+    "name": "The Flash Sign",
+    "commonName": "the-flash-sign",
+    "category": "Characters,Cinema"
+  },
+  {
+    "file": "curtains.png",
+    "id": "jgdVGqhLYLVG",
+    "name": "Curtains",
+    "commonName": "curtains",
+    "category": "Household"
+  },
+  {
+    "file": "baby-mobile.png",
+    "id": "J1PgguaLc4F6",
+    "name": "Baby Mobile",
+    "commonName": "baby-mobile",
+    "category": "Baby"
+  },
+  {
+    "file": "low-battery.png",
+    "id": "5RGymOKHOW2i",
+    "name": "Low Battery",
+    "commonName": "low-battery",
+    "category": "Mobile"
+  },
+  {
+    "file": "rv-campground.png",
+    "id": "PkutOVcBUr8X",
+    "name": "Camper",
+    "commonName": "rv-campground",
+    "category": "Transport,Travel"
+  },
+  {
+    "file": "trailer.png",
+    "id": "INfVYlkYoVLQ",
+    "name": "Trailer",
+    "commonName": "trailer",
+    "category": "Transport,Travel"
+  },
+  {
+    "file": "heart-monitor.png",
+    "id": "NLnfcDYM9Zqk",
+    "name": "Heart Monitor",
+    "commonName": "heart-monitor",
+    "category": "Healthcare"
+  },
+  {
+    "file": "iphone-x.png",
+    "id": "sa7NircQezCb",
+    "name": "iPhone 14",
+    "commonName": "iphone-x",
+    "category": "Mobile"
+  },
+  {
+    "file": "portable-toilet.png",
+    "id": "O0A13CsKT2Ys",
+    "name": "Portable Toilet",
+    "commonName": "portable-toilet",
+    "category": "City,Household"
+  },
+  {
+    "file": "craft-work.png",
+    "id": "qEUcMsplCvnD",
+    "name": "Craft Work",
+    "commonName": "craft-work",
+    "category": "Business,DIY"
+  },
+  {
+    "file": "toolbox.png",
+    "id": "cgRcQu5xLDJO",
+    "name": "Toolbox",
+    "commonName": "toolbox",
+    "category": "DIY,Popular"
+  },
+  {
+    "file": "knitting-ball.png",
+    "id": "4dONX3sSD4E6",
+    "name": "Yarn",
+    "commonName": "knitting-ball",
+    "category": "DIY,Farming"
+  },
+  {
+    "file": "roller-brush.png",
+    "id": "aHG9mCBmLLQB",
+    "name": "Paint Roller",
+    "commonName": "roller-brush",
+    "category": "DIY,Editing,Farming"
+  },
+  {
+    "file": "origami.png",
+    "id": "d2Itoys7hobn",
+    "name": "Origami",
+    "commonName": "origami",
+    "category": "Culture"
+  },
+  {
+    "file": "solid-paint.png",
+    "id": "GnbDMZwaalLw",
+    "name": "Solid Paint",
+    "commonName": "solid-paint",
+    "category": "DIY,Farming"
+  },
+  {
+    "file": "chain-start.png",
+    "id": "65hIdoVZ5jmU",
+    "name": "Chain Start",
+    "commonName": "chain-start",
+    "category": "DIY,Industry"
+  },
+  {
+    "file": "jig-saw.png",
+    "id": "SlMGE6OxwcwS",
+    "name": "Jig Saw",
+    "commonName": "jig-saw",
+    "category": "DIY"
+  },
+  {
+    "file": "laptop.png",
+    "id": "640EsNS4OKB8",
+    "name": "Laptop",
+    "commonName": "laptop",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "imac.png",
+    "id": "aUSV1wxr8mk2",
+    "name": "iMac",
+    "commonName": "imac",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "monitor.png",
+    "id": "Ct4PXl066NKV",
+    "name": "Monitor",
+    "commonName": "monitor",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "workstation.png",
+    "id": "jZUKcHMmhEpv",
+    "name": "Workstation",
+    "commonName": "workstation",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "programming.png",
+    "id": "8Glfo6rQalsl",
+    "name": "Programming",
+    "commonName": "programming",
+    "category": "Computer Hardware,Programming"
+  },
+  {
+    "file": "integrated-circuit.png",
+    "id": "DznH2EenS5HW",
+    "name": "Integrated Circuit",
+    "commonName": "integrated-circuit",
+    "category": "Industry"
+  },
+  {
+    "file": "hammer.png",
+    "id": "1Gxa71E1KQyV",
+    "name": "Hammer",
+    "commonName": "hammer",
+    "category": "DIY,Farming"
+  },
+  {
+    "file": "drill.png",
+    "id": "NahK4bJ9Kx1b",
+    "name": "Drill",
+    "commonName": "drill",
+    "category": "DIY,Farming,Farming"
+  },
+  {
+    "file": "under-computer.png",
+    "id": "UOM594kcxQ95",
+    "name": "Workspace",
+    "commonName": "under-computer",
+    "category": "Computer Hardware"
+  },
+  {
+    "file": "printer-maintenance.png",
+    "id": "fd2IRptPDd0k",
+    "name": "Printer Maintenance",
+    "commonName": "printer-maintenance",
+    "category": "Printing"
+  },
+  {
+    "file": "mage-staff.png",
+    "id": "LKU9csR0HUG0",
+    "name": "Mage Staff",
+    "commonName": "mage-staff",
+    "category": "Gaming,Holidays"
+  },
+  {
+    "file": "soldering-iron.png",
+    "id": "HTyUyDi6Ng6M",
+    "name": "Soldering Iron",
+    "commonName": "soldering-iron",
+    "category": "Industry"
+  },
+  {
+    "file": "module.png",
+    "id": "aLKMDoxEOUs2",
+    "name": "Module",
+    "commonName": "module",
+    "category": "Programming"
+  },
+  {
+    "file": "transistor.png",
+    "id": "pWmtBBOWX4On",
+    "name": "Transistor",
+    "commonName": "transistor",
+    "category": "Industry"
+  }
+]
