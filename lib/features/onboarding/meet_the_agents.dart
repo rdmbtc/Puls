@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_video_illustration.dart';
 
@@ -202,9 +203,11 @@ class _AgentCardState extends State<_AgentCard> {
   bool _hovered = false;
 
   bool _isEmoji(String s) => s.runes.any((r) => r > 0x2000);
-
-
-
+  String _glyph(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length > 1 && _isEmoji(parts.last)) return parts.last;
+    return '🤖';
+  }
   String _displayName(String name) {
     final parts = name.trim().split(' ');
     if (parts.length > 1 && _isEmoji(parts.last)) {
@@ -286,11 +289,12 @@ class _AgentCardState extends State<_AgentCard> {
                         child: Image.asset(p, width: 52, height: 52, fit: BoxFit.cover),
                       );
                     }
-                    return const PulsVideoIllustration(
+                    return PulsVideoIllustration(
                       asset: 'assets/illustrations/black-cute-robot-standing.mp4',
                       width: 52,
                       height: 52,
                       borderRadius: 15,
+                      fallback: PulsEmoji.icon(_glyph(a.name), size: 24),
                     );
                   }(),
                 ),

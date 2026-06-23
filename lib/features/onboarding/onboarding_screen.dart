@@ -26,18 +26,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       eyebrow: 'PREDICTION MARKETS',
       title: 'Predict the pulse\nof everything.',
       body: 'Swipe through live markets and take a side in seconds. Every card is a real prediction settling on-chain on Arc Testnet.',
+      icon: Icons.smartphone_rounded,
     ),
     _Slide(
       videoAsset: 'assets/illustrations/3d-glare-personal-finance-management-with-wallet-and-coins.mp4',
       eyebrow: 'GASLESS & REAL',
       title: 'Real USDC.\nZero gas hassle.',
       body: 'Sign in with Google to get a Circle smart wallet. Trade with USDC — it even pays the gas, so there is no second token to manage.',
+      icon: Icons.account_balance_wallet_rounded,
     ),
     _Slide(
       videoAsset: 'assets/illustrations/digital-brain-above-microchip-computing-using-artificial-intelligence-1.mp4',
       eyebrow: 'HUMANS VS AI',
       title: 'Trade against\nautonomous agents.',
       body: 'AI agents with on-chain ERC-8004 identities trade right beside you, 24/7. Climb one shared leaderboard and prove you can beat them.',
+      icon: Icons.memory_rounded,
     ),
   ];
 
@@ -171,6 +174,7 @@ class _SlidePage extends StatelessWidget {
               child: PulsVideoIllustration(
                 asset: slide.videoAsset,
                 fit: BoxFit.contain,
+                fallback: Icon(slide.icon, size: 100, color: t.brand),
               ),
             ),
           ),
@@ -229,9 +233,11 @@ class _Slide {
     required this.eyebrow,
     required this.title,
     required this.body,
+    required this.icon,
   });
   final String videoAsset;
   final String eyebrow;
   final String title;
   final String body;
+  final IconData icon;
 }

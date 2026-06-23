@@ -11,6 +11,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_video_illustration.dart';
+import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/config.dart' show backendUrl;
@@ -401,10 +402,11 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             ZoomIn(
               duration: const Duration(milliseconds: 500),
-              child: const PulsVideoIllustration(
+              child: PulsVideoIllustration(
                 asset: 'assets/illustrations/ai-agent-avatar.mp4',
                 width: 140,
                 height: 140,
+                fallback: PulsEmoji.icon('🤖', size: 100),
               ),
             ),
             const SizedBox(height: 20),

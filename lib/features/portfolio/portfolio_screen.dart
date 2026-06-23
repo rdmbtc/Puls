@@ -916,6 +916,7 @@ class _HeroCard extends StatelessWidget {
                 asset: 'assets/illustrations/lucent-analyzing-statistics-in-interactive-dashboard.mp4',
                 fit: BoxFit.cover,
                 borderRadius: 20,
+                fallback: SizedBox.shrink(),
               ),
             ),
           ),

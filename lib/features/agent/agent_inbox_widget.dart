@@ -229,10 +229,11 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
                   title: 'No messages yet',
                   message:
                       'Trade a bit — the agents will start pitching you their fresh signals and calls here.',
-                  iconWidget: const PulsVideoIllustration(
+                  iconWidget: PulsVideoIllustration(
                     asset: 'assets/illustrations/cute-robot-with-speech-bubble-4.mp4',
                     width: 100,
                     height: 100,
+                    fallback: PulsEmoji.icon('🤖', size: 64),
                   ),
                   compact: true,
                 )

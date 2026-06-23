@@ -107,10 +107,11 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
               ),
             ),
             const SizedBox(width: 12),
-            const PulsVideoIllustration(
+            PulsVideoIllustration(
               asset: 'assets/illustrations/3d-enterprise-ai-icon-app-button-for-artificial-intelligence.mp4',
               width: 48,
               height: 48,
+              fallback: Icon(Icons.hub_rounded, size: 24, color: t.brand),
             ),
           ],
         ),

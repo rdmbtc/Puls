@@ -156,11 +156,12 @@ class _AiCopilotSheetState extends State<AiCopilotSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                const PulsVideoIllustration(
+                PulsVideoIllustration(
                   asset: 'assets/illustrations/lucent-ai-helping-make-decisions-with-use-of-flowchart.mp4',
                   width: 36,
                   height: 36,
                   borderRadius: 18,
+                  fallback: Icon(Icons.auto_awesome_rounded, size: 18, color: t.brand),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

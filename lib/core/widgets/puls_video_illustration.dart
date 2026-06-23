@@ -11,6 +11,7 @@ class PulsVideoIllustration extends StatefulWidget {
     this.height,
     this.fit = BoxFit.contain,
     this.borderRadius = 16.0,
+    this.fallback,
   });
 
   final String asset;
@@ -18,6 +19,7 @@ class PulsVideoIllustration extends StatefulWidget {
   final double? height;
   final BoxFit fit;
   final double borderRadius;
+  final Widget? fallback;
 
   @override
   State<PulsVideoIllustration> createState() => _PulsVideoIllustrationState();
@@ -84,51 +86,52 @@ class _PulsVideoIllustrationState extends State<PulsVideoIllustration> {
 
   @override
   Widget build(BuildContext context) {
-    if (_hasError) {
-      return SizedBox(
+    final controller = _controller;
+    final showFallback = _hasError || !_initialized || controller == null;
+
+    Widget currentChild;
+
+    if (showFallback) {
+      currentChild = widget.fallback ?? SizedBox(
         width: widget.width,
         height: widget.height,
         child: Center(
           child: Icon(Icons.broken_image_rounded, color: Colors.grey.withValues(alpha: 0.5)),
         ),
       );
-    }
-
-    final controller = _controller;
-    if (!_initialized || controller == null) {
-      return SizedBox(
-        width: widget.width,
-        height: widget.height,
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+    } else {
+      Widget player = AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: VideoPlayer(controller),
       );
-    }
 
-    Widget player = AspectRatio(
-      aspectRatio: controller.value.aspectRatio,
-      child: VideoPlayer(controller),
-    );
-
-    if (widget.width != null || widget.height != null) {
-      player = SizedBox(
-        width: widget.width,
-        height: widget.height,
-        child: FittedBox(
-          fit: widget.fit,
-          clipBehavior: Clip.hardEdge,
-          child: player,
-        ),
-      );
+      if (widget.width != null || widget.height != null) {
+        player = SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: FittedBox(
+            fit: widget.fit,
+            clipBehavior: Clip.hardEdge,
+            child: player,
+          ),
+        );
+      }
+      currentChild = player;
     }
 
     if (widget.borderRadius > 0) {
-      player = ClipRRect(
+      currentChild = ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: player,
+        child: currentChild,
       );
     }
 
-    return player;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: KeyedSubtree(
+        key: ValueKey(showFallback),
+        child: currentChild,
+      ),
+    );
   }
 }
