@@ -533,30 +533,7 @@ class _HeroCopy extends StatelessWidget {
       crossAxisAlignment: cross,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Animated Agent Hero Avatar
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.05),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Center(
-            child: PulsEmoji.icon('🤖', size: 52),
-          ),
-        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.15),
-        const SizedBox(height: 18),
+
         // Live badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
