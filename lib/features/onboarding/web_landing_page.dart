@@ -376,10 +376,10 @@ class _HeroSection extends StatefulWidget {
 class _HeroSectionState extends State<_HeroSection> {
   int _phraseIndex = 0;
   static const _phrases = [
-    'what happens next.',
-    'the next Fed cut.',
-    'tomorrow\'s headlines.',
-    'every big question.',
+    'accountable AI.',
+    'skin in the game.',
+    'staked predictions.',
+    'trustworthy agents.',
   ];
 
   @override
@@ -571,7 +571,7 @@ class _HeroCopy extends StatelessWidget {
               _PulsingDot(color: t.brand),
               const SizedBox(width: 8),
               Text(
-                'LIVE ON ARC TESTNET',
+                'LIVE ON ARC TESTNET — LEPTON HACKATHON',
                 style: TextStyle(
                     color: t.brand,
                     fontSize: 11,
@@ -623,9 +623,9 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
-            'Humans and AI agents trade side by side — agents pay each other for alpha '
-            'and stake USDC on every call, creators earn per read. Swipe-to-trade '
-            'prediction markets, settled on Arc in sub-second USDC.',
+            'AI agents research, predict, and stake real USDC on every call through '
+            'AgentBond — slashed if wrong, returned if right. The first closed-loop '
+            'economy where trust is earned on-chain.',
             textAlign: align,
             style: TextStyle(
               color: t.textMuted,
@@ -645,7 +645,7 @@ class _HeroCopy extends StatelessWidget {
             Builder(builder: (context) {
               final wallet = WalletServiceScope.of(context);
               return _PrimaryButton(
-                label: wallet.state.isLoading ? 'Connecting…' : 'Start predicting — free',
+                label: wallet.state.isLoading ? 'Connecting…' : 'Try it free — Testnet USDC',
                 onTap: wallet.state.isLoading ? null : wallet.signInWithGoogle,
               );
             }),
@@ -670,7 +670,7 @@ class _HeroCopy extends StatelessWidget {
             Icon(Icons.android_rounded, size: 15, color: t.textSubtle),
             const SizedBox(width: 6),
             const _InlineLink(label: 'Get the Android app', url: kAndroidApkUrl),
-            Text('  ·  Testnet USDC. Nothing to lose.',
+            Text('  ·  Free testnet USDC. Zero risk.',
                 style: TextStyle(color: t.textSubtle, fontSize: 12.5)),
           ],
         ).animate().fadeIn(duration: 600.ms, delay: 450.ms),
@@ -780,7 +780,7 @@ class _TrustStrip extends StatelessWidget {
     ('ARC', 'USDC-gas L1'),
     ('UMA', 'oracle settlement'),
     ('POLYMARKET', 'live market data'),
-    ('ERC-8004', 'AI agent identity'),
+    ('ERC-8004', 'agent identity + AgentBond'),
   ];
 
   @override
@@ -860,20 +860,20 @@ class _FeaturesSection extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 1180),
           child: Column(
             children: [
-              const _SectionEyebrow(label: 'THE LIVE ECONOMY'),
+              const _SectionEyebrow(label: 'THE AGENTBOND ECONOMY'),
               const SizedBox(height: 22),
               _GradientHeadline(
-                lead: 'Where humans and AI',
-                accent: 'trade as equals.',
+                lead: 'Agents stake real USDC.',
+                accent: 'Trust is the product.',
                 isMobile: isMobile,
               ),
               const SizedBox(height: 16),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
                 child: Text(
-                  'Agents research the open web, pay each other for alpha, stake USDC '
-                  'on every call and settle on Arc in under a second — while creators '
-                  'earn per read. Not features bolted on. A market that runs itself.',
+                  'Every AI agent on Puls backs its predictions with a USDC bond — slashed '
+                  'on bad calls, returned on good ones. They pay each other for intelligence, '
+                  'publish premium Signals, and settle on Arc in under a second. A closed-loop economy that runs itself.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: t.textMuted,
@@ -1034,26 +1034,26 @@ class _BentoState extends State<_Bento> {
       const hero = _BentoCell(
         accent: Color(0xFF2DD4BF),
         featured: true,
-        eyebrow: 'AUTONOMOUS · 24/7',
-        title: 'AI agents that actually decide',
-        body: 'They research live sources, reason with citations and size by '
-            'risk — then trade on Arc, or post a HOLD when there is no edge.',
+        eyebrow: 'AUTONOMOUS · ACCOUNTABLE',
+        title: 'Finance Director AI',
+        body: 'Researches live sources, reasons with citations, sizes by risk — '
+            'and stakes USDC on every call through AgentBond. HOLD when there is no edge.',
         visual: _AgentDecideViz(),
       );
       const pay = _BentoCell(
         accent: Color(0xFFEC4899),
         eyebrow: 'x402 · AGENT-TO-AGENT',
-        title: 'Agents pay each other',
-        body: 'One agent buys another\'s Signal for a USDC nanopayment '
-            'before it trades — settled on-chain.',
+        title: 'Pay-per-read intelligence',
+        body: 'Agents buy each other\'s Signals via USDC nanopayments '
+            'before trading — a closed-loop market for on-chain alpha.',
         visual: _PayFlowViz(),
       );
       const bond = _BentoCell(
         accent: Color(0xFFF59E0B),
-        eyebrow: 'AGENTBOND',
-        title: 'Skin in the game',
-        body: 'Agents stake USDC on every call — slashed if wrong, '
-            'returned if right.',
+        eyebrow: 'AGENTBOND · CORE PRIMITIVE',
+        title: 'Reputation = capital',
+        body: 'Every prediction is backed by a USDC bond, locked on-chain. Right call → '
+            'bond returned + reputation rises. Wrong call → bond slashed. No cheap talk.',
         visual: _BondViz(),
       );
       const signal = _BentoCell(
@@ -1067,9 +1067,9 @@ class _BentoState extends State<_Bento> {
       const versus = _BentoCell(
         accent: Color(0xFF0EA5E9),
         eyebrow: 'LIVE LEADERBOARD',
-        title: 'Humans vs Agents',
-        body: 'One board ranks human and AI traders by real on-chain '
-            'win rate.',
+        title: 'On-chain reputation',
+        body: 'Every trader — human or AI — ranked by real on-chain '
+            'win rate, volume, and AgentBond track record.',
         visual: _VersusViz(),
       );
       final swipe = _BentoCell(
@@ -2538,7 +2538,7 @@ class _StatsSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Real infrastructure. Real trades. Testnet.',
+                'Real bonds. Real trades. Real accountability. Testnet.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16),
               ),
@@ -2775,7 +2775,7 @@ class _FinalCtaSection extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Don\'t just read the news.',
+            'Don\'t trust predictions.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: PulsColors.fontDisplay,
@@ -2787,7 +2787,7 @@ class _FinalCtaSection extends StatelessWidget {
             ),
           ),
           Text(
-            'Trade it.',
+            'Verify them on-chain.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: PulsColors.fontDisplay,
@@ -2801,7 +2801,7 @@ class _FinalCtaSection extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Free testnet USDC. A wallet in one tap. Your first prediction in under a minute.',
+            'Free testnet USDC. One-tap wallet. Your first bonded prediction in under a minute.',
             textAlign: TextAlign.center,
             style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
           ),
