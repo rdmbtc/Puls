@@ -351,28 +351,39 @@ function App() {
     });
   }
 
-  const logN = Math.max(4, dims.rows - 16);
+  // Slice for perf; the flex-grow log box clips any overflow so it never doubles.
   const logEls = useMemo(
-    () => msgs.slice(-logN).map((m) => html`<${MessageView} key=${m.id} item=${m} />`),
-    [msgs, logN],
+    () => msgs.slice(-Math.max(6, dims.rows)).map((m) => html`<${MessageView} key=${m.id} item=${m} />`),
+    [msgs, dims.rows],
   );
 
-  return html`
-    <${Box} flexDirection="column" paddingX=${1} paddingTop=${1}>
-      <${Banner} frame=${frame} />
-      <${Wave} frame=${frame} width=${dims.cols} />
-      <${Box} marginTop=${1}>
-        <${Text} color="gray">the market for what happens next   </${Text}>
-        <${Text} color=${authed ? GREEN : 'gray'}>${authed ? '● connected' : '○ guest'}</${Text}>
-        ${balance != null && html`<${Text} color="gray">  ·  $${balance} USDC</${Text}>`}
-      </${Box}>
-      <${Box} marginBottom=${1}><${Divider} width=${dims.cols} /></${Box}>
+  // dropdown windowed to ≤6 rows so the layout can't overflow
+  const VIS = 6;
+  let dropStart = 0;
+  if (suggestions.length > VIS) dropStart = Math.min(Math.max(0, selClamped - 2), suggestions.length - VIS);
+  const visSug = suggestions.slice(dropStart, dropStart + VIS);
 
-      <${Box} flexDirection="column">${logEls}</${Box}>
+  return html`
+    <${Box} flexDirection="column" height=${dims.rows} paddingX=${1}>
+      <${Box} flexDirection="column" alignItems="center" flexShrink=${0} marginTop=${1}>
+        <${Banner} frame=${frame} />
+        <${Wave} frame=${frame} width=${dims.cols} />
+        <${Box} marginTop=${1}>
+          <${Text} color="gray">the market for what happens next   </${Text}>
+          <${Text} color=${authed ? GREEN : 'gray'}>${authed ? '● connected' : '○ guest'}</${Text}>
+          ${balance != null && html`<${Text} color="gray">  ·  $${balance} USDC</${Text}>`}
+        </${Box}>
+        <${Box} marginTop=${1}><${Divider} width=${dims.cols} /></${Box}>
+      </${Box}>
+
+      <${Box} flexDirection="column" flexGrow=${1} justifyContent="flex-end" overflow="hidden" marginTop=${1}>
+        ${logEls}
+      </${Box}>
 
       ${showDrop &&
-      html`<${Box} flexDirection="column" marginTop=${1}>
-        ${suggestions.map((s, i) => {
+      html`<${Box} flexDirection="column" flexShrink=${0} marginTop=${1}>
+        ${visSug.map((s) => {
+          const i = suggestions.indexOf(s);
           const on = i === selClamped;
           return html`<${Box} key=${s.name}>
             <${Text} color=${on ? MINT : 'gray'}>${on ? '❯ ' : '  '}</${Text}>
@@ -380,17 +391,17 @@ function App() {
             <${Text} color="gray">  ${s.desc}</${Text}>
           </${Box}>`;
         })}
-        <${Text} color="gray">  ↑↓ select · Tab complete · Enter run</${Text}>
+        <${Text} color="gray">  ↑↓ select · Tab complete · Enter run${suggestions.length > VIS ? `   ${selClamped + 1}/${suggestions.length}` : ''}</${Text}>
       </${Box}>`}
 
       ${busy
-        ? html`<${Box} marginTop=${1} paddingX=${1}><${Text} color=${MINT}><${Spinner} type="dots" /></${Text}><${Text} color="gray"> ${busyLabel}…</${Text}></${Box}>`
-        : html`<${Box} marginTop=${showDrop ? 0 : 1} borderStyle="round" borderColor=${PINK} paddingX=${1}>
+        ? html`<${Box} flexShrink=${0} marginTop=${1} paddingX=${1}><${Text} color=${MINT}><${Spinner} type="dots" /></${Text}><${Text} color="gray"> ${busyLabel}…</${Text}></${Box}>`
+        : html`<${Box} flexShrink=${0} marginTop=${1} borderStyle="round" borderColor=${PINK} paddingX=${1}>
             <${Text} color=${PINK} bold>› </${Text}>
             <${TextInput} value=${input} onChange=${setInput} onSubmit=${onSubmit} placeholder="Ask your agent, or type / for commands" />
           </${Box}>`}
 
-      <${Box}><${Text} color="gray">  /help · /exit${feedRef.current ? ' · Esc stops feed' : ''}</${Text}></${Box}>
+      <${Box} flexShrink=${0}><${Text} color="gray">  /help · /exit${feedRef.current ? ' · Esc stops feed' : ''}</${Text}></${Box}>
     </${Box}>
   `;
 }
