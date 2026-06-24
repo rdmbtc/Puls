@@ -6,3 +6,7 @@ String? kvGet(String key) => _mem[key];
 void kvSet(String key, String value) {
   _mem[key] = value;
 }
+
+void kvRemove(String key) {
+  _mem.remove(key);
+}

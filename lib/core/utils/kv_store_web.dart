@@ -7,3 +7,7 @@ String? kvGet(String key) => web.window.localStorage.getItem(key);
 void kvSet(String key, String value) {
   web.window.localStorage.setItem(key, value);
 }
+
+void kvRemove(String key) {
+  web.window.localStorage.removeItem(key);
+}

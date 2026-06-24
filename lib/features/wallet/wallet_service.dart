@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config.dart' show backendUrl;
+import '../../core/utils/kv_store.dart';
 import 'web3_wallet_bridge.dart' as web3;
 const _backendUrl = backendUrl;
 
@@ -183,9 +184,31 @@ class WalletService extends ChangeNotifier {
         debugPrint('[Puls] wallet address empty from backend, balance: $balance');
       }
       _startPeriodicRefresh();
+      // Fire-and-forget: if this user arrived via a friend's ?ref= link, attribute
+      // the referral now that they have a verified account + wallet.
+      _maybeClaimReferral();
     } catch (e) {
       debugPrint('[Puls] get-or-create error: $e');
       _setState(_state.copyWith(isLoading: false, error: e.toString()));
+    }
+  }
+
+  /// Attribute a pending referral (captured from a `?ref=CODE` link at startup)
+  /// once the user has a verified account. Idempotent server-side — claiming
+  /// twice, self-referring, or using a bad code all fail harmlessly. We clear
+  /// the stored code afterward either way so it never retries in a loop.
+  /// External (web3 guest) wallets are read-only server-side, so skip them.
+  Future<void> _maybeClaimReferral() async {
+    final userId = _state.userId;
+    if (userId == null || !userId.startsWith('supabase_')) return;
+    final code = kvGet('puls_ref');
+    if (code == null || code.isEmpty) return;
+    try {
+      await _post('/api/referrals/claim', {'userId': userId, 'code': code});
+    } catch (_) {
+      // Invalid / self / already-claimed — nothing to do.
+    } finally {
+      kvRemove('puls_ref');
     }
   }
 
@@ -224,7 +247,7 @@ class WalletService extends ChangeNotifier {
     try {
       // Try backend RPC Proxy first (which hides credentials and supports CORS on web)
       try {
-        final proxyUrl = '$_backendUrl/api/rpc-proxy';
+        const proxyUrl = '$_backendUrl/api/rpc-proxy';
         final res = await _client.post(
           Uri.parse(proxyUrl),
           headers: {'Content-Type': 'application/json'},

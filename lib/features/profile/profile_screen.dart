@@ -23,6 +23,7 @@ import '../support/support_screen.dart';
 import '../portfolio/bridge_sheet.dart';
 import '../portfolio/swap_sheet.dart';
 import '../portfolio/funds_sheet.dart';
+import 'referral_contest_card.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -380,6 +381,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const ReferralContestCard(),
+                    const SizedBox(height: 20),
                     _Section(
                       title: 'Preferences',
                       t: t,
@@ -619,10 +622,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             duration: const Duration(milliseconds: 350),
             child: _WalletCard(ws: ws, wallet: wallet, t: t),
           ),
+          const SizedBox(height: 16),
+          FadeInUp(
+            delay: const Duration(milliseconds: 90),
+            duration: const Duration(milliseconds: 350),
+            child: const ReferralContestCard(),
+          ),
           if (kIsWeb) ...[
             const SizedBox(height: 16),
             FadeInUp(
-              delay: const Duration(milliseconds: 90),
+              delay: const Duration(milliseconds: 95),
               duration: const Duration(milliseconds: 350),
               child: _BridgeCard(t: t, onTap: () => BridgeSheet.show(context)),
             ),
