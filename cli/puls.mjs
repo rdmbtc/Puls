@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.0.1';
+const VERSION = '6.0.2';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -704,6 +704,7 @@ async function startTUI() {
   let statusMsg = '', statusTimer = null;
   let detailMarket = null, paletteMode = false, paletteQuery = '', paletteSel = 0;
   let scrollOff = 0;
+  let loaded = false;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -738,8 +739,6 @@ async function startTUI() {
       feedBuf = feedBuf.slice(0, 50);
     } catch {}
   }
-
-  await Promise.all([loadData(), loadFeed()]);
 
   const allActions = [
     { name: 'Refresh markets', key: 'r', fn: async () => { cacheClear(); await Promise.all([loadData(), loadFeed()]); setStatus('Refreshed'); } },
@@ -783,7 +782,7 @@ async function startTUI() {
       const filtered = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
       const maxVisible = Math.max(1, h - 6);
       const visible = filtered.slice(scrollOff, scrollOff + maxVisible);
-      if (!visible.length) buf += '  ' + Dm(search ? 'No matches.' : 'Loading…') + '\n';
+      if (!visible.length) buf += '  ' + Dm(search ? 'No matches.' : (loaded ? 'No markets — API unreachable? press r to retry' : 'Loading…')) + '\n';
       for (let i = 0; i < visible.length; i++) {
         const m = visible[i], isSel = (i + scrollOff) === sel;
         const yes = m.yesPrice ?? m.priceYes ?? m.yes;
@@ -850,7 +849,8 @@ async function startTUI() {
     MV(ox, oy + 4 + maxShow); wr(Pk('╚') + Pk('═'.repeat(palW - 2)) + Pk('╝'));
   }
 
-  render();
+  render(); // paint immediately so the screen is never blank while data loads
+  Promise.all([loadData(), loadFeed()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
 
   process.stdin.on('data', async key => {
     if (paletteMode) {
