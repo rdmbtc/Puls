@@ -43,8 +43,12 @@ class _ReferralCardState extends State<ReferralCard> {
 
   Future<void> _fetch() async {
     try {
+      final u = Supabase.instance.client.auth.currentUser;
+      final uri = Uri.parse('$backendUrl/api/referrals/me').replace(
+        queryParameters: {if (u != null) 'userId': 'supabase_${u.id}'},
+      );
       final res = await http.get(
-        Uri.parse('$backendUrl/api/referrals/me'),
+        uri,
         headers: _headers,
       );
       if (res.statusCode != 200) throw Exception('Failed');

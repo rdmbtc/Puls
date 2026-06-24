@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart' show backendUrl, appBaseUrl;
@@ -43,27 +42,22 @@ class _ReferralContestCardState extends State<ReferralContestCard> {
   int _predictedCount = 0;
   List<_Invitee> _invitees = const [];
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  bool _started = false;
 
-  Map<String, String> get _authHeaders {
-    final h = <String, String>{'Content-Type': 'application/json'};
-    final s = Supabase.instance.client.auth.currentSession;
-    if (s != null) h['Authorization'] = 'Bearer ${s.accessToken}';
-    return h;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Run once; needs the InheritedWidget scope, which isn't ready in initState.
+    if (!_started) {
+      _started = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    final wallet = WalletServiceScope.of(context);
     try {
-      final res = await http
-          .get(Uri.parse('$backendUrl/api/referrals/me'), headers: _authHeaders)
-          .timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) throw Exception('me failed');
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-
+      final data = await wallet.getReferralInfo();
       final code = data['code'] as String?;
       final invitedRaw = (data['invited'] as List?) ?? const [];
       final invited = [

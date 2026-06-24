@@ -541,6 +541,16 @@ class WalletService extends ChangeNotifier {
     return data;
   }
 
+  /// My referral code, share link, and who I've invited.
+  /// Sends userId explicitly: the auth middleware can't reliably inject
+  /// req.query.userId on GET requests, so without this the server inserts a
+  /// null user_id and 500s. `_get` also attaches a fresh token (cold-load safe).
+  Future<Map<String, dynamic>> getReferralInfo() async {
+    return _get('/api/referrals/me', {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+  }
+
   // ── Copy-trade ────────────────────────────────────────────────────────────
 
   /// Whether the signed-in user is currently copying [leaderUserId].
