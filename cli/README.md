@@ -1,44 +1,60 @@
 # Puls CLI
 
-Talk to your AI agent and watch the live [Puls](https://pulsmarket.tech) prediction market on Arc — straight from your terminal. Zero dependencies, Node ≥ 18.
+An interactive terminal app to chat with your AI agent and watch the live
+[Puls](https://pulsmarket.tech) prediction market on Arc. Built on
+[Ink](https://github.com/vadimdemedes/ink) — think Claude Code / Gemini CLI, for
+the agent economy.
 
 ```bash
-# run it (no install)
-node puls.mjs
-
-# or link it globally
-npm link        # then just: puls
+cd cli
+npm install
+npm link        # global `puls`  (or: node puls.mjs)
+puls            # launch the interactive app
 ```
+
+> Best in a modern terminal (Windows Terminal, iTerm, etc.). Truecolor + Unicode.
 
 ## Connect
 
-1. Open **app.pulsmarket.tech → Profile → API Keys → Generate API Key**
-2. Copy the `pk_live_…` key and log in:
+1. **app.pulsmarket.tech → Profile → API Keys → Generate API Key**
+2. Inside the app, run `/login`:
 
-```bash
-puls login pk_live_xxxxxxxx
+```
+› /login pk_live_xxxxxxxx
 ```
 
-Your key is stored in `~/.puls/config.json` (chmod 600). Only its SHA-256 hash is kept server-side.
+Your key is stored in `~/.puls/config.json` (chmod 600). The server keeps only its SHA-256 hash.
 
-## Commands
+## Inside the app
+
+Just type to talk to your agent. Anything starting with `/` is a command:
 
 | Command | What it does |
 |---|---|
-| `puls chat` | Chat with your AI agent — it researches, reasons with sources, and trades real USDC within its budget |
-| `puls markets` | Live prediction markets + odds |
-| `puls feed` | Live trade stream |
-| `puls oracle <slug>` | The AI swarm's consensus vs the crowd on a market |
-| `puls stats` | Platform traction |
-| `puls whoami` | Your wallet + USDC balance |
-| `puls login <key>` / `puls logout` | Manage your API key |
+| *(type a message)* | chat with your agent — it researches, cites sources, and trades real USDC within budget |
+| `/markets` | live prediction markets + odds |
+| `/feed` | live trade stream (`/stop` or `Esc` to end) |
+| `/oracle <slug>` | the AI swarm's consensus vs the crowd |
+| `/stats` | platform traction |
+| `/whoami` | your wallet + balance |
+| `/login <key>` · `/logout` | manage your API key |
+| `/clear` · `/exit` | clear screen · quit |
 
-`markets`, `feed`, `oracle`, and `stats` are public (no key needed). `chat` and `whoami` use your key.
+## One-shot (scripting)
+
+The same data is available as plain commands (great for pipes / CI):
+
+```bash
+puls stats
+puls markets
+puls oracle <slug>
+puls feed
+```
 
 ## Notes
 
-- Point at another backend with `PULS_API=https://… puls …`
-- Disable the intro animation with `PULS_NO_ANIM=1`
-- The agent must be started once in the app (My Agent → fund & start) before `puls chat` can trade.
+- `PULS_API=https://… puls` — point at another backend.
+- `PULS_NO_TUI=1` — force the plain one-shot mode.
+- Your agent must be started once in the app (My Agent → fund & start) before it can trade from `/chat`.
 
 Built on Arc · powered by Circle · [docs.pulsmarket.tech](https://docs.pulsmarket.tech)

@@ -430,9 +430,19 @@ function help() {
 // ── main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
-  const needsBanner = !cmd || cmd === 'help' || cmd === '-h' || cmd === '--help';
 
-  if (needsBanner) {
+  // Default (no command) and `chat` launch the full interactive TUI.
+  if (!cmd || cmd === 'chat') {
+    if (process.stdin.isTTY && process.stdout.isTTY && !process.env.PULS_NO_TUI) {
+      const { startTui } = await import('./tui.mjs');
+      return startTui();
+    }
+    await intro();
+    help();
+    return;
+  }
+
+  if (cmd === 'help' || cmd === '-h' || cmd === '--help') {
     await intro();
     help();
     if (!loadCfg().key) console.log(muted(`  Not logged in — generate a key at ${APP_URL} → Profile → API Keys.\n`));
