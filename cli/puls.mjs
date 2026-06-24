@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.0.0';
+const VERSION = '6.0.1';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -75,6 +75,13 @@ const PW = Math.min(TW, 120);
 // ═══════════════════════════════════════════════════════════════════
 
 const THEMES = {
+  puls: {
+    name: 'Puls', desc: 'brand pink → mint',
+    pal: [[236,72,153],[244,114,182],[180,138,178],[110,170,184],[74,194,189],[45,212,191]],
+    ok:[34,197,94], bad:[244,63,94], inf:[45,212,191],
+    tx:[226,232,240], br:[248,250,252], dm:[122,134,154], dk:[51,65,85],
+    up:[45,212,191], dn:[244,63,94],
+  },
   obsidian: {
     name: 'Obsidian', desc: 'warm gold on deep charcoal',
     pal: [[168,142,80],[217,169,55],[245,158,11],[244,63,94],[139,92,246],[56,189,248]],
@@ -122,10 +129,10 @@ function saveAlerts(a) { saveJson(ALERT_FILE, a); }
 function loadPortfolio() { return loadJson(PORTFOLIO_FILE, { positions: [], history: [] }); }
 function savePortfolio(p) { saveJson(PORTFOLIO_FILE, p); }
 
-let T = THEMES[loadCfg().theme] || THEMES.obsidian;
+let T = THEMES[loadCfg().theme] || THEMES.puls;
 let P = T.pal;
 function applyTheme(name) {
-  T = THEMES[name] || THEMES.obsidian;
+  T = THEMES[name] || THEMES.puls;
   P = T.pal;
   const cfg = loadCfg(); cfg.theme = name; saveCfg(cfg);
 }
@@ -668,7 +675,7 @@ async function intro() {
   }
   wr('\n');
   const cfg = loadCfg();
-  if (cfg.theme && cfg.theme !== 'obsidian') wr('  ' + Dm('theme: ') + pk(T.name) + '\n');
+  if (cfg.theme && cfg.theme !== 'puls') wr('  ' + Dm('theme: ') + pk(T.name) + '\n');
   const alerts = loadAlerts();
   if (alerts.length) wr('  ' + Dm(alerts.length + ' price alert' + (alerts.length > 1 ? 's' : '') + ' active') + '\n');
   wr('\n');
