@@ -33,6 +33,10 @@ class ReferralContestCard extends StatefulWidget {
 class _ReferralContestCardState extends State<ReferralContestCard> {
   static const int _goal = 2; // qualifying friends needed to enter the draw
 
+  // The contest runs through Jun 29 (device-local time); after that the whole
+  // card auto-hides — no redeploy needed.
+  static final DateTime _contestEnd = DateTime(2026, 6, 30);
+
   bool _loading = true;
   String? _link;
   int _invitedCount = 0;
@@ -164,6 +168,9 @@ class _ReferralContestCardState extends State<ReferralContestCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-expire: once Jun 29 has passed, the contest disappears entirely.
+    if (DateTime.now().isAfter(_contestEnd)) return const SizedBox.shrink();
+
     final t = context.puls;
     final ws = WalletServiceScope.of(context).state;
     final signedIn = ws.userId != null && !ws.isExternalWallet;
@@ -278,7 +285,7 @@ class _ReferralContestCardState extends State<ReferralContestCard> {
       children: [
         Row(
           children: [
-            chip('🏆', '\$100\nreal prize', PulsColors.amber),
+            chip('🏆', 'Grand Prize\nworth \$100', PulsColors.amber),
             const SizedBox(width: 8),
             chip('💰', '1,000\ntestnet USDC', t.brand),
             const SizedBox(width: 8),
@@ -286,7 +293,7 @@ class _ReferralContestCardState extends State<ReferralContestCard> {
           ],
         ),
         const SizedBox(height: 8),
-        Text('3 winners drawn at random from everyone who qualifies.',
+        Text('Ends Jun 29 · 3 winners drawn at random from everyone who qualifies.',
             style: TextStyle(color: t.textSubtle, fontSize: 11.5)),
       ],
     );
