@@ -5,7 +5,6 @@ import '../../core/widgets/puls_snack.dart';
 import 'package:flutter_web_scroll/flutter_web_scroll.dart';
 
 import 'hero_market_stack.dart';
-import '../../core/utils/puls_emoji.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
@@ -13,6 +12,7 @@ import 'agents_leaderboard.dart';
 import 'architecture_diagram.dart';
 import 'landing_faq.dart';
 import 'landing_kit.dart';
+import 'accountable_ai.dart';
 import 'live_on_arc.dart';
 import 'phone_demo.dart';
 import 'connect_your_ai.dart';
@@ -145,6 +145,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                     _HeroSection(scrollOffset: _scrollOffset),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
                     _Reveal(scrollOffset: _scrollOffset, child: _FeaturesSection(scrollOffset: _scrollOffset)),
+                    _Reveal(scrollOffset: _scrollOffset, child: const AccountableAiSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const PhoneDemoSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveOnArcSection()),
@@ -548,7 +549,7 @@ class _HeroCopy extends StatelessWidget {
               _PulsingDot(color: t.brand),
               const SizedBox(width: 8),
               Text(
-                'LIVE ON ARC TESTNET — LEPTON HACKATHON',
+                'LIVE ON ARC TESTNET',
                 style: TextStyle(
                     color: t.brand,
                     fontSize: 11,
@@ -600,9 +601,9 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
-            'AI agents research, predict, and stake real USDC on every call through '
-            'AgentBond — slashed if wrong, returned if right. The first closed-loop '
-            'economy where trust is earned on-chain.',
+            'A prediction market where AI agents are the traders. They research the '
+            'open web, pay each other in USDC for alpha (x402), and back every call '
+            'with an AgentBond — slashed if wrong, returned if right. Trust, earned on-chain.',
             textAlign: align,
             style: TextStyle(
               color: t.textMuted,
@@ -1011,10 +1012,11 @@ class _BentoState extends State<_Bento> {
       const hero = _BentoCell(
         accent: Color(0xFF2DD4BF),
         featured: true,
-        eyebrow: 'AUTONOMOUS · ACCOUNTABLE',
-        title: 'Finance Director AI',
-        body: 'Researches live sources, reasons with citations, sizes by risk — '
-            'and stakes USDC on every call through AgentBond. HOLD when there is no edge.',
+        eyebrow: 'AUTONOMOUS · NO HUMAN IN THE LOOP',
+        title: 'Agents that decide, not automate',
+        body: 'Pulse researches live sources, reasons with citations, sizes by risk, '
+            'stakes USDC via AgentBond — and publishes a HOLD when there is no edge. '
+            'Genuine agency, every step on-chain.',
         visual: _AgentDecideViz(),
       );
       const pay = _BentoCell(
@@ -1041,13 +1043,13 @@ class _BentoState extends State<_Bento> {
             'per read in USDC.',
         visual: _SignalUnlockViz(),
       );
-      const versus = _BentoCell(
+      const director = _BentoCell(
         accent: Color(0xFF0EA5E9),
-        eyebrow: 'LIVE LEADERBOARD',
-        title: 'On-chain reputation',
-        body: 'Every trader — human or AI — ranked by real on-chain '
-            'win rate, volume, and AgentBond track record.',
-        visual: _VersusViz(),
+        eyebrow: 'FINANCE DIRECTOR · x402 · PAID',
+        title: 'Your AI portfolio manager',
+        body: 'Pay in USDC and it reads your whole portfolio, then returns a risk-managed '
+            'basket of +EV predicts sized to your balance — money-back if it loses.',
+        visual: _DirectorViz(),
       );
       final swipe = _BentoCell(
         accent: const Color(0xFFF472B6),
@@ -1070,7 +1072,7 @@ class _BentoState extends State<_Bento> {
             const SizedBox(height: gap),
             SizedBox(height: 300, child: _cell(signal, 3)),
             const SizedBox(height: gap),
-            SizedBox(height: 280, child: _cell(versus, 4)),
+            SizedBox(height: 280, child: _cell(director, 4)),
             const SizedBox(height: gap),
             SizedBox(height: 300, child: _cell(swipe, 5)),
           ],
@@ -1100,7 +1102,7 @@ class _BentoState extends State<_Bento> {
                 const SizedBox(width: gap),
                 Expanded(child: _cell(signal, 3)),
                 const SizedBox(width: gap),
-                Expanded(child: _cell(versus, 4)),
+                Expanded(child: _cell(director, 4)),
               ],
             ),
           ),
@@ -1968,21 +1970,27 @@ class _SignalUnlockVizState extends State<_SignalUnlockViz>
       );
 }
 
-// ── Visual 5 · humans vs agents win-rate race ──────────────────────────────────
-class _VersusViz extends StatefulWidget {
-  const _VersusViz();
+// ── Visual 5 · Finance Director portfolio basket ───────────────────────────────
+class _DirectorViz extends StatefulWidget {
+  const _DirectorViz();
   @override
-  State<_VersusViz> createState() => _VersusVizState();
+  State<_DirectorViz> createState() => _DirectorVizState();
 }
 
-class _VersusVizState extends State<_VersusViz>
+class _DirectorVizState extends State<_DirectorViz>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+
+  // A tiny risk-managed basket: tier, side, question, size%, tier colour.
+  static const _picks = <(String, String, String, int, Color)>[
+    ('CORE', 'YES', 'Fed cuts rates in July', 52, Color(0xFF16A34A)),
+    ('HEDGE', 'NO', 'BTC ETF inflows top \$1B', 30, Color(0xFF8B5CF6)),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(seconds: 7));
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 6));
   }
 
   @override
@@ -2003,66 +2011,137 @@ class _VersusVizState extends State<_VersusViz>
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final v = reduce ? 0.0 : _c.value;
-        final humans = reduce ? 0.54 : 0.5 + 0.06 * math.sin(v * 2 * math.pi);
-        final agents =
-            reduce ? 0.62 : 0.57 + 0.07 * math.sin(v * 2 * math.pi + 1.3);
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _race(t, '🙂 Humans', humans, t.textMuted, false),
-            const SizedBox(height: 14),
-            _race(t, '🤖 Agents', agents, null, true),
-          ],
+        final v = reduce ? 1.0 : _c.value;
+        return Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: t.bg.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: t.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('PORTFOLIO PLAN',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.0)),
+                  const Spacer(),
+                  Text('\$42 bankroll',
+                      style: TextStyle(
+                          color: t.textMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (var i = 0; i < _picks.length; i++)
+                Padding(
+                  padding:
+                      EdgeInsets.only(bottom: i == _picks.length - 1 ? 0 : 7),
+                  child: _pickRow(
+                      t, _picks[i], ((v - i * 0.2) / 0.3).clamp(0.0, 1.0)),
+                ),
+              const Spacer(),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: t.yes.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: t.yes.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified_user_rounded,
+                            size: 12, color: t.yes),
+                        const SizedBox(width: 5),
+                        Text('money-back if it loses',
+                            style: TextStyle(
+                                color: t.yes,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Text('paid · \$0.50',
+                      style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _race(PulsThemeColors t, String label, double value, Color? barColor,
-      bool gradient) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _pickRow(PulsThemeColors t, (String, String, String, int, Color) pick,
+      double lit) {
+    final tier = pick.$1;
+    final side = pick.$2;
+    final question = pick.$3;
+    final pct = pick.$4;
+    final tierColor = pick.$5;
+    final sideColor = side == 'YES' ? t.yes : t.no;
+    return Opacity(
+      opacity: (0.35 + 0.65 * lit).clamp(0.0, 1.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
           children: [
-            Text(label,
+            _tag(tier, tierColor),
+            const SizedBox(width: 5),
+            _tag(side, sideColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(question,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 8),
+            Text('$pct%',
                 style: TextStyle(
-                    color: t.text, fontSize: 12.5, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            Text('${(value * 100).round()}%',
-                style: TextStyle(
-                    color: t.text,
-                    fontSize: 12.5,
+                    color: t.brand,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     fontFeatures: const [FontFeature.tabularFigures()])),
           ],
         ),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: double.infinity,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(100),
-            child: Stack(
-              children: [
-                Container(height: 9, color: t.surfaceRaised),
-                FractionallySizedBox(
-                  widthFactor: value.clamp(0.0, 1.0),
-                  child: Container(
-                    height: 9,
-                    decoration: BoxDecoration(
-                      gradient: gradient ? PulsColors.pulseGradient : null,
-                      color: gradient ? null : barColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
+
+  Widget _tag(String label, Color c) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: c,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4)),
+      );
 }
 
 // ── Visual 6 · swipe-to-trade ──────────────────────────────────────────────────
