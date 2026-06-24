@@ -1,7 +1,7 @@
 {
   "name": "@pulsmarket/cli",
-  "version": "0.3.1",
-  "description": "Puls CLI — a fullscreen interactive terminal app to chat with your AI agent and watch the live Puls prediction market on Arc.",
+  "version": "6.0.0",
+  "description": "Puls CLI — a terminal trading desk for the Puls prediction market on Arc: live markets, candlestick charts, AI oracle, themes, and a full-screen TUI.",
   "type": "module",
   "bin": {
     "puls": "./puls.mjs"
@@ -11,17 +11,8 @@
   },
   "files": [
     "puls.mjs",
-    "tui.mjs",
-    "lib.mjs",
     "README.md"
   ],
-  "dependencies": {
-    "htm": "^3.1.1",
-    "ink": "^5.0.1",
-    "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
-    "react": "^18.3.1"
-  },
   "publishConfig": {
     "access": "public"
   },
@@ -29,14 +20,14 @@
     "puls",
     "cli",
     "tui",
-    "ink",
     "prediction-market",
     "arc",
     "circle",
     "usdc",
     "x402",
     "ai-agent",
-    "agentic"
+    "candlestick",
+    "trading"
   ],
   "author": "RDM (rdmbtc)",
   "license": "MIT",
