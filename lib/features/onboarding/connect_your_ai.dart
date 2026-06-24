@@ -85,6 +85,38 @@ class _ConnectYourAiSectionState extends State<ConnectYourAiSection> {
                   ),
                   const SizedBox(height: 28),
                   _buttons(isMobile),
+                  const SizedBox(height: 22),
+                  // Puls CLI — the terminal trading desk
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0E1A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: t.border),
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        const Text(
+                          '\$ npm i -g @pulsmarket/cli',
+                          style: TextStyle(
+                            color: Color(0xFF2DD4BF),
+                            fontFamily: 'monospace',
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'the market in your terminal — live markets, candlestick charts & the agent swarm',
+                          style: TextStyle(color: t.textMuted, fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
