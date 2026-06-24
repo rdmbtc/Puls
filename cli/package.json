@@ -1,7 +1,7 @@
 {
   "name": "@pulsmarket/cli",
-  "version": "0.2.0",
-  "description": "Puls CLI — an interactive terminal app to chat with your AI agent and watch the live Puls prediction market on Arc.",
+  "version": "0.3.0",
+  "description": "Puls CLI — a fullscreen interactive terminal app to chat with your AI agent and watch the live Puls prediction market on Arc.",
   "type": "module",
   "bin": {
     "puls": "./puls.mjs"
