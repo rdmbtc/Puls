@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.1.0';
+const VERSION = '6.1.1';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -1391,7 +1391,7 @@ function cmdTheme(name) {
   if (!name) {
     header('Themes', Object.keys(THEMES).length + ' available', '◈'); ln('');
     for (const [k, v] of Object.entries(THEMES)) {
-      const active = k === (loadCfg().theme || 'obsidian');
+      const active = k === (loadCfg().theme || 'puls');
       const preview = v.pal.map(c => fg(...c) + '●').join('') + RST;
       ln(`  ${active ? Pk('▸ ') : '  '}${active ? Wh(v.name) : Tx(v.name)}  ${preview}  ${Dm(v.desc)}  ${active ? Em('(active)') : Dm(k)}`);
     }
