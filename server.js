@@ -24,6 +24,7 @@ import { registerAgentOracle } from './lib/agent_oracle.js';
 import { researchQuestion } from './lib/agent_research.js';
 import { registerSwarm } from './lib/agent_swarm.js';
 import { registerPoints } from './lib/points.js';
+import { registerApiKeys, resolveApiKey } from './lib/api_keys.js';
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (reason, promise) => {
@@ -195,6 +196,34 @@ const requireVerifiedUser = (req, res, next) => {
     });
   }
   next();
+};
+
+// Accepts a Puls API key (pk_live_…) OR falls back to the normal Supabase-JWT
+// auth. Only applied to the handful of routes the Puls CLI needs — the shared
+// `authenticateUser` is left untouched, so every other endpoint is unaffected.
+// On a valid key we mirror authenticateUser's contract (set req.user + force
+// req.body/query.userId to the key owner). Any key error falls through to JWT.
+const apiKeyOrAuth = async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const headerKey = req.headers['x-api-key'];
+    const bearerKey = auth.startsWith('Bearer pk_') ? auth.slice(7) : null;
+    const rawKey =
+      typeof headerKey === 'string' && headerKey.startsWith('pk_') ? headerKey : bearerKey;
+    if (rawKey && rawKey.startsWith('pk_')) {
+      const userId = await resolveApiKey(supabase, rawKey);
+      if (!userId) return res.status(401).json({ error: 'Invalid or revoked API key' });
+      req.user = { id: String(userId).replace(/^supabase_/, '') };
+      req.apiKeyAuth = true;
+      if (req.body) req.body.userId = userId;
+      if (req.query) req.query.userId = userId;
+      return next();
+    }
+  } catch (e) {
+    console.error('[apiKeyOrAuth] error:', e.message);
+    // fall through to normal token auth
+  }
+  return authenticateUser(req, res, next);
 };
 
 // Admin allowlist for privileged endpoints (comma-separated userIds, e.g. "supabase_<uuid>").
@@ -1110,7 +1139,7 @@ app.post('/api/rpc-proxy', rpcProxyLimiter, async (req, res) => {
 });
 
 // POST /api/wallet/get-or-create
-app.post('/api/wallet/get-or-create', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/wallet/get-or-create', apiKeyOrAuth, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -1232,7 +1261,7 @@ async function sendWelcomeBonus(userId, toAddress) {
 const MEMO_CONTRACT = '0x5294E9927c3306DcBaDb03fe70b92e01cCede505';
 
 // GET /api/wallet/balance
-app.get('/api/wallet/balance', authenticateUser, async (req, res) => {
+app.get('/api/wallet/balance', apiKeyOrAuth, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -3001,6 +3030,8 @@ registerReferrals(app, {
 // receipt endpoint='signal_unlock'). Per-signal analytics (views/unlocks/rev).
 // Live payments gated by SIGNALS_PAID_ENABLED; on-chain attest needs
 // SIGNAL_REGISTRY_ADDRESS + admin wallet (best-effort, degrades gracefully).
+registerApiKeys(app, { supabase, authenticateUser, requireVerifiedUser, strictLimiter });
+
 registerCreatorSignals(app, {
   supabase,
   circle,
@@ -4641,7 +4672,7 @@ function formatForApp(text) {
 }
 
 // Create (or fetch) a separate per-user agent wallet, funded from the user up to budget.
-app.post('/api/agent/start', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/start', apiKeyOrAuth, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, budget } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -4820,7 +4851,7 @@ app.post('/api/agent/withdraw', authenticateUser, requireVerifiedUser, strictLim
 
 // Chat with the agent. The LLM returns a structured intent; the backend validates
 // budget + market and executes the buy autonomously from the agent wallet.
-app.post('/api/agent/chat', authenticateUser, requireVerifiedUser, strictLimiter, async (req, res) => {
+app.post('/api/agent/chat', apiKeyOrAuth, requireVerifiedUser, strictLimiter, async (req, res) => {
   try {
     const { userId, message } = req.body;
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' });
@@ -4987,7 +5018,7 @@ Never exceed your budget. Prefer markets marked [ready]. Output ONLY the JSON ob
 
 // POST /api/copilot/chat
 // An interactive AI copilot helping the user analyze a specific prediction market.
-app.post('/api/copilot/chat', authenticateUser, strictLimiter, async (req, res) => {
+app.post('/api/copilot/chat', apiKeyOrAuth, strictLimiter, async (req, res) => {
   try {
     const { userId, message, question, slug, currentYesPrice, currentNoPrice } = req.body;
     if (!userId || !message) {
