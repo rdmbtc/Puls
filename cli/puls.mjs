@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.0.2';
+const VERSION = '6.1.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -698,13 +698,14 @@ async function startTUI() {
     return;
   }
 
-  const tabs = ['Markets', 'Portfolio', 'Feed', 'Alerts', 'Stats'];
+  const tabs = ['Markets', 'Portfolio', 'Feed', 'Alerts', 'Stats', 'Agents'];
   let tab = 0, sel = 0, markets = [], search = '', searching = false;
   let feedBuf = [], feedSeen = new Set(), sortMode = 'volume';
   let statusMsg = '', statusTimer = null;
   let detailMarket = null, paletteMode = false, paletteQuery = '', paletteSel = 0;
   let scrollOff = 0;
   let loaded = false;
+  let agentsData = null;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -740,6 +741,16 @@ async function startTUI() {
     } catch {}
   }
 
+  async function loadAgents() {
+    try {
+      const [house, roster] = await Promise.all([
+        api('/api/agents/house').catch(() => null),
+        api('/api/agents/roster').catch(() => null),
+      ]);
+      agentsData = { house, roster };
+    } catch {}
+  }
+
   const allActions = [
     { name: 'Refresh markets', key: 'r', fn: async () => { cacheClear(); await Promise.all([loadData(), loadFeed()]); setStatus('Refreshed'); } },
     { name: 'Sort by volume', key: '', fn: () => { sortMode = 'volume'; loadData(); setStatus('Sorted by volume'); } },
@@ -747,6 +758,7 @@ async function startTUI() {
     { name: 'Sort by newest', key: '', fn: () => { sortMode = 'newest'; loadData(); setStatus('Sorted by newest'); } },
     { name: 'Search markets…', key: '/', fn: () => { searching = true; search = ''; } },
     { name: 'View stats', key: '5', fn: () => { tab = 4; } },
+    { name: 'View agents', key: '6', fn: () => { tab = 5; } },
     { name: 'View feed', key: '3', fn: () => { tab = 2; } },
     { name: 'View alerts', key: '4', fn: () => { tab = 3; } },
     { name: 'Theme: Obsidian', key: '', fn: () => { applyTheme('obsidian'); setStatus('Theme: Obsidian'); } },
@@ -815,6 +827,30 @@ async function startTUI() {
     } else if (tab === 4) {
       buf += `  ${Pk('◈')} ${Wh('Platform Dashboard')}\n\n`;
       buf += `  ${Dm('Press r to refresh, or')} ${Pk('puls stats')}${Dm(' for full view.')}\n`;
+    } else if (tab === 5) {
+      buf += `  ${Pk('◆')} ${Wh('Agent Swarm')}  ${Dm('autonomous · on-chain')}\n\n`;
+      const ad = agentsData;
+      if (!ad) buf += `  ${Dm(loaded ? 'No agent data — API unreachable? press r' : 'Loading…')}\n`;
+      else {
+        const house = ad.house, pulse = house && (house.agent || house.pulse), sage = house && house.sage;
+        if (pulse) buf += `  ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + pulse.balance + ' USDC') : ''}\n`;
+        if (sage) buf += `  ${Pk('✍️  Sage')}  ${Dm('creator')}  ${sage.balance != null ? cy('$' + sage.balance + ' USDC') : ''}\n`;
+        const agents = Array.isArray(ad.roster) ? ad.roster : (ad.roster?.agents || ad.roster?.roster || ad.roster?.swarm || []);
+        if (agents.length) {
+          buf += `\n  ${Dm('the swarm · ' + agents.length + ' agents')}\n`;
+          for (const a of agents.slice(0, Math.max(2, h - 12))) {
+            const nm = a.name || a.displayName || a.userId || 'agent';
+            const bal = a.balance ?? a.usdcBalance;
+            buf += `  ${Pk('•')} ${Tx(String(nm).padEnd(12))} ${bal != null ? cy('$' + bal) : ''}\n`;
+          }
+        }
+        const decs = (house && house.decisions) || [];
+        if (decs.length) {
+          buf += `\n  ${Dm('Pulse · recent decisions')}\n`;
+          for (const d of decs.slice(0, 4)) buf += `  ${d.action === 'go' ? Em((d.side||'BUY').padEnd(4)) : Am('HOLD')} ${Tx((d.question||'').slice(0, TW - 16))}\n`;
+        }
+        if (!pulse && !sage && !agents.length) buf += `  ${Dm('No agent data available.')}\n`;
+      }
     }
 
     buf += '\n  ' + rule(TW - 4) + '\n';
@@ -850,7 +886,7 @@ async function startTUI() {
   }
 
   render(); // paint immediately so the screen is never blank while data loads
-  Promise.all([loadData(), loadFeed()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
+  Promise.all([loadData(), loadFeed(), loadAgents()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
 
   process.stdin.on('data', async key => {
     if (paletteMode) {
@@ -875,7 +911,7 @@ async function startTUI() {
       if (key.length === 1 && key >= ' ') { search += key; sel = 0; scrollOff = 0; render(); return; }
       return;
     }
-    if (key >= '1' && key <= '5') { tab = +key - 1; sel = 0; detailMarket = null; scrollOff = 0; render(); return; }
+    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; detailMarket = null; scrollOff = 0; render(); return; }
     const maxVis = Math.max(1, TH - 10);
     if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
     if (key === '\x1b[B' || key === 'j') {
@@ -890,7 +926,7 @@ async function startTUI() {
       sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.length];
       await loadData(); sel = 0; scrollOff = 0; setStatus('Sorted by ' + sortMode); render(); return;
     }
-    if (key === 'r') { cacheClear(); setStatus('Refreshing…'); render(); await Promise.all([loadData(), loadFeed()]); setStatus('Refreshed'); render(); return; }
+    if (key === 'r') { cacheClear(); setStatus('Refreshing…'); render(); await Promise.all([loadData(), loadFeed(), loadAgents()]); setStatus('Refreshed'); render(); return; }
   });
 }
 
@@ -1262,6 +1298,58 @@ async function cmdOracle(slug) {
 }
 
 
+async function cmdAgents() {
+  TITLE('agents');
+  const sp = spinner('loading the agent swarm', 'orbit');
+  try {
+    const [house, roster] = await Promise.all([
+      api('/api/agents/house').catch(() => null),
+      api('/api/agents/roster').catch(() => null),
+    ]);
+    sp.stop();
+    if (jsonOut({ house, roster })) return;
+    header('Agent Swarm', 'autonomous · on-chain', '◆'); ln('');
+
+    if (house) {
+      const pulse = house.agent || house.pulse;
+      const sage = house.sage;
+      ln('  ' + Wh('House agents'));
+      if (pulse) ln(`    ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + pulse.balance + ' USDC') : ''}  ${pulse.reputation != null ? Dm('rep ' + pulse.reputation) : ''}`);
+      if (sage) {
+        const sig = sage.signal || {};
+        ln(`    ${Pk('✍️  Sage')} ${Dm('creator')}   ${sage.balance != null ? cy('$' + sage.balance + ' USDC') : ''}  ${sig.revenueUsdc != null ? Em('earned $' + sig.revenueUsdc) : ''}`);
+      }
+      const decisions = house.decisions || [];
+      if (decisions.length) {
+        ln(''); ln('  ' + Dm('Pulse · recent decisions'));
+        for (const d of decisions.slice(0, 5)) {
+          const go = d.action === 'go';
+          const act = go ? Em((d.side || 'BUY').padEnd(4)) : Am('HOLD');
+          ln(`    ${act} ${d.amount ? cy('$' + d.amount + ' ') : ''}${Tx((d.question || '').slice(0, PW - 22))}`);
+          if (d.reasoning) ln('      ' + Dm(String(d.reasoning).slice(0, PW - 8)));
+        }
+      }
+    }
+
+    const agents = Array.isArray(roster) ? roster : (roster?.agents || roster?.roster || roster?.swarm || []);
+    if (agents.length) {
+      ln(''); ln('  ' + Wh('The swarm') + Dm('  ' + agents.length + ' agents'));
+      for (const a of agents.slice(0, 12)) {
+        const name = a.name || a.displayName || a.userId || 'agent';
+        const bal = a.balance ?? a.usdcBalance;
+        const rep = a.reputation ?? a.rep ?? a.reputationScore;
+        const last = a.lastAction || a.action || (a.decisions && a.decisions[0] && a.decisions[0].action);
+        ln(`    ${Pk('•')} ${Tx(String(name).padEnd(10))} ${bal != null ? cy('$' + String(bal).padStart(6)) : di('     —')}  ${rep != null ? Dm('rep ' + rep) : ''}  ${last ? Dm(String(last)) : ''}`);
+      }
+    }
+
+    if (!house && !agents.length) ln('  ' + Dm('No agent data available right now.'));
+    ln('\n  ' + rule(PW));
+    ln('  ' + Dm('Live agent feed: ') + cy('pulsmarket.tech/pulse') + Dm(' · humans vs AI: ') + cy('pulsmarket.tech/versus'));
+    ln('');
+  } catch (e) { sp.stop(); await toastErr(e.message); }
+}
+
 async function cmdAlert(slug, direction, threshold) {
   if (!slug || !direction || !threshold) {
     ln(Dm('  Usage: puls alert <slug> up|down <¢>'));
@@ -1448,6 +1536,7 @@ function help() {
   ln(`    ${Wh('puls heatmap')}                  ${Dm('visual market overview')}`);
   ln(`    ${Wh('puls open')} ${Dm('<slug>')}              ${Dm('open in browser')}\n`);
   ln(`  ${Pk('Intelligence')}`);
+  ln(`    ${Wh('puls agents')}                   ${Dm('the AI swarm + Pulse/Sage house agents')}`);
   ln(`    ${Wh('puls oracle')} ${Dm('<slug>')}            ${Dm('AI swarm vs crowd')}`);
   ln(`    ${Wh('puls feed')}                     ${Dm('live trade stream')}`);
   ln(`    ${Wh('puls stats')}                    ${Dm('platform dashboard')}\n`);
@@ -1473,6 +1562,7 @@ try {
   else if (cmd === 'top')      { await cmdTop(); }
   else if (cmd === 'feed')     { await cmdFeed(); }
   else if (cmd === 'oracle')   { await cmdOracle(args[1]); }
+  else if (cmd === 'agents' || cmd === 'swarm') { await cmdAgents(); }
   else if (cmd === 'stats')    { await cmdStats(); }
   else if (cmd === 'heatmap')  { await cmdHeatmap(); }
   else if (cmd === 'history')  { await cmdHistory(args[1]); }
