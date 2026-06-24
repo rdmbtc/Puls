@@ -1,0 +1,35 @@
+{
+  "name": "@pulsmarket/cli",
+  "version": "0.1.0",
+  "description": "Puls CLI — chat with your AI agent and watch the live Puls prediction market on Arc, from your terminal.",
+  "type": "module",
+  "bin": {
+    "puls": "./puls.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "puls.mjs",
+    "README.md"
+  ],
+  "keywords": [
+    "puls",
+    "cli",
+    "prediction-market",
+    "arc",
+    "circle",
+    "usdc",
+    "x402",
+    "ai-agent",
+    "agentic"
+  ],
+  "author": "RDM (rdmbtc)",
+  "license": "MIT",
+  "homepage": "https://pulsmarket.tech",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdmbtc/Puls.git",
+    "directory": "cli"
+  }
+}

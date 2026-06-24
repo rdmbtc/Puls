@@ -24,6 +24,7 @@ import '../portfolio/bridge_sheet.dart';
 import '../portfolio/swap_sheet.dart';
 import '../portfolio/funds_sheet.dart';
 import 'referral_contest_card.dart';
+import 'api_keys_card.dart';
 import '../../core/config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -383,6 +384,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const ReferralContestCard(),
                     const SizedBox(height: 20),
+                    const ApiKeysCard(),
+                    const SizedBox(height: 20),
                     _Section(
                       title: 'Preferences',
                       t: t,
@@ -627,6 +630,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             delay: const Duration(milliseconds: 90),
             duration: const Duration(milliseconds: 350),
             child: const ReferralContestCard(),
+          ),
+          const SizedBox(height: 16),
+          FadeInUp(
+            delay: const Duration(milliseconds: 92),
+            duration: const Duration(milliseconds: 350),
+            child: const ApiKeysCard(),
           ),
           if (kIsWeb) ...[
             const SizedBox(height: 16),

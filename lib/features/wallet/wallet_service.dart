@@ -551,6 +551,32 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  /// Generate a Puls API key (for the Puls CLI / programmatic access). The raw
+  /// `pk_live_…` key is returned ONCE — surface it immediately for copying.
+  Future<Map<String, dynamic>> generateApiKey({String? label}) async {
+    return _post('/api/keys/generate', {
+      if (_state.userId != null) 'userId': _state.userId!,
+      if (label != null && label.isNotEmpty) 'label': label,
+    });
+  }
+
+  /// List my API keys (prefix + metadata only; never the raw key). Sends userId
+  /// explicitly (GET query injection isn't reliable server-side).
+  Future<List<dynamic>> listApiKeys() async {
+    final r = await _get('/api/keys', {
+      if (_state.userId != null) 'userId': _state.userId!,
+    });
+    return r['keys'] as List<dynamic>? ?? const [];
+  }
+
+  /// Revoke one of my API keys.
+  Future<void> revokeApiKey(String id) async {
+    await _post('/api/keys/revoke', {
+      if (_state.userId != null) 'userId': _state.userId!,
+      'id': id,
+    });
+  }
+
   // ── Copy-trade ────────────────────────────────────────────────────────────
 
   /// Whether the signed-in user is currently copying [leaderUserId].
