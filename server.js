@@ -4776,7 +4776,7 @@ app.post('/api/agent/start', apiKeyOrAuth, requireVerifiedUser, strictLimiter, a
   }
 });
 
-app.get('/api/agent/status', authenticateUser, requireVerifiedUser, async (req, res) => {
+app.get('/api/agent/status', apiKeyOrAuth, requireVerifiedUser, async (req, res) => {
   try {
     const agent = await getAgent(req.query.userId);
     if (!agent) return res.json({ exists: false });
