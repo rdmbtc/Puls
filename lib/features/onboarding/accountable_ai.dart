@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import 'landing_kit.dart';
 
@@ -84,6 +88,9 @@ class AccountableAiSection extends StatelessWidget {
                 onVerify: () => _open(
                     'https://testnet.arcscan.app/address/$_agentBond'),
               ),
+              SizedBox(height: isMobile ? 14 : 18),
+              // Live, verifiable AgentBond numbers (pulled from /api/agents/bonds).
+              _BondStatsLive(isMobile: isMobile),
               SizedBox(height: isMobile ? 14 : 18),
               // ── The agent economy, as product capabilities ──────────────
               LayoutBuilder(builder: (context, c) {
@@ -475,4 +482,157 @@ class _DecidesStrip extends StatelessWidget {
           ],
         ),
       );
+}
+
+
+
+// ── Live AgentBond numbers — verifiable, pulled from the backend ───────────────
+// Never blocks the landing: if the fetch fails it simply renders nothing.
+class _BondStatsLive extends StatefulWidget {
+  const _BondStatsLive({required this.isMobile});
+  final bool isMobile;
+  @override
+  State<_BondStatsLive> createState() => _BondStatsLiveState();
+}
+
+class _BondStatsLiveState extends State<_BondStatsLive> {
+  Map<String, dynamic>? _s;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$backendUrl/api/agents/bonds'))
+          .timeout(const Duration(seconds: 8));
+      if (!mounted || res.statusCode != 200) return;
+      final j = json.decode(res.body) as Map<String, dynamic>;
+      final s = j['stats'] as Map<String, dynamic>?;
+      if (s != null && mounted) setState(() => _s = s);
+    } catch (_) {
+      // Landing must never break — just don't render.
+    }
+  }
+
+  String _usd(dynamic v) {
+    final d = (v is num) ? v.toDouble() : 0.0;
+    return '\$${d.toStringAsFixed(2)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _s;
+    if (s == null) return const SizedBox.shrink();
+    final t = context.puls;
+    final count = (s['count'] is num) ? (s['count'] as num).toInt() : 0;
+    final bonded = (s['bondedUsdc'] is num) ? (s['bondedUsdc'] as num).toDouble() : 0.0;
+
+    final tiles = <(String, String, String, Color)>[
+      ('Bonds posted', '$count', 'on-chain stakes', const Color(0xFFF59E0B)),
+      ('At stake now', _usd(s['activeUsdc']), 'USDC live on calls', const Color(0xFF16A34A)),
+      ('Slashed', _usd(s['slashedUsdc']), 'wrong → treasury', const Color(0xFFEF4444)),
+      ('Returned', _usd(s['returnedUsdc']), 'right → agent', const Color(0xFF2DD4BF)),
+    ];
+
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                  color: Color(0xFF22C55E), shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                'LIVE ON ARC · $count BONDS · ${_usd(bonded)} BONDED ALL-TIME',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: t.textSubtle,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(builder: (context, c) {
+          final cols = c.maxWidth >= 640 ? 4 : 2;
+          const gap = 12.0;
+          final w = (c.maxWidth - (cols - 1) * gap) / cols;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final tile in tiles)
+                SizedBox(
+                    width: w,
+                    child: _BondStatTile(
+                        label: tile.$1,
+                        value: tile.$2,
+                        sub: tile.$3,
+                        accent: tile.$4)),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _BondStatTile extends StatelessWidget {
+  const _BondStatTile({
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.accent,
+  });
+  final String label, value, sub;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: t.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6)),
+          const SizedBox(height: 8),
+          Text(value,
+              style: TextStyle(
+                  color: accent,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5)),
+          const SizedBox(height: 3),
+          Text(sub,
+              style:
+                  TextStyle(color: t.textSubtle, fontSize: 11.5, height: 1.3)),
+        ],
+      ),
+    );
+  }
 }
