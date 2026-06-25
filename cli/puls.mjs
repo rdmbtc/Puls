@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.4.1';
+const VERSION = '6.4.2';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -734,7 +734,7 @@ async function startTUI() {
   let statusMsg = '', statusTimer = null;
   let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
-  let frame = 0, animTimer = null, onResize = null, unlocking = null;
+  let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -796,6 +796,7 @@ async function startTUI() {
     const err = unlocking.error;
     render(); await sleep(err ? 1700 : 1500);
     unlocking = null;
+    if (!err && s.unlocked) { sigDetail = s; docScroll = 0; }
     setStatus(err ? '✗ ' + err : '✓ x402 settled · paid $' + price + ' → ' + creator);
     render();
   }
@@ -953,15 +954,32 @@ async function startTUI() {
     const cur = signals[sel];
     s += '\n  ' + di('─'.repeat(TW - 4)) + '\n';
     if (cur) {
-      s += '  ' + Wh((cur.title || '').slice(0, TW - 6)) + '\n';
-      if (cur.unlocked && cur.thesis) {
-        s += '  ' + Dm('call ') + (cur.stance === 'YES' ? Em('YES') : Rs('NO')) + Dm('  ·  ') + Tx(wrapText(cur.thesis, TW - 10, '').join(' ').trim().slice(0, TW - 14)) + Dm('…') + '\n';
+      s += '  ' + Wh(cur.title || '') + '\n';
+      if (cur.unlocked) {
+        s += '  ' + Dm('call ') + (cur.stance === 'YES' ? Em('YES') : Rs('NO')) + Dm('  ·  ') + Em('🔓 unlocked') + Dm(' — press ') + Pk('Enter') + Dm(' to read the full thesis') + '\n';
       } else {
-        s += '  ' + Dm((cur.teaser || 'Locked — the agent\'s side, thesis & sources are paid alpha.').slice(0, TW - 6)) + '\n';
+        s += '  ' + Dm(cur.teaser || 'Locked — the agent\'s side, thesis & sources are paid alpha.') + '\n';
         s += '  ' + pk('🔒 press ') + Pk('u') + pk(' to unlock') + Dm('  ·  $' + micro(cur.priceUsdc) + ' → ' + creatorName(cur.creatorUserId) + ' via x402') + '\n';
       }
     }
     return s;
+  }
+
+  function rSignalDetail(H) {
+    const s = sigDetail;
+    let out = `  ${Pk('◆')} ${Wh(s.title || '')}\n`;
+    out += `  ${Dm('by ' + creatorName(s.creatorUserId))}  ${Dm('· conf ' + Math.round((s.confidence || 0) * 100) + '%')}  ${Dm('· ' + (s.edgeBps || 0) + 'bps edge')}${s.bond ? am('  · ◆ bond $' + usd(s.bond.amountUsdc)) : ''}\n`;
+    out += `  ${Dm('call ')}${s.stance === 'YES' ? Em('▲ YES') : Rs('▼ NO')}${s.marketQuestion ? Dm('   on  "' + s.marketQuestion + '"') : ''}\n`;
+    out += '  ' + di('─'.repeat(TW - 4)) + '\n';
+    const lines = wrapText(s.thesis || '(no thesis text)', TW - 4, '  ');
+    if (s.sources && s.sources.length) { lines.push(''); lines.push('  ' + Dm('Sources')); s.sources.forEach(x => lines.push('   ' + cy('•') + ' ' + Tx(x.title || x.url || ''))); }
+    if (s.onchain && s.onchain.tx) { lines.push(''); lines.push('  ' + Dm('⛓ attested · ') + cy(s.onchain.explorer || ('tx ' + s.onchain.tx))); }
+    const avail = Math.max(3, H - 5);
+    const maxOff = Math.max(0, lines.length - avail);
+    if (docScroll > maxOff) docScroll = maxOff;
+    out += lines.slice(docScroll, docScroll + avail).join('\n');
+    if (lines.length > avail) out += '\n  ' + Dm((docScroll > 0 ? '▲ ' : '') + (docScroll + avail < lines.length ? '↓ more' : 'end') + '  ' + (docScroll + 1) + '–' + Math.min(docScroll + avail, lines.length) + '/' + lines.length);
+    return out;
   }
 
   function rPortfolio(H) {
@@ -1001,6 +1019,7 @@ async function startTUI() {
     if (tab === TAB.CHAT) hint = narrow ? `${Pk('Enter')} send  ${Pk('Tab')} view  ${Pk('^C')} quit` : `${Pk('Enter')} send   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
     else if (tab === TAB.MARKETS && detailMarket) hint = narrow ? `${Pk('Esc')} back  ${Pk('o')} open  ${Pk('Tab')} view` : `${Pk('Esc')} back   ${Pk('o')} open in browser   ${Pk('Tab')} switch   ${Pk('q')} quit`;
     else if (tab === TAB.MARKETS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('↵')} detail  ${Pk('/')} find  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('Enter')} detail   ${Pk('/')} search   ${Pk('s')} sort   ${Pk('Tab')} switch   ${Pk('q')} quit`;
+    else if (tab === TAB.SIGNALS && sigDetail) hint = narrow ? `${Pk('Esc')} back  ${Pk('↑↓')} scroll  ${Pk('o')} chain` : `${Pk('Esc')} back   ${Pk('↑↓')} scroll   ${Pk('o')} on-chain   ${Pk('Tab')} switch`;
     else if (tab === TAB.SIGNALS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('u')} unlock  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('u')} unlock · x402   ${Pk('Tab')} switch   ${Pk('r')} refresh   ${Pk('q')} quit`;
     else hint = narrow ? `${Pk('1-6')} views  ${Pk('Tab')} next  ${Pk('q')} quit` : `${Pk('1-6')} views   ${Pk('Tab')} next   ${Pk('r')} refresh   ${Pk('Ctrl+P')} palette   ${Pk('q')} quit`;
     let s = '  ' + rule(TW - 4) + '\n  ' + hint + '\n';
@@ -1017,7 +1036,7 @@ async function startTUI() {
     if (tab === TAB.CHAT) body = rChat(H);
     else if (tab === TAB.AGENTS) body = rAgents(H);
     else if (tab === TAB.MARKETS) body = detailMarket ? rDetail(H) : rMarkets(H);
-    else if (tab === TAB.SIGNALS) body = rSignals(H);
+    else if (tab === TAB.SIGNALS) body = sigDetail ? rSignalDetail(H) : rSignals(H);
     else if (tab === TAB.PORTFOLIO) body = rPortfolio(H);
     else body = rStats(H);
     const bl = body.split('\n');
@@ -1112,8 +1131,8 @@ async function startTUI() {
 
     if (key === '\x03') return quit();                                                     // Ctrl+C always quits
     if (key === '\x10') { paletteMode = true; paletteQuery = ''; paletteSel = 0; render(); return; }  // Ctrl+P palette
-    if (key === '\t') { tab = (tab + 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; searching = false; render(); return; }
-    if (key === '\x1b[Z') { tab = (tab + tabs.length - 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; searching = false; render(); return; }
+    if (key === '\t') { tab = (tab + 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; searching = false; render(); return; }
+    if (key === '\x1b[Z') { tab = (tab + tabs.length - 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; searching = false; render(); return; }
 
     // ── Chat tab: keystrokes are the message input ──
     if (tab === TAB.CHAT) {
@@ -1134,13 +1153,21 @@ async function startTUI() {
     }
 
     if (key === 'q') return quit();
-    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; scrollOff = 0; detailMarket = null; render(); return; }
+    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; render(); return; }
     if (key === 'r') { setStatus('Refreshing…'); render(); cacheClear(); await loadAll(); setStatus('Refreshed'); render(); return; }
 
     // ── Market detail sub-view ──
     if (tab === TAB.MARKETS && detailMarket) {
       if (key === '\x1b' || key === '\b' || key === '\x7f') { detailMarket = null; render(); return; }
       if (key === 'o') { openBrowser(WEB_BASE + '/m/' + (detailMarket.slug || '')); setStatus('Opening in browser…'); render(); return; }
+      return;
+    }
+
+    if (tab === TAB.SIGNALS && sigDetail) {
+      if (key === '\x1b' || key === '\b' || key === '\x7f') { sigDetail = null; docScroll = 0; render(); return; }
+      if (key === '\x1b[A' || key === 'k') { docScroll = Math.max(0, docScroll - 1); render(); return; }
+      if (key === '\x1b[B' || key === 'j') { docScroll++; render(); return; }
+      if (key === 'o' && sigDetail.onchain && sigDetail.onchain.tx) { openBrowser(sigDetail.onchain.explorer || WEB_BASE); setStatus('Opening on-chain…'); render(); return; }
       return;
     }
 
@@ -1161,7 +1188,8 @@ async function startTUI() {
       const maxVis = Math.max(2, Math.floor((TH - 13) / 2));
       if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
       if (key === '\x1b[B' || key === 'j') { sel = Math.min(signals.length - 1, sel + 1); if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1; render(); return; }
-      if (key === 'u' || key === '\r') { await unlockSel(); return; }
+      if (key === 'u') { await unlockSel(); return; }
+      if (key === '\r') { const cur = signals[sel]; if (cur && cur.unlocked) { sigDetail = cur; docScroll = 0; render(); } else { await unlockSel(); } return; }
       return;
     }
   });
