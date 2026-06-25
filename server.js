@@ -216,7 +216,15 @@ const apiKeyOrAuth = async (req, res, next) => {
       req.user = { id: String(userId).replace(/^supabase_/, '') };
       req.apiKeyAuth = true;
       if (req.body) req.body.userId = userId;
-      if (req.query) req.query.userId = userId;
+      // Express can expose req.query as a read-only getter (plain assignment
+      // silently no-ops), so GET routes (e.g. /api/portfolio, /api/wallet/balance)
+      // wouldn't see the resolved id. Force it onto a writable plain object.
+      try {
+        if (req.query) req.query.userId = userId;
+        if (!req.query || req.query.userId !== userId) throw new Error('readonly');
+      } catch {
+        try { Object.defineProperty(req, 'query', { value: { ...(req.query || {}), userId }, configurable: true, writable: true }); } catch (_) {}
+      }
       return next();
     }
   } catch (e) {
