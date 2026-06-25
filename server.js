@@ -1427,31 +1427,45 @@ function displayPrices(onchainYes, pmYes, totalVolume) {
   return { yes: 0.5, no: 0.5 };
 }
 
+// Pulse-native engagement aggregation (trades + comments) shown on the markets
+// feed. This used to scan the FULL trades + comments tables on EVERY
+// /api/markets request — O(all trades) per call, which grows with traction and
+// burns the 1-vCPU box on revalidations / query-param variants. Memoize it for a
+// short window so concurrent requests share one scan (the feed is 10s CDN-cached).
+let _activityAgg = { at: 0, tradeAgg: {}, commentAgg: {} };
+const ACTIVITY_AGG_TTL = parseInt(process.env.MARKETS_ACTIVITY_TTL_MS || '25000', 10);
+async function getMarketActivityAgg() {
+  if (Date.now() - _activityAgg.at < ACTIVITY_AGG_TTL) return _activityAgg;
+  const tradeAgg = {};   // market_id(lowercased) -> { trades, holders:Set, vol }
+  const commentAgg = {}; // market id -> comment count
+  try {
+    const { data: _tr } = await supabase.from('trades').select('market_id, user_id, usdc_amount');
+    for (const t of (_tr || [])) {
+      const k = (t.market_id || '').toLowerCase();
+      if (!k) continue;
+      const a = tradeAgg[k] || (tradeAgg[k] = { trades: 0, holders: new Set(), vol: 0 });
+      a.trades++;
+      if (t.user_id) a.holders.add(t.user_id);
+      a.vol += parseFloat(t.usdc_amount) || 0;
+    }
+  } catch (e) { console.warn('[markets] trade aggregation failed:', e.message); }
+  try {
+    const { data: _cm } = await supabase.from('comments').select('target_id').eq('target_type', 'market');
+    for (const c of (_cm || [])) { if (c.target_id) commentAgg[c.target_id] = (commentAgg[c.target_id] || 0) + 1; }
+  } catch (e) { console.warn('[markets] comment aggregation failed:', e.message); }
+  _activityAgg = { at: Date.now(), tradeAgg, commentAgg };
+  return _activityAgg;
+}
+
 app.get('/api/markets', async (req, res) => {
   try {
     const limit = req.query.limit || 50;
     const offset = req.query.offset || 0;
 
-    // ── Pulse-native activity per market (real engagement HERE, not external
-    // Polymarket volume) so the feed can rank by what actually traded on Pulse:
-    // holders, trades and comments. Aggregated once per request. ─────────────
-    const tradeAgg = {};   // market_id(lowercased) -> { trades, holders:Set, vol }
-    const commentAgg = {}; // market id -> comment count
-    try {
-      const { data: _tr } = await supabase.from('trades').select('market_id, user_id, usdc_amount');
-      for (const t of (_tr || [])) {
-        const k = (t.market_id || '').toLowerCase();
-        if (!k) continue;
-        const a = tradeAgg[k] || (tradeAgg[k] = { trades: 0, holders: new Set(), vol: 0 });
-        a.trades++;
-        if (t.user_id) a.holders.add(t.user_id);
-        a.vol += parseFloat(t.usdc_amount) || 0;
-      }
-    } catch (e) { console.warn('[markets] trade aggregation failed:', e.message); }
-    try {
-      const { data: _cm } = await supabase.from('comments').select('target_id').eq('target_type', 'market');
-      for (const c of (_cm || [])) { if (c.target_id) commentAgg[c.target_id] = (commentAgg[c.target_id] || 0) + 1; }
-    } catch (e) { console.warn('[markets] comment aggregation failed:', e.message); }
+    // Pulse-native engagement (trades + comments) shown on the feed — memoized
+    // (see getMarketActivityAgg) so a burst of requests / CDN revalidations don't
+    // each re-scan the full trades + comments tables.
+    const { tradeAgg, commentAgg } = await getMarketActivityAgg();
     const pulsActivity = (m) => {
       const ca = (m.contractAddress || '').toLowerCase();
       const ta = ca ? tradeAgg[ca] : null;
