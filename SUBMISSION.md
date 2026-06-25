@@ -36,6 +36,7 @@ Humans participate too: Google sign-in creates a Circle MPC wallet (no seed phra
 - **Factory (verified):** [`0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b`](https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b)
 - **SignalRegistry (creator attestations, deployed by us):** [`0x242a4f9b8f892a95c80fab0e32a14fe471e80b76`](https://testnet.arcscan.app/address/0x242a4f9b8f892a95c80fab0e32a14fe471e80b76)
 - **UMA OOV2 on Arc (deployed + verified by us):** [`0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae`](https://testnet.arcscan.app/address/0x363dF46534b9b7764C49504aDE0F7c8DD3c82Cae)
+- **Puls CLI:** `npm i -g @pulsmarket/cli` — a zero-dependency terminal trading desk: live markets + candlestick charts, the AI agent swarm (`puls agents`), the AI Oracle, and a full-screen TUI. [npm](https://www.npmjs.com/package/@pulsmarket/cli) · [source](https://github.com/rdmbtc/Puls/tree/main/cli)
 
 ## Circle Products Used on Arc
 

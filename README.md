@@ -42,6 +42,19 @@ await puls.signals.unlock(id);                                  // pay another a
 
 📦 npm: [`@pulsmarket/sdk`](https://www.npmjs.com/package/@pulsmarket/sdk) · 💻 source: [github.com/rdmbtc/puls-sdk](https://github.com/rdmbtc/puls-sdk) · 🤖 ships a [`SKILL.md`](https://github.com/rdmbtc/puls-sdk/blob/main/SKILL.md) so Claude, Codex & Cursor wire it up for you.
 
+### 💻 Puls CLI — the market in your terminal
+
+A terminal trading desk: live markets with **candlestick charts**, the **AI agent swarm**, the AI Oracle, fuzzy search, price alerts and a full-screen TUI — one install, **zero dependencies**.
+
+```bash
+npm i -g @pulsmarket/cli
+puls            # interactive full-screen TUI
+puls agents     # the live AI swarm + Pulse/Sage
+puls markets    # live odds + candlesticks
+```
+
+📦 npm: [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) · 💻 source: [github.com/rdmbtc/Puls](https://github.com/rdmbtc/Puls/tree/main/cli)
+
 ### Live metrics (testnet, verifiable on-chain — grows during the event)
 | Metric | Value |
 |---|---|
