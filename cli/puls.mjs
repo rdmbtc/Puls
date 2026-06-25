@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.1.2';
+const VERSION = '6.2.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -225,6 +225,7 @@ const padL = (s, w) => { const d = w - vlen(s); return d > 0 ? ' '.repeat(d) + s
 const center = (s, w) => { const d = w - vlen(s); if (d <= 0) return s; const l = d >> 1; return ' '.repeat(l) + s + ' '.repeat(d - l); };
 const fmt = n => (Number(n) || 0).toLocaleString('en-US');
 const usd = n => (Number(n) || 0).toFixed(2);
+const micro = n => { n = Number(n) || 0; return n >= 0.01 ? n.toFixed(2) : parseFloat(n.toFixed(6)).toString(); };
 function abbr(n) {
   n = Number(n) || 0;
   if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -706,7 +707,7 @@ async function startTUI() {
   let detailMarket = null, paletteMode = false, paletteQuery = '', paletteSel = 0;
   let scrollOff = 0;
   let loaded = false;
-  let agentsData = null;
+  let agentsData = null, pfData = null;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -752,6 +753,11 @@ async function startTUI() {
     } catch {}
   }
 
+  async function loadPf() {
+    if (!loadCfg().key) return;
+    try { pfData = await api('/api/portfolio', { auth: true }); } catch {}
+  }
+
   const allActions = [
     { name: 'Refresh markets', key: 'r', fn: async () => { cacheClear(); await Promise.all([loadData(), loadFeed()]); setStatus('Refreshed'); } },
     { name: 'Sort by volume', key: '', fn: () => { sortMode = 'volume'; loadData(); setStatus('Sorted by volume'); } },
@@ -790,10 +796,13 @@ async function startTUI() {
     buf += '  ' + rule(TW - 4) + '\n';
 
     if (tab === 0) {
-      const sortLabel = `${Dm('sort:')} ${sortMode === 'volume' ? Pk('▼vol') : Dm('vol')}  ${sortMode === 'odds' ? Pk('▼odds') : Dm('odds')}  ${sortMode === 'newest' ? Pk('▼new') : Dm('new')}  ${searching ? Pk('/' + search + '█') : Dm('/ search')}`;
-      buf += '  ' + sortLabel + '\n\n';
       const filtered = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
-      const maxVisible = Math.max(1, h - 6);
+      const maxVisible = Math.max(2, Math.floor((h - 4) / 3));   // each market renders on 3 lines
+      const maxOff = Math.max(0, filtered.length - maxVisible);
+      if (scrollOff > maxOff) scrollOff = maxOff;
+      const pos = filtered.length ? `   ${di(`${Math.min(scrollOff + 1, filtered.length)}–${Math.min(scrollOff + maxVisible, filtered.length)} of ${filtered.length}`)}` : '';
+      const sortLabel = `${Dm('sort:')} ${sortMode === 'volume' ? Pk('▼vol') : Dm('vol')}  ${sortMode === 'odds' ? Pk('▼odds') : Dm('odds')}  ${sortMode === 'newest' ? Pk('▼new') : Dm('new')}  ${searching ? Pk('/' + search + '█') : Dm('/ search')}${pos}`;
+      buf += '  ' + sortLabel + '\n\n';
       const visible = filtered.slice(scrollOff, scrollOff + maxVisible);
       if (!visible.length) buf += '  ' + Dm(search ? 'No matches.' : (loaded ? 'No markets — API unreachable? press r to retry' : 'Loading…')) + '\n';
       for (let i = 0; i < visible.length; i++) {
@@ -804,14 +813,27 @@ async function startTUI() {
         const q = (m.question || m.slug || '').slice(0, Math.min(60, TW - 48));
         const pre = isSel ? Pk('▸ ') : '  ';
         const fakeH = Array.from({ length: 12 }, (_, j) => (odds ?? 50) + Math.sin(j * 1.2 + i + scrollOff) * 12);
-        buf += `${pre}${Tx(q)}\n`;
+        buf += `${pre}${isSel ? Wh(q) : Tx(q)}\n`;
         buf += `    ${di((m.slug || '').slice(0, 36))}  ${odds !== null ? probColor(odds)(odds + '¢') : di('—')}  ${probBar(odds ?? 50, 16)}  ${sparkMini(fakeH, 10)}  ${vol != null ? cy('$' + abbr(vol)) : di('—')}  ${statusBadge(m.status)}\n\n`;
       }
+      if (scrollOff + maxVisible < filtered.length) buf += '  ' + Dm('▼ ' + (filtered.length - scrollOff - maxVisible) + ' more — press ↓') + '\n';
+      else if (scrollOff > 0 && filtered.length) buf += '  ' + Dm('▲ top — press ↑') + '\n';
     } else if (tab === 1) {
-      const pf = loadPortfolio();
-      buf += `  ${Pk('◆')} ${Wh('Open Positions')}\n\n`;
-      if (!pf.positions.length) buf += `  ${Dm('No positions yet.')}\n\n`;
-      for (const p of pf.positions) buf += `  ${Tx(p.slug)}  ${p.side === 'YES' ? Em('YES') : Rs('NO')}  ${cy('$' + p.amount)}\n`;
+      buf += `  ${Pk('◆')} ${Wh('Your Portfolio')}\n\n`;
+      if (!loadCfg().key) buf += `  ${Dm('Log in to see positions:  ')}${Pk('puls login pk_live_…')}\n`;
+      else if (!pfData) buf += `  ${Dm(loaded ? 'No data — press r to retry' : 'Loading…')}\n`;
+      else {
+        const pos = pfData.positions || pfData.holdings || [];
+        const spent = pfData.totalSpent ?? pfData.investedUsdc;
+        const openN = pos.filter(p => !p.resolved).length;
+        buf += `  ${Dm('invested ')}${Cy('$' + usd(spent || 0))}${Dm('  ·  ' + openN + ' open · ' + pos.length + ' total')}\n\n`;
+        if (!pos.length) buf += `  ${Dm('No positions yet.')}\n`;
+        for (const p of pos.slice(0, Math.max(2, h - 7))) {
+          const side = String(p.side || '').toUpperCase();
+          const st = p.claimed ? di('claimed') : p.resolved ? ((!!p.outcome === (side === 'YES')) ? Em('won') : rs('lost')) : am('open');
+          buf += `  ${(side === 'YES' ? Em : Rs)((side || '·').padEnd(3))} ${Tx(String(p.question || p.slug || '').slice(0, TW - 30))}  ${p.usdcAmount != null ? cy('$' + usd(p.usdcAmount)) : ''}  ${st}\n`;
+        }
+      }
     } else if (tab === 2) {
       buf += `  ${Pk('◈')} ${Wh('Live Trade Feed')}\n\n`;
       for (const t of feedBuf.slice(0, h - 4)) {
@@ -887,7 +909,7 @@ async function startTUI() {
   }
 
   render(); // paint immediately so the screen is never blank while data loads
-  Promise.all([loadData(), loadFeed(), loadAgents()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
+  Promise.all([loadData(), loadFeed(), loadAgents(), loadPf()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
 
   process.stdin.on('data', async key => {
     if (paletteMode) {
@@ -913,7 +935,7 @@ async function startTUI() {
       return;
     }
     if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; detailMarket = null; scrollOff = 0; render(); return; }
-    const maxVis = Math.max(1, TH - 10);
+    const maxVis = Math.max(2, Math.floor((TH - 8) / 3));
     if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
     if (key === '\x1b[B' || key === 'j') {
       const filt = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
@@ -927,7 +949,7 @@ async function startTUI() {
       sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.length];
       await loadData(); sel = 0; scrollOff = 0; setStatus('Sorted by ' + sortMode); render(); return;
     }
-    if (key === 'r') { cacheClear(); setStatus('Refreshing…'); render(); await Promise.all([loadData(), loadFeed(), loadAgents()]); setStatus('Refreshed'); render(); return; }
+    if (key === 'r') { cacheClear(); setStatus('Refreshing…'); render(); await Promise.all([loadData(), loadFeed(), loadAgents(), loadPf()]); setStatus('Refreshed'); render(); return; }
   });
 }
 
@@ -1351,6 +1373,228 @@ async function cmdAgents() {
   } catch (e) { sp.stop(); await toastErr(e.message); }
 }
 
+// ── Creator economy + portfolio + AI copilot ────────────────────────────────
+
+function creatorName(uid = '') {
+  uid = String(uid);
+  const map = {
+    agent_sage: 'Sage ✍️', agent_pulse: 'Pulse 🤖',
+    agent_swarm_striker: 'Striker ⚽', agent_swarm_nova: 'Nova 🌐', agent_swarm_atlas: 'Atlas 📈',
+    agent_swarm_vega: 'Vega ⚡', agent_swarm_cygnus: 'Cygnus 🛡️', agent_swarm_orion: 'Orion 🔭',
+  };
+  if (map[uid]) return map[uid];
+  const sw = uid.match(/agent_swarm_(\w+)/);
+  if (sw) return sw[1][0].toUpperCase() + sw[1].slice(1);
+  if (/^agent/i.test(uid)) return 'Agent';
+  if (uid.startsWith('supabase_')) return 'trader ' + uid.slice(9, 13);
+  if (uid.startsWith('eth_') || uid.startsWith('0x')) return uid.replace('eth_', '').slice(0, 8) + '…';
+  return uid.slice(0, 12) || 'anon';
+}
+
+async function x402Step(label, text) {
+  ln('  ' + label + '  ' + Dm(text));
+  if (IS_TTY && !F.na) await sleep(450);
+}
+
+function wrapText(s, w, indent = '  ') {
+  const out = [];
+  for (const para of String(s).split(/\n+/)) {
+    let cur = indent;
+    for (const word of para.split(/\s+/)) {
+      if (!word) continue;
+      if (vlen(cur) + vlen(word) + 1 > w && cur !== indent) { out.push(cur); cur = indent + word; }
+      else cur += (cur === indent ? '' : ' ') + word;
+    }
+    if (cur.trim()) out.push(cur);
+  }
+  return out;
+}
+
+async function cmdPortfolio() {
+  TITLE('portfolio');
+  if (!(await checkLogin())) return;
+  const sp = spinner('loading your positions', 'orbit');
+  try {
+    const d = await api('/api/portfolio', { auth: true });
+    sp.stop();
+    if (jsonOut(d)) return;
+    const positions = d.positions || d.holdings || (Array.isArray(d) ? d : []);
+    const open = positions.filter(p => !p.resolved);
+    header('Your Portfolio', open.length + ' open · ' + positions.length + ' total', '◆'); ln('');
+    const totalSpent = d.totalSpent ?? d.investedUsdc ?? d.costUsdc;
+    if (totalSpent != null) { ln('  ' + Dm('invested ') + Cy('$' + usd(totalSpent)) + Dm('  across ' + positions.length + ' positions')); ln('  ' + rule(PW)); ln(''); }
+    if (!positions.length) {
+      ln('  ' + Dm('No positions yet. Browse ') + Pk('puls markets') + Dm(' and trade in the app.'));
+    } else {
+      const lim = parseInt(flag('limit')) || 24;
+      for (const p of positions.slice(0, lim)) {
+        const side = String(p.side || '').toUpperCase();
+        const sideC = side === 'YES' ? Em : side === 'NO' ? Rs : Tx;
+        const status = p.claimed ? di('claimed') : p.resolved ? ((!!p.outcome === (side === 'YES')) ? Em('won') : rs('lost')) : am('open');
+        ln(`  ${sideC((side || '·').padEnd(3))} ${Tx(String(p.question || p.slug || '').slice(0, PW - 24))} ${p.owner === 'agent' ? di('🤖') : ''}`);
+        const meta = [];
+        if (p.shares != null) meta.push(Dm(abbr(p.shares) + ' sh'));
+        if (p.entryPrice != null) meta.push(Dm('@ ' + Math.round(Number(p.entryPrice) * 100) + '¢'));
+        if (p.usdcAmount != null) meta.push(cy('$' + usd(p.usdcAmount) + ' cost'));
+        meta.push(status);
+        ln('       ' + meta.join('  ·  '));
+      }
+      if (positions.length > lim) ln('\n  ' + Dm('… +' + (positions.length - lim) + ' more — use --limit N'));
+    }
+    ln('\n  ' + rule(PW));
+    ln('  ' + Dm('puls wallet  ·  puls markets  ·  puls feed') + '\n');
+  } catch (e) { sp.stop(); await toastErr(e.message); }
+}
+
+async function cmdSignals() {
+  TITLE('signals');
+  const sp = spinner('loading the alpha marketplace', 'orbit');
+  try {
+    const d = await api('/api/signals', loadCfg().key ? { auth: true } : {});
+    sp.stop();
+    const list = d.signals || (Array.isArray(d) ? d : []);
+    if (jsonOut(d)) return;
+    header('Alpha Marketplace', list.length + ' signals · ' + (d.live ? 'x402 live' : 'demo'), '◆'); ln('');
+    if (!list.length) { ln('  ' + Dm('No signals published yet.')); return; }
+    const lim = parseInt(flag('limit')) || 12;
+    list.slice(0, lim).forEach((s, i) => {
+      const lock = s.unlocked ? Em('🔓 open') : pk('🔒 locked');
+      const conf = s.confidence != null ? Math.round(s.confidence * 100) + '%' : '—';
+      const tr = s.creatorTrackRecord || {};
+      const rec = tr.winRate != null ? Math.round(tr.winRate * 100) + '% WR' : (tr.published ? tr.published + ' pub' : 'new');
+      ln(`  ${Pk(String(i + 1).padStart(2))}  ${Wh((s.title || '').slice(0, PW - 18))}   ${lock}`);
+      ln('      ' + [Cy('$' + micro(s.priceUsdc)), Dm('by ' + creatorName(s.creatorUserId)), Dm('conf ' + conf), Dm((s.edgeBps || 0) + 'bps edge'), Dm(rec)].join('  ·  '));
+      let l3 = '      ' + di('id ' + String(s.id).slice(0, 8));
+      if (s.sourcesCount) l3 += '  ' + Dm(s.sourcesCount + ' sources');
+      if (s.bond) l3 += '  ' + am('◆ bond $' + usd(s.bond.amountUsdc) + ' ' + s.bond.status);
+      if (s.onchain?.tx) l3 += '  ' + vt('⛓ on-chain');
+      ln(l3);
+      if (s.marketQuestion) ln('      ' + Dm('"' + s.marketQuestion.slice(0, PW - 12) + '"'));
+      ln('');
+    });
+    ln('  ' + rule(PW));
+    ln('  ' + Dm('Unlock the full thesis — pays the creator in USDC via x402:  ') + Pk('puls unlock <id>') + '\n');
+  } catch (e) { sp.stop(); await toastErr(e.message); }
+}
+
+async function cmdUnlock(id) {
+  TITLE('unlock');
+  if (!id) { ln(Dm('\n  Usage: ') + Pk('puls unlock <signal-id>') + Dm('   (get ids from ') + Pk('puls signals') + Dm(')\n')); return; }
+  if (!(await checkLogin())) return;
+  let sig = null;
+  try {
+    const d = await api('/api/signals', { auth: true });
+    sig = (d.signals || []).find(s => s.id === id || String(s.id).startsWith(id));
+    if (sig) id = sig.id;
+  } catch {}
+  header('Unlock Alpha', 'x402 nanopayment on Arc', '🔓'); ln('');
+  if (sig) {
+    ln('  ' + Wh(sig.title));
+    if (sig.marketQuestion) ln('  ' + Dm('"' + sig.marketQuestion + '"'));
+    ln('  ' + Dm('by ') + Am(creatorName(sig.creatorUserId)) + (sig.onchain?.tx ? Dm('   ⛓ ') + di(sig.onchain.tx.slice(0, 14) + '…') : ''));
+    ln('');
+  }
+  const price = sig ? micro(sig.priceUsdc) : '0.001';
+  const creator = sig ? creatorName(sig.creatorUserId) : 'the creator';
+  await x402Step(Rs('● HTTP 402'), 'Payment Required — $' + price + ' USDC to unlock');
+  await x402Step(am('● x402 '), 'authorizing USDC transfer → ' + creator);
+  await x402Step(am('● Arc  '), 'settling the nanopayment on-chain…');
+  const sp = spinner('confirming settlement', 'arc');
+  try {
+    const r = await api('/api/signals/' + encodeURIComponent(id) + '/unlock', { method: 'POST', body: {}, auth: true });
+    sp.stop();
+    if (jsonOut(r)) return;
+    const s = r.signal || sig || {};
+    if (r.ok === false && r.live === false) {
+      ln('  ' + Am('◆ demo mode') + Dm(' — live payments activate at launch; the 402 + on-chain attestation are real.'));
+    } else if (r.alreadyUnlocked) {
+      ln('  ' + Em('✓ already unlocked') + Dm(' — no charge.'));
+    } else {
+      ln('  ' + Em('✓ x402 payment settled') + Dm('  ·  $' + price + ' USDC → ' + creator));
+    }
+    ln('');
+    if (s.stance) ln('  ' + Dm('The call:  ') + (s.stance === 'YES' ? Em('▲ YES') : Rs('▼ NO')) + Dm('   confidence ') + Wh(Math.round((s.confidence || 0) * 100) + '%') + Dm('   edge ') + Wh((s.edgeBps || 0) + 'bps'));
+    if (s.thesis) { ln(''); ln('  ' + Dm('Thesis')); wrapText(s.thesis, PW - 2, '  ').forEach(l => ln(tx(l))); }
+    else if (r.ok === false) ln('  ' + Dm('(thesis stays hidden — ' + (r.message || 'unlock not completed') + ')'));
+    if (s.sources?.length) {
+      ln(''); ln('  ' + Dm('Sources (' + s.sources.length + ')'));
+      s.sources.forEach(src => ln('   ' + cy('•') + ' ' + Tx(String(src.title || src.url || '').slice(0, PW - 10)) + (src.url ? Dm('  ' + String(src.url).slice(0, 44)) : '')));
+    }
+    if (s.onchain?.explorer || s.onchain?.tx) { ln(''); ln('  ' + Dm('⛓ content attestation: ') + cy(s.onchain.explorer || ('tx ' + s.onchain.tx))); }
+    if (r.txId || r.payment?.tx) ln('  ' + Dm('💸 payment tx: ') + cy(String(r.txId || r.payment.tx)));
+    ln('\n  ' + rule(PW)); ln('');
+  } catch (e) {
+    sp.stop();
+    if (/Insufficient/i.test(e.message)) { ln('  ' + Er('✗ ' + e.message)); ln('  ' + Dm('Top up testnet USDC at ') + cy('faucet.circle.com') + Dm(' (Arc Testnet).') + '\n'); }
+    else await toastErr(e.message);
+  }
+}
+
+async function cmdChat(rest) {
+  TITLE('copilot');
+  if (!(await checkLogin())) return;
+  header('AI Trading Copilot', 'grounded in live web research', '◆');
+  ln('  ' + Dm('Ask about any market or prediction. Type ') + Pk('exit') + Dm(' to leave.') + '\n');
+  async function ask(message) {
+    const sp = spinner('researching the open web + reasoning', 'orbit');
+    try {
+      const r = await api('/api/copilot/chat', { method: 'POST', body: { message }, auth: true });
+      sp.stop();
+      const reply = String(r.reply || '(no reply)').replace(/\*([^*]+)\*/g, (_, t) => BD + t + RST);
+      ln('  ' + Pk('◆ Copilot'));
+      wrapText(reply, PW - 2, '  ').forEach(l => ln(Tx(l)));
+      if (r.sources?.length) {
+        ln(''); ln('  ' + Dm('sources:'));
+        r.sources.forEach(s => ln('   ' + cy('•') + ' ' + Dm(String(s.title || s.url || '').slice(0, PW - 10))));
+      }
+      ln('');
+    } catch (e) { sp.stop(); await toastErr(e.message); }
+  }
+  const oneShot = (rest || '').trim();
+  if (oneShot) { await ask(oneShot); return; }
+  if (!IS_TTY) { ln(Dm('  Pipe a question:  puls chat "will BTC hold $90k this quarter?"') + '\n'); return; }
+  while (true) {
+    const q = await prompt('  ' + Cy('you ›') + ' ');
+    const t = (q || '').trim();
+    if (!t) continue;
+    if (['exit', 'quit', ':q'].includes(t.toLowerCase())) { ln(Dm('\n  bye.\n')); break; }
+    await ask(t);
+  }
+}
+
+async function cmdLeaderboard() {
+  TITLE('leaderboard');
+  const sp = spinner('loading leaderboard', 'orbit');
+  try {
+    const d = await api('/api/leaderboard');
+    sp.stop();
+    const list = Array.isArray(d) ? d : (d.leaderboard || d.entries || d.traders || []);
+    if (jsonOut(d)) return;
+    header('Leaderboard', 'top traders & agents', '◆'); ln('');
+    if (!list.length) { ln('  ' + Dm('No leaderboard data.')); return; }
+    const lim = parseInt(flag('limit')) || 15;
+    list.slice(0, lim).forEach((e, i) => {
+      const rank = e.rank || i + 1;
+      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : di(String(rank).padStart(2));
+      const uid = e.userId || e.user_id || '';
+      const isAgent = e.isAgent || /agent/i.test(uid);
+      const name = e.username || e.displayName || e.name || creatorName(uid);
+      const pnl = e.pnlUsdc ?? e.pnl ?? e.profit ?? e.profitUsdc;
+      const vol = e.volumeUsdc ?? e.volume;
+      const wr = e.winRate != null ? Math.round(e.winRate <= 1 ? e.winRate * 100 : e.winRate) + '%' : null;
+      const trades = e.trades ?? e.tradeCount ?? e.tradesCount;
+      let line = `  ${medal}  ${(isAgent ? Am : Wh)(String(name || '—').slice(0, 20).padEnd(20))}`;
+      if (pnl != null) line += '  ' + (Number(pnl) >= 0 ? Em('+$' + usd(pnl)) : Rs('-$' + usd(Math.abs(pnl))));
+      if (vol != null) line += '  ' + cy('$' + abbr(vol));
+      if (wr) line += '  ' + Dm(wr + ' WR');
+      if (trades != null) line += '  ' + di(abbr(trades) + ' trades');
+      if (isAgent) line += ' ' + di('🤖');
+      ln(line);
+    });
+    ln('\n  ' + rule(PW)); ln('');
+  } catch (e) { sp.stop(); await toastErr(e.message); }
+}
+
 async function cmdAlert(slug, direction, threshold) {
   if (!slug || !direction || !threshold) {
     ln(Dm('  Usage: puls alert <slug> up|down <¢>'));
@@ -1539,8 +1783,14 @@ function help() {
   ln(`  ${Pk('Intelligence')}`);
   ln(`    ${Wh('puls agents')}                   ${Dm('the AI swarm + Pulse/Sage house agents')}`);
   ln(`    ${Wh('puls oracle')} ${Dm('<slug>')}            ${Dm('AI swarm vs crowd')}`);
+  ln(`    ${Wh('puls chat')} ${Dm('[question]')}         ${Dm('AI copilot · live web research')}`);
   ln(`    ${Wh('puls feed')}                     ${Dm('live trade stream')}`);
-  ln(`    ${Wh('puls stats')}                    ${Dm('platform dashboard')}\n`);
+  ln(`    ${Wh('puls stats')}                    ${Dm('platform dashboard')}`);
+  ln(`    ${Wh('puls leaderboard')}              ${Dm('top traders & agents')}\n`);
+  ln(`  ${Pk('Creator economy')} ${Dm('· x402 nanopayments')}`);
+  ln(`    ${Wh('puls signals')}                  ${Dm('alpha marketplace (on-chain attested)')}`);
+  ln(`    ${Wh('puls unlock')} ${Dm('<id>')}             ${Dm('pay the creator in USDC, reveal thesis')}`);
+  ln(`    ${Wh('puls portfolio')}                ${Dm('your open positions + P&L')}\n`);
   ln(`  ${Pk('Trading')}`);
   ln(`    ${Wh('puls calc')} ${Dm('<odds> <bet>')}        ${Dm('bet calculator')}`);
   ln(`    ${Wh('puls alert')} ${Dm('<slug> up|down <¢>')} ${Dm('set price alert')}`);
@@ -1568,13 +1818,16 @@ try {
   else if (cmd === 'heatmap')  { await cmdHeatmap(); }
   else if (cmd === 'history')  { await cmdHistory(args[1]); }
   else if (cmd === 'calc')     { cmdCalc(args[1], args[2]); }
-  else if (cmd === 'portfolio' || cmd === 'pf') { if (await checkLogin()) await startTUI(); }
+  else if (cmd === 'portfolio' || cmd === 'pf') { await cmdPortfolio(); }
+  else if (cmd === 'signals' || cmd === 'alpha') { await cmdSignals(); }
+  else if (cmd === 'unlock' || cmd === 'buy-signal') { await cmdUnlock(args[1]); }
+  else if (cmd === 'leaderboard' || cmd === 'lb' || cmd === 'ranks') { await cmdLeaderboard(); }
   else if (cmd === 'alerts')   { cmdAlerts(); }
   else if (cmd === 'alert')    { await cmdAlert(args[1], args[2], args[3]); }
   else if (cmd === 'theme')    { cmdTheme(args[1]); }
   else if (cmd === 'open')     { cmdOpen(args[1]); }
   else if (cmd === 'doctor')   { await cmdDoctor(); }
-  else if (cmd === 'chat')     { ln(Dm('\n  Chat coming soon. Try ') + Pk('puls oracle <slug>') + '.\n'); }
+  else if (cmd === 'chat' || cmd === 'copilot' || cmd === 'ask') { await cmdChat(args.slice(1).join(' ')); }
   else if (cmd === 'help' || cmd === '-h' || cmd === '--help') { help(); }
   else if (!cmd && IS_TTY)     { await intro(); await startTUI(); }
   else if (!cmd)               { help(); }
