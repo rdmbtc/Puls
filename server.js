@@ -130,6 +130,14 @@ app.use(allowedOrigins.length ? cors({ origin: allowedOrigins }) : cors());
 // signature over the exact bytes Circle signed (re-serializing the parsed JSON
 // would change key order/whitespace and break verification).
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
+
+// Lightweight liveness probe (no DB, no rate-limit) for uptime monitors and
+// Cloudflare/load-balancer health checks. Always fast, never cached.
+app.get('/api/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, service: 'puls-backend', uptimeSec: Math.round(process.uptime()), ts: Date.now() });
+});
+
 app.use(generalLimiter); // Apply general rate limit globally
 
 // Supabase JWT Authenticate Middleware
