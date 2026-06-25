@@ -1441,6 +1441,7 @@ function displayPrices(onchainYes, pmYes, totalVolume) {
 // burns the 1-vCPU box on revalidations / query-param variants. Memoize it for a
 // short window so concurrent requests share one scan (the feed is 10s CDN-cached).
 let _activityAgg = { at: 0, tradeAgg: {}, commentAgg: {} };
+let _pmLastGood = null; // last successful Polymarket markets list — served on upstream failure so the feed never empties/hangs
 const ACTIVITY_AGG_TTL = parseInt(process.env.MARKETS_ACTIVITY_TTL_MS || '25000', 10);
 async function getMarketActivityAgg() {
   if (Date.now() - _activityAgg.at < ACTIVITY_AGG_TTL) return _activityAgg;
@@ -1561,13 +1562,20 @@ app.get('/api/markets', async (req, res) => {
     }
 
     const pmUrl = `https://gamma-api.polymarket.com/markets?limit=${limit}&active=true&closed=false&order=volume&ascending=false&offset=${offset}`;
-    const pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' } });
+    let pmRes = null;
+    try { pmRes = await fetch(pmUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) }); }
+    catch (e) { console.warn('[markets] Polymarket fetch error/timeout:', e.message); }
     
     let list = [];
-    if (pmRes.ok) {
-      list = await pmRes.json();
-    } else {
-      console.warn('Failed to fetch from Polymarket, returning custom markets only.');
+    if (pmRes && pmRes.ok) {
+      try { list = await pmRes.json(); if (Array.isArray(list) && list.length) _pmLastGood = { at: Date.now(), data: list }; }
+      catch (e) { console.warn('[markets] Polymarket parse failed:', e.message); }
+    }
+    // Upstream down/slow/empty → serve the last successful feed so judges never
+    // see an empty/broken markets page (graceful degradation, not a 500).
+    if ((!Array.isArray(list) || !list.length) && _pmLastGood && Array.isArray(_pmLastGood.data)) {
+      console.warn('[markets] serving last-good Polymarket cache (' + _pmLastGood.data.length + ' markets, age ' + Math.round((Date.now() - _pmLastGood.at) / 1000) + 's)');
+      list = _pmLastGood.data;
     }
     
     const pmMergedList = await Promise.all(list.map(async (j) => {
