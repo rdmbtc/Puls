@@ -31,6 +31,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
   final Map<String, _Author> _authors = {};
   bool _loading = true;
   String? _error;
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -110,6 +111,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
+    final shown = _filter == 'bought' ? _signals.where((s) => s.unlocked).toList() : _signals;
     if (_loading) {
       return const Padding(padding: EdgeInsets.all(40), child: PulsLoader());
     }
@@ -119,13 +121,21 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
           _header(t),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          Row(children: [
+            _filterChip(t, 'all', 'All', _signals.length),
+            const SizedBox(width: 8),
+            _filterChip(t, 'bought', 'Bought', _signals.where((s) => s.unlocked).length),
+          ]),
+          const SizedBox(height: 12),
           if (_error != null)
             Text("Couldn't load signals.", style: TextStyle(color: t.textMuted, fontSize: 13))
-          else if (_signals.isEmpty)
-            _empty(t)
+          else if (shown.isEmpty)
+            (_filter == 'bought'
+                ? Padding(padding: const EdgeInsets.all(24), child: Text('No bought signals yet — unlock one to see it here.', style: TextStyle(color: t.textMuted, fontSize: 13)))
+                : _empty(t))
           else
-            ..._signals.expand((s) => [
+            ...shown.expand((s) => [
                   _MarketSignalCard(
                     signal: s,
                     author: _authorFor(s.creatorUserId),
@@ -134,6 +144,25 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
                   const SizedBox(height: 10),
                 ]),
         ],
+      ),
+    );
+  }
+
+  Widget _filterChip(PulsThemeColors t, String key, String label, int count) {
+    final sel = _filter == key;
+    const pink = Color(0xFFEC4899);
+    return GestureDetector(
+      onTap: () => setState(() => _filter = key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: sel ? pink.withValues(alpha: 0.14) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: sel ? pink : t.border),
+        ),
+        child: Text('$label · $count',
+            style: TextStyle(color: sel ? pink : t.textMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
       ),
     );
   }
