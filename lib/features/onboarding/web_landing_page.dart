@@ -8,11 +8,9 @@ import 'hero_market_stack.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
-import 'agents_leaderboard.dart';
 import 'landing_faq.dart';
 import 'landing_kit.dart';
 import 'accountable_ai.dart';
-import 'live_on_arc.dart';
 import 'phone_demo.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -145,10 +143,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                     _Reveal(scrollOffset: _scrollOffset, child: _FeaturesSection(scrollOffset: _scrollOffset)),
                     _Reveal(scrollOffset: _scrollOffset, child: const AccountableAiSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const PhoneDemoSection()),
-                    _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
-                    _Reveal(scrollOffset: _scrollOffset, child: const LiveOnArcSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
-                    _Reveal(scrollOffset: _scrollOffset, child: const AgentsLeaderboardSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const FaqSection()),
@@ -2420,168 +2415,6 @@ class _CapabilityStrip extends StatelessWidget {
           ],
         ),
       );
-}
-
-// ── How It Works ──────────────────────────────────────────────────────────────
-class _HowItWorksSection extends StatelessWidget {
-  const _HowItWorksSection();
-
-  static const _steps = [
-    ('01', 'Sign in with Google', 'One tap. A Circle MPC wallet is created on Arc Testnet automatically. No seed phrase.', Color(0xFF14B8A6)),
-    ('02', 'Get testnet USDC', 'Visit faucet.circle.com → select Arc Testnet → paste your wallet address. Free USDC in seconds.', Color(0xFF16A34A)),
-    ('03', 'Browse 100 live markets', 'Real Polymarket predictions with live odds, sparkline charts, and volume data.', Color(0xFF0EA5E9)),
-    ('04', 'Swipe YES or NO', 'Swipe right for YES, left for NO. Your USDC is sent to the PulsMarket smart contract on-chain.', Color(0xFFD97706)),
-    ('05', 'Track your PNL', 'Portfolio shows entry price, current price, and real-time PNL. Claim winnings when markets resolve.', Color(0xFFEC4899)),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
-
-    return Container(
-      color: t.surface.withValues(alpha: 0.4),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 48, vertical: isMobile ? 48 : 96),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: t.brandSubtle,
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: t.brand.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              'HOW IT WORKS',
-              style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'From zero to on-chain in 60 seconds',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.text, fontSize: isMobile ? 24 : 38, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.2),
-          ),
-          SizedBox(height: isMobile ? 32 : 56),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              children: _steps.asMap().entries.map((e) {
-                final step = e.value;
-                final isLast = e.key == _steps.length - 1;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: _StepRow(
-                    number: step.$1,
-                    title: step.$2,
-                    body: step.$3,
-                    color: step.$4,
-                    nextColor: isLast ? null : _steps[e.key + 1].$4,
-                    isLast: isLast,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({
-    required this.number,
-    required this.title,
-    required this.body,
-    required this.color,
-    required this.nextColor,
-    required this.isLast,
-  });
-  final String number, title, body;
-  final Color color;
-  final Color? nextColor;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    final w = MediaQuery.sizeOf(context).width;
-    final isMobile = w < 600;
-    final badge = isMobile ? 44.0 : 50.0;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: badge, height: badge,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [color, Color.alphaBlend(Colors.white.withValues(alpha: 0.42), color)],
-                  ),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [BoxShadow(color: color.withValues(alpha: 0.34), blurRadius: 16, offset: const Offset(0, 8))],
-                ),
-                child: Center(
-                  child: Text(number, style: TextStyle(color: Colors.white, fontSize: isMobile ? 14 : 16, fontWeight: FontWeight.w800)),
-                ),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [color, nextColor ?? color],
-                      ),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(width: isMobile ? 16 : 22),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 18, vertical: isMobile ? 14 : 16),
-                decoration: BoxDecoration(
-                  color: t.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: t.border),
-                  boxShadow: [BoxShadow(color: t.text.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(color: t.text, fontSize: isMobile ? 15 : 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      body,
-                      style: TextStyle(color: t.textMuted, fontSize: isMobile ? 13 : 14, height: 1.55),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Stats Section ─────────────────────────────────────────────────────────────
