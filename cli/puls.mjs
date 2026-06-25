@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.4.0';
+const VERSION = '6.4.1';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -224,7 +224,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const wr = s => process.stdout.write(s);
 const ln = (s = '') => console.log(s);
 const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*?\x07/g, '');
-const vlen = s => [...stripAnsi(s)].length;
+function charW(cp) {
+  if (cp === 0xFE0F || cp === 0x200D || (cp >= 0x300 && cp <= 0x36F)) return 0;          // VS16, ZWJ, combining
+  if (cp >= 0x1F000 || (cp >= 0x1100 && cp <= 0x115F) || (cp >= 0x2E80 && cp <= 0xA4CF) ||
+      (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFF00 && cp <= 0xFF60)) return 2;
+  if (cp === 0x270D || cp === 0x26BD || cp === 0x26A1 || cp === 0x26D3 || cp === 0x2764) return 2;  // ✍ ⚽ ⚡ ⛓ ❤
+  return 1;
+}
+const vlen = s => { let w = 0; for (const ch of stripAnsi(s)) w += charW(ch.codePointAt(0)); return w; };
+// Hard-clip a (possibly ANSI-colored) string to `max` display cells so a line
+// can never exceed the terminal width and wrap (the cause of the broken text).
+function clip(s, max) {
+  let out = '', w = 0, i = 0, cut = false;
+  while (i < s.length) {
+    if (s[i] === '\x1b') { const m = /^\x1b\[[0-9;?]*[A-Za-z]/.exec(s.slice(i)); if (m) { out += m[0]; i += m[0].length; continue; } out += s[i++]; continue; }
+    const cp = s.codePointAt(i), ch = String.fromCodePoint(cp), cw = charW(cp);
+    if (w + cw > max) { cut = true; break; }
+    out += ch; w += cw; i += ch.length;
+  }
+  return cut ? out + RST : out;
+}
 const padR = (s, w) => { const d = w - vlen(s); return d > 0 ? s + ' '.repeat(d) : s; };
 const padL = (s, w) => { const d = w - vlen(s); return d > 0 ? ' '.repeat(d) + s : s; };
 const center = (s, w) => { const d = w - vlen(s); if (d <= 0) return s; const l = d >> 1; return ' '.repeat(l) + s + ' '.repeat(d - l); };
@@ -992,7 +1011,7 @@ async function startTUI() {
   function render() {
     const H = Math.max(6, TH - 5);
     let buf = ESC + 'H';
-    buf += `  ${grad('PULS', { glow: (frame % 36) / 36 })} ${di('v' + VERSION)}    ${tabBar()}    ${dm(T.name)}\n`;
+    buf += `  ${grad('PULS', { glow: (frame % 36) / 36 })}${TW >= 72 ? ' ' + di('v' + VERSION) : ''}    ${tabBar()}${TW >= 94 ? '    ' + dm(T.name) : ''}\n`;
     buf += '  ' + rule(TW - 4) + '\n';
     let body;
     if (tab === TAB.CHAT) body = rChat(H);
@@ -1005,9 +1024,10 @@ async function startTUI() {
     while (bl.length < H) bl.push('');
     buf += bl.slice(0, H).join('\n') + '\n';
     buf += footer();
-    wr(buf.split('\n').map(l => l + ESC + 'K').join('\n') + ESC + '0J');
+    wr('\x1b[?2026h' + buf.split('\n').map(l => clip(l, TW) + ESC + 'K').join('\n') + ESC + '0J');
     if (paletteMode) renderPalette();
     if (unlocking) renderUnlockOverlay();
+    wr('\x1b[?2026l');
   }
 
   function renderPalette() {
@@ -1062,7 +1082,7 @@ async function startTUI() {
     }
     if (u.error) { lines.push(''); lines.push(' ' + Rs('✗ ' + u.error.slice(0, boxW - 6))); }
     else if (u.step >= 4 && u.txId) { lines.push(''); lines.push(' ' + Dm('⛓ tx ') + cy(String(u.txId).slice(0, boxW - 9))); }
-    const ox = Math.max(2, ((TW - boxW) / 2) | 0), oy = Math.max(2, ((TH - lines.length - 2) / 2) | 0);
+    const ox = Math.max(2, ((TW - boxW) / 2) | 0), oy = Math.max(2, ((TH - 14) / 2) | 0);
     MV(ox, oy); wr(Pk('╭') + Pk('─'.repeat(boxW - 2)) + Pk('╮'));
     for (let i = 0; i < lines.length; i++) { MV(ox, oy + 1 + i); const c = ' ' + lines[i]; wr(Pk('│') + c + ' '.repeat(Math.max(0, boxW - 2 - vlen(c))) + Pk('│')); }
     MV(ox, oy + 1 + lines.length); wr(Pk('╰') + Pk('─'.repeat(boxW - 2)) + Pk('╯'));
