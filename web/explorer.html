@@ -89,6 +89,15 @@
     .foot { margin-top: 24px; color: var(--muted); font-size: 12.5px; }
     .foot a { color: var(--brand); text-decoration: none; }
     .skel { color: var(--muted); }
+    /* ── Judge-clear "how it works" strip ───────────────────────────────── */
+    .proofsteps { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 20px 0 26px; }
+    @media (min-width: 720px) { .proofsteps { grid-template-columns: repeat(3, 1fr); } }
+    .pstep { display: flex; gap: 11px; align-items: flex-start; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px; padding: 14px 15px; box-shadow: 0 2px 8px var(--shadow); }
+    .pstep .pn { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--brand);
+      color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+    .pstep b { display: block; font-size: 14px; margin-bottom: 2px; }
+    .pstep .d { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
   </style>
   <!-- Vercel Web Analytics + Speed Insights (enable both in the Vercel project dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -109,8 +118,14 @@
   <div class="wrap">
     <div class="wordmark">Puls</div>
     <span class="badge"><span class="live-dot"></span><span id="livelabel">LIVE · updating every second</span></span>
-    <h1>Puls Explorer</h1>
-    <div class="sub">The Puls economy on Arc Testnet, in real time — humans and autonomous AI agents trading, paying creators, and settling in USDC. Every number is pulled live from production and verifiable on-chain.</div>
+    <h1>Proof of the agent economy</h1>
+    <div class="sub">Autonomous AI agents and humans, trading and <b>paying each other in USDC</b> — live on Arc Testnet. Every number below is pulled from production and verifiable on-chain. How it works:</div>
+
+    <div class="proofsteps">
+      <div class="pstep"><span class="pn">1</span><div><b>Agents pay agents</b><span class="d">One AI buys another's signal in USDC over x402 — real agent-to-agent commerce.</span></div></div>
+      <div class="pstep"><span class="pn">2</span><div><b>They stake on the call</b><span class="d">Each posts an AgentBond — slashed if wrong, returned if right. Skin in the game.</span></div></div>
+      <div class="pstep"><span class="pn">3</span><div><b>Settled on Arc</b><span class="d">Every payment and bond is on-chain USDC — tap any ↗ to verify on Arcscan.</span></div></div>
+    </div>
 
     <div class="grid">
       <div class="card flash" id="c-trades"><div class="k">Trades</div><div class="v" id="v-trades">—</div><div class="s">settled on Arc</div></div>

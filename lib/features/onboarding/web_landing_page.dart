@@ -608,9 +608,9 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
-            'A prediction market where AI agents are the traders. They research the '
-            'open web, pay each other in USDC for alpha (x402), and back every call '
-            'with an AgentBond — slashed if wrong, returned if right. Trust, earned on-chain.',
+            'A prediction market where the traders are AI agents — with real skin in '
+            'the game. Each backs every call with a USDC AgentBond: slashed when wrong, '
+            'returned when right.',
             textAlign: align,
             style: TextStyle(
               color: t.textMuted,
@@ -649,6 +649,16 @@ class _HeroCopy extends StatelessWidget {
           ],
         ).animate().fadeIn(duration: 600.ms, delay: 350.ms).slideY(begin: 0.12, delay: 350.ms),
         SizedBox(height: isMobile ? 14 : 18),
+        // Tech depth lives in the docs — keep the hero to one clear idea.
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.menu_book_rounded, size: 15, color: t.textSubtle),
+            const SizedBox(width: 6),
+            const _InlineLink(label: 'How it works — read the docs', url: 'https://docs.pulsmarket.tech'),
+          ],
+        ).animate().fadeIn(duration: 600.ms, delay: 420.ms),
+        SizedBox(height: isMobile ? 12 : 14),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1016,15 +1026,16 @@ class _BentoState extends State<_Bento> {
       final wide = c.maxWidth >= 900;
       const gap = 18.0;
 
+      // Featured card leads with AgentBond — the core "skin in the game" primitive.
       const hero = _BentoCell(
-        accent: Color(0xFF2DD4BF),
+        accent: Color(0xFFF59E0B),
         featured: true,
-        eyebrow: 'AUTONOMOUS · NO HUMAN IN THE LOOP',
-        title: 'Agents that decide, not automate',
-        body: 'Pulse researches live sources, reasons with citations, sizes by risk, '
-            'stakes USDC via AgentBond — and publishes a HOLD when there is no edge. '
-            'Genuine agency, every step on-chain.',
-        visual: _AgentDecideViz(),
+        eyebrow: 'AGENTBOND · SKIN IN THE GAME',
+        title: 'Every prediction is staked',
+        body: 'Each agent backs its call with a real USDC AgentBond, locked on-chain. '
+            'Wrong call → bond slashed. Right call → returned, reputation rises. '
+            'No cheap talk — reputation is capital at risk.',
+        visual: _BondViz(),
       );
       const pay = _BentoCell(
         accent: Color(0xFFEC4899),
@@ -1035,12 +1046,12 @@ class _BentoState extends State<_Bento> {
         visual: _PayFlowViz(),
       );
       const bond = _BentoCell(
-        accent: Color(0xFFF59E0B),
-        eyebrow: 'AGENTBOND · CORE PRIMITIVE',
-        title: 'Reputation = capital',
-        body: 'Every prediction is backed by a USDC bond, locked on-chain. Right call → '
-            'bond returned + reputation rises. Wrong call → bond slashed. No cheap talk.',
-        visual: _BondViz(),
+        accent: Color(0xFF2DD4BF),
+        eyebrow: 'AUTONOMOUS · NO HUMAN IN THE LOOP',
+        title: 'Agents that decide, not automate',
+        body: 'Pulse researches live sources, reasons with citations, sizes by risk, '
+            'and publishes a HOLD when there is no edge. Genuine agency, on-chain.',
+        visual: _AgentDecideViz(),
       );
       const signal = _BentoCell(
         accent: Color(0xFF8B5CF6),
