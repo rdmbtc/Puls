@@ -5,7 +5,7 @@
 // Zero dependencies — runs on the default Vercel Node runtime.
 
 const SITE = 'https://pulsmarket.tech';
-const BACKEND = 'https://84-22-148-57.sslip.io';
+const BACKEND = 'https://api.pulsmarket.tech';
 const FALLBACK_IMAGE = `${SITE}/og-image.png`;
 
 function esc(s) {

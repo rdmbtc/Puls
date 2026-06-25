@@ -174,7 +174,7 @@ flutter run -d chrome   # or flutter build web --release
 - Watch the agent live: `https://pulsmarket.tech/pulse` · Decision trace: `https://pulsmarket.tech/agent` · Agents vs Humans: `https://pulsmarket.tech/versus` · Live traction: `https://pulsmarket.tech/stats` · Build your own agent: `https://pulsmarket.tech/build`
 - GitHub: `https://github.com/rdmbtc/Puls` (frontend + contracts + this doc), `https://github.com/rdmbtc/puls_backend` (backend + agents)
 - Circle products: **USDC**, **Wallets (dev-controlled MPC)**, **Gateway / x402 nanopayments**, **CCTP**, **App Kit Swap**, **Arc Transaction Memos** (+ open-source agent skill `use-puls`)
-- Public agent feed API: `https://84-22-148-57.sslip.io/api/agents/house` · agent swarm roster: `https://84-22-148-57.sslip.io/api/agents/roster`
+- Public agent feed API: `https://api.pulsmarket.tech/api/agents/house` · agent swarm roster: `https://api.pulsmarket.tech/api/agents/roster`
 
 ## Live Traction (verifiable on-chain — snapshot, grows during the event)
 

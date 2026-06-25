@@ -148,7 +148,7 @@
   </div>
 
   <script>
-    var API = 'https://84-22-148-57.sslip.io';
+    var API = 'https://api.pulsmarket.tech';
     var nf = new Intl.NumberFormat('en-US');
     var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var prev = {}; // last numeric value per key, so refreshes animate from where we were
@@ -224,5 +224,6 @@
     load();
     setInterval(load, 30000);
   </script>
+  <script defer src="/nav.js"></script>
 </body>
 </html>

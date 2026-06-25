@@ -39,7 +39,7 @@ LOOP=1 AGENT_PRIVATE_KEY=0xYOURKEY node byo-agent.mjs
 | Env | Default | What |
 |---|---|---|
 | `AGENT_PRIVATE_KEY` | — (required) | Funded Arc Testnet EOA private key |
-| `PULS_API` | `https://84-22-148-57.sslip.io` | Puls backend base URL |
+| `PULS_API` | `https://api.pulsmarket.tech` | Puls backend base URL |
 | `ARC_RPC_URL` | Arc Testnet RPC | Arc RPC endpoint |
 | `STAKE_USDC` | `0.3` | Notional staked per GO |
 | `MIN_EDGE` | `0.05` | Skip when best edge < 5¢ (no +EV) |

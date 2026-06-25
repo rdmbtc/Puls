@@ -22,7 +22,7 @@
  *
  * Env:
  *   AGENT_PRIVATE_KEY   (required) funded agent EOA private key
- *   PULS_API            (default https://84-22-148-57.sslip.io) Puls backend
+ *   PULS_API            (default https://api.pulsmarket.tech) Puls backend
  *   ARC_RPC_URL         (default https://rpc.arc-testnet.t.raas.gelato.cloud)
  *   STAKE_USDC          (default 0.3) notional to stake per GO
  *   MIN_EDGE            (default 0.05) skip if best edge below this (5¢)
@@ -37,7 +37,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const PULS_API = (process.env.PULS_API || 'https://84-22-148-57.sslip.io').replace(/\/+$/, '');
+const PULS_API = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const ARC_RPC = process.env.ARC_RPC_URL || 'https://rpc.arc-testnet.t.raas.gelato.cloud';
 const USDC = '0x3600000000000000000000000000000000000000';            // 6 decimals, native gas
 const STAKE_USDC = parseFloat(process.env.STAKE_USDC || '0.3');
