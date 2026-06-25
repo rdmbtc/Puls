@@ -4685,6 +4685,11 @@ async function llmComplete(messages, opts = {}) {
         // next calls rotate to a fresh key instead of re-failing here.
         if (/\b(429|503)\b|rate.?limit|quota|cost limit|too many|overloaded|capacity/i.test(reason)) {
           cooldown.set(idx, Date.now() + LLM_COOLDOWN_MS);
+        } else if (/\b(401|403)\b|forbidden|unauthorized|invalid.*api|api key/i.test(reason)) {
+          // Auth/forbidden — e.g. a provider geo-blocks this server's IP or a dead
+          // key. Won't recover soon, so bench it ~30 min instead of hammering it on
+          // every request (this caused the 45× 403 churn after the Netherlands move).
+          cooldown.set(idx, Date.now() + Math.max(LLM_COOLDOWN_MS, 30 * 60 * 1000));
         }
         errors.push(`${provider.model}: ${reason}`);
         console.error(`[llm] provider (${provider.model}) attempt ${attempt}/${LLM_RETRIES} failed: ${reason}`);
