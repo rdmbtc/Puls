@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.4.2';
+const VERSION = '6.5.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -724,8 +724,8 @@ async function startTUI() {
     return;
   }
 
-  const tabs = ['Chat', 'Agents', 'Markets', 'Signals', 'Portfolio', 'Stats'];
-  const TAB = { CHAT: 0, AGENTS: 1, MARKETS: 2, SIGNALS: 3, PORTFOLIO: 4, STATS: 5 };
+  const tabs = ['Chat', 'Agents', 'Markets', 'Signals', 'Portfolio', 'Stats', 'My Agent'];
+  const TAB = { CHAT: 0, AGENTS: 1, MARKETS: 2, SIGNALS: 3, PORTFOLIO: 4, STATS: 5, MYAGENT: 6 };
   let tab = 0, sel = 0, scrollOff = 0;
   let markets = [], search = '', searching = false, sortMode = 'volume';
   let detailMarket = null;
@@ -734,7 +734,8 @@ async function startTUI() {
   let statusMsg = '', statusTimer = null;
   let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
-  let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0;
+  let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0, sigFilter = 'all';
+  let myAgent = null, myLog = [], myInput = '', myBusy = false;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -764,7 +765,7 @@ async function startTUI() {
   async function loadPf() { if (!loadCfg().key) return; try { pfData = await api('/api/portfolio', { auth: true }); } catch {} }
   async function loadStats() { try { statsData = await api('/api/stats'); } catch {} }
   async function loadSignals() { try { const d = await api('/api/signals', loadCfg().key ? { auth: true } : {}); signals = d.signals || (Array.isArray(d) ? d : []); } catch {} }
-  function loadAll() { return Promise.all([loadData(), loadAgents(), loadPf(), loadStats(), loadSignals()]); }
+  function loadAll() { return Promise.all([loadData(), loadAgents(), loadPf(), loadStats(), loadSignals(), loadMyAgent()]); }
 
   async function sendChat() {
     const msg = chatInput.trim(); if (!msg || chatBusy) return;
@@ -777,28 +778,56 @@ async function startTUI() {
     } catch (e) { chatLog.push({ role: 'ai', text: '⚠ ' + e.message }); }
     chatBusy = false; render();
   }
-  async function unlockSel() {
-    const s = signals[sel]; if (!s || unlocking) return;
-    if (s.unlocked) { setStatus('Already unlocked — thesis shown below'); render(); return; }
+  function sigView() { return sigFilter === 'bought' ? signals.filter(s => s.unlocked) : signals; }
+
+  async function unlockSel(payer) {
+    const s = sigView()[sel]; if (!s || unlocking) return;
+    if (s.unlocked) { setStatus('Already unlocked — press Enter to read'); render(); return; }
     if (!loadCfg().key) { setStatus('Log in to unlock:  puls login pk_live_…'); render(); return; }
+    const byAgent = payer === 'agent';
     const price = micro(s.priceUsdc), creator = creatorName(s.creatorUserId);
-    unlocking = { title: s.title || '', creator, price, step: 1, error: null, txId: null };
-    render(); await sleep(850);                       // 402 Payment Required
-    unlocking.step = 2; render(); await sleep(750);   // authorizing
-    unlocking.step = 3; render(); await sleep(550);   // settling on Arc
+    unlocking = { title: s.title || '', creator, price, step: 1, error: null, txId: null, byAgent };
+    render(); await sleep(850);
+    unlocking.step = 2; render(); await sleep(750);
+    unlocking.step = 3; render(); await sleep(550);
     try {
-      const r = await api('/api/signals/' + encodeURIComponent(s.id) + '/unlock', { method: 'POST', body: {}, auth: true });
+      const r = await api('/api/signals/' + encodeURIComponent(s.id) + '/unlock', { method: 'POST', body: byAgent ? { payer: 'agent' } : {}, auth: true });
       const sg = r.signal || {};
       if (sg.thesis || sg.stance) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance, sources: sg.sources || s.sources }); unlocking.txId = r.txId || (r.payment && r.payment.tx) || (sg.onchain && sg.onchain.tx) || null; unlocking.step = 4; }
       else if (r.alreadyUnlocked) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance }); unlocking.step = 4; }
       else unlocking.error = r.message || 'Unlock not completed';
-    } catch (e) { unlocking.error = /Insufficient/i.test(e.message) ? 'Insufficient USDC — top up at faucet.circle.com' : e.message; }
+    } catch (e) { unlocking.error = /Insufficient/i.test(e.message) ? (byAgent ? 'Agent has insufficient USDC' : 'Insufficient USDC — faucet.circle.com') : e.message; }
     const err = unlocking.error;
     render(); await sleep(err ? 1700 : 1500);
     unlocking = null;
     if (!err && s.unlocked) { sigDetail = s; docScroll = 0; }
-    setStatus(err ? '✗ ' + err : '✓ x402 settled · paid $' + price + ' → ' + creator);
+    setStatus(err ? '✗ ' + err : '✓ x402 settled · $' + price + ' → ' + creator + (byAgent ? ' (by your agent)' : ''));
     render();
+  }
+
+  async function loadMyAgent() {
+    if (!loadCfg().key) return;
+    try { myAgent = await api('/api/agent/status', { auth: true }); } catch {}
+  }
+  async function sendMyAgent() {
+    const msg = myInput.trim(); if (!msg || myBusy) return;
+    myInput = '';
+    if (!loadCfg().key) { myLog.push({ role: 'ai', text: 'Log in first:  puls login pk_live_…' }); render(); return; }
+    myLog.push({ role: 'you', text: msg }); myBusy = true; render();
+    async function ask() { return api('/api/agent/chat', { method: 'POST', body: { message: msg }, auth: true }); }
+    try {
+      let r;
+      try { r = await ask(); }
+      catch (e) {
+        if (/not started/i.test(e.message)) { await api('/api/agent/start', { method: 'POST', body: { budget: 0 }, auth: true }).catch(() => {}); r = await ask(); }
+        else throw e;
+      }
+      let txt = String(r.reply || '(no reply)').replace(/\*([^*]+)\*/g, (_, t) => BD + t + RST);
+      if (r.trade) txt += '\n' + Em('⚡ traded ') + (r.trade.side || '') + ' ' + (r.trade.question || '');
+      myLog.push({ role: 'ai', text: txt, sources: r.sources || [] });
+      if (r.remaining != null || r.reputation != null) myAgent = { ...(myAgent || { exists: true }), balance: r.remaining ?? (myAgent && myAgent.balance), reputation: r.reputation ?? (myAgent && myAgent.reputation), exists: true };
+    } catch (e) { myLog.push({ role: 'ai', text: '⚠ ' + e.message }); }
+    myBusy = false; render();
   }
 
   const allActions = [
@@ -808,6 +837,7 @@ async function startTUI() {
     { name: 'Alpha Signals (x402)', key: '4', fn: () => { tab = TAB.SIGNALS; sel = 0; scrollOff = 0; } },
     { name: 'My Portfolio', key: '5', fn: () => { tab = TAB.PORTFOLIO; } },
     { name: 'Platform Stats', key: '6', fn: () => { tab = TAB.STATS; } },
+    { name: 'My Agent (chat + buy alpha)', key: '7', fn: () => { tab = TAB.MYAGENT; } },
     { name: 'Refresh all data', key: 'r', fn: async () => { cacheClear(); await loadAll(); setStatus('Refreshed'); } },
     { name: 'Search markets…', key: '/', fn: () => { tab = TAB.MARKETS; searching = true; search = ''; sel = 0; scrollOff = 0; } },
     { name: 'Sort markets by volume', key: '', fn: () => { sortMode = 'volume'; loadData(); setStatus('Sorted by volume'); } },
@@ -939,27 +969,29 @@ async function startTUI() {
   }
 
   function rSignals(H) {
-    let s = `  ${Pk('◆')} ${Wh('Alpha Marketplace')}  ${Dm(signals.length + ' signals · x402 → creators')}\n\n`;
-    if (!signals.length) return s + '  ' + Dm(loaded ? 'No signals — press r' : 'Loading…');
+    const list = sigView();
+    const boughtN = signals.filter(s => s.unlocked).length;
+    let s = `  ${Pk('◆')} ${Wh('Alpha Marketplace')}  ${Dm(list.length + ' · x402 → creators')}    ${sigFilter === 'all' ? Pk('●') : di('○')}${Dm(' all')}  ${sigFilter === 'bought' ? Pk('●') : di('○')}${Dm(' bought ' + boughtN)}\n\n`;
+    if (!list.length) return s + '  ' + Dm(sigFilter === 'bought' ? 'No bought signals yet — press b for all, then u/a to unlock' : (loaded ? 'No signals — press r' : 'Loading…'));
     const listH = Math.max(2, Math.floor((H - 8) / 2));
-    if (sel >= signals.length) sel = signals.length - 1;
-    const maxOff = Math.max(0, signals.length - listH); if (scrollOff > maxOff) scrollOff = maxOff;
-    const vis = signals.slice(scrollOff, scrollOff + listH);
+    if (sel >= list.length) sel = list.length - 1;
+    const maxOff = Math.max(0, list.length - listH); if (scrollOff > maxOff) scrollOff = maxOff;
+    const vis = list.slice(scrollOff, scrollOff + listH);
     for (let i = 0; i < vis.length; i++) {
       const sg = vis[i], isSel = (i + scrollOff) === sel;
       const lock = sg.unlocked ? Em('🔓') : pk('🔒');
       s += `${isSel ? Pk(' ▸ ') : '   '}${lock} ${isSel ? Wh((sg.title || '').slice(0, TW - 26)) : Tx((sg.title || '').slice(0, TW - 26))}\n`;
       s += `      ${Cy('$' + micro(sg.priceUsdc))} ${Dm('· ' + creatorName(sg.creatorUserId))}${sg.bond ? am(' · ◆bond') : ''}${sg.onchain?.tx ? vt(' · ⛓') : ''}\n`;
     }
-    const cur = signals[sel];
+    const cur = list[sel];
     s += '\n  ' + di('─'.repeat(TW - 4)) + '\n';
     if (cur) {
       s += '  ' + Wh(cur.title || '') + '\n';
       if (cur.unlocked) {
-        s += '  ' + Dm('call ') + (cur.stance === 'YES' ? Em('YES') : Rs('NO')) + Dm('  ·  ') + Em('🔓 unlocked') + Dm(' — press ') + Pk('Enter') + Dm(' to read the full thesis') + '\n';
+        s += '  ' + Dm('call ') + (cur.stance === 'YES' ? Em('YES') : Rs('NO')) + Dm('  ·  ') + Em('🔓 unlocked') + Dm(' — ') + Pk('Enter') + Dm(' to read the full thesis') + '\n';
       } else {
         s += '  ' + Dm(cur.teaser || 'Locked — the agent\'s side, thesis & sources are paid alpha.') + '\n';
-        s += '  ' + pk('🔒 press ') + Pk('u') + pk(' to unlock') + Dm('  ·  $' + micro(cur.priceUsdc) + ' → ' + creatorName(cur.creatorUserId) + ' via x402') + '\n';
+        s += '  ' + pk('🔒 ') + Pk('u') + pk(' you buy') + Dm('  ·  ') + Pk('a') + Dm(' your agent buys') + Dm('  ·  $' + micro(cur.priceUsdc) + ' → ' + creatorName(cur.creatorUserId) + ' via x402') + '\n';
       }
     }
     return s;
@@ -970,6 +1002,7 @@ async function startTUI() {
     let out = `  ${Pk('◆')} ${Wh(s.title || '')}\n`;
     out += `  ${Dm('by ' + creatorName(s.creatorUserId))}  ${Dm('· conf ' + Math.round((s.confidence || 0) * 100) + '%')}  ${Dm('· ' + (s.edgeBps || 0) + 'bps edge')}${s.bond ? am('  · ◆ bond $' + usd(s.bond.amountUsdc)) : ''}\n`;
     out += `  ${Dm('call ')}${s.stance === 'YES' ? Em('▲ YES') : Rs('▼ NO')}${s.marketQuestion ? Dm('   on  "' + s.marketQuestion + '"') : ''}\n`;
+    out += `  ${Dm('↗ predict ')}${cy(s.marketLink || (WEB_BASE + '/?m=' + (s.marketSlug || '')))}  ${Dm('· press ')}${Pk('o')}\n`;
     out += '  ' + di('─'.repeat(TW - 4)) + '\n';
     const lines = wrapText(s.thesis || '(no thesis text)', TW - 4, '  ');
     if (s.sources && s.sources.length) { lines.push(''); lines.push('  ' + Dm('Sources')); s.sources.forEach(x => lines.push('   ' + cy('•') + ' ' + Tx(x.title || x.url || ''))); }
@@ -1013,14 +1046,50 @@ async function startTUI() {
     return s;
   }
 
+  function rMyAgent(H) {
+    const lines = [];
+    const a = myAgent;
+    if (!loadCfg().key) lines.push('  ' + Dm('Log in to use your agent:  ') + Pk('puls login pk_live_…'));
+    else if (!a) lines.push('  ' + Dm(loaded ? 'No status — press r' : 'Loading…'));
+    else if (!a.exists) {
+      lines.push('  ' + Pk('🤖 Your Agent') + Dm('  — not started yet'));
+      lines.push('  ' + Dm('Send it a message below to spin it up (fund its budget in the app).'));
+    } else {
+      lines.push('  ' + Pk('🤖 Your Agent') + '   ' + (a.balance != null ? cy('$' + usd(a.balance) + ' budget') : '') + (a.reputation != null ? Dm('   rep ' + a.reputation) : '') + (a.registered ? Em('   ⛓ ERC-8004 #' + (a.agentId ?? '?')) : ''));
+      if (a.agentAddress) lines.push('  ' + di(String(a.agentAddress)));
+    }
+    lines.push('');
+    if (!myLog.length) {
+      lines.push('  ' + Dm('Tell your agent what to do — it trades from its own on-chain budget:'));
+      lines.push('   ' + cy('›') + ' ' + Tx('buy YES on the USA World Cup market if it is under 30¢'));
+      lines.push('   ' + cy('›') + ' ' + Tx('what are your best opportunities right now?'));
+      lines.push('  ' + Dm('It can also buy alpha for you — in ') + Pk('Signals') + Dm(' press ') + Pk('a') + Dm('.'));
+    }
+    for (const m of myLog) {
+      if (m.role === 'you') { lines.push('  ' + Cy('You')); wrapText(m.text, PW - 6, '   ').forEach(l => lines.push(tx(l))); }
+      else { lines.push('  ' + Pk('🤖 Agent')); wrapText(m.text, PW - 6, '   ').forEach(l => lines.push(Tx(l))); if (m.sources && m.sources.length) lines.push('   ' + Dm('↳ ' + m.sources.map(x => hostOf(x.url || x.title)).filter(Boolean).slice(0, 3).join('  ·  '))); }
+      lines.push('');
+    }
+    if (myBusy) lines.push('  ' + Pk('🤖 Agent') + '  ' + pk(SPINNERS.dots[frame % SPINNERS.dots.length]) + Dm(' thinking + maybe trading…'));
+    const avail = Math.max(2, H - 2);
+    const shown = lines.slice(Math.max(0, lines.length - avail));
+    let s = shown.join('\n') + '\n';
+    s += '\n'.repeat(Math.max(0, avail - shown.length));
+    s += '  ' + di('─'.repeat(TW - 4)) + '\n';
+    const cursor = myBusy ? pk(SPINNERS.dots[frame % SPINNERS.dots.length]) : (frame % 12 < 7 ? Pk('▏') : ' ');
+    s += '  ' + (loadCfg().key ? Cy('› ') + Tx(myInput) + cursor : Dm('Log in:  ') + Pk('puls login pk_live_…'));
+    return s;
+  }
+
   function footer() {
     const narrow = TW < 80;
     let hint;
     if (tab === TAB.CHAT) hint = narrow ? `${Pk('Enter')} send  ${Pk('Tab')} view  ${Pk('^C')} quit` : `${Pk('Enter')} send   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
     else if (tab === TAB.MARKETS && detailMarket) hint = narrow ? `${Pk('Esc')} back  ${Pk('o')} open  ${Pk('Tab')} view` : `${Pk('Esc')} back   ${Pk('o')} open in browser   ${Pk('Tab')} switch   ${Pk('q')} quit`;
     else if (tab === TAB.MARKETS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('↵')} detail  ${Pk('/')} find  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('Enter')} detail   ${Pk('/')} search   ${Pk('s')} sort   ${Pk('Tab')} switch   ${Pk('q')} quit`;
-    else if (tab === TAB.SIGNALS && sigDetail) hint = narrow ? `${Pk('Esc')} back  ${Pk('↑↓')} scroll  ${Pk('o')} chain` : `${Pk('Esc')} back   ${Pk('↑↓')} scroll   ${Pk('o')} on-chain   ${Pk('Tab')} switch`;
-    else if (tab === TAB.SIGNALS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('u')} unlock  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('u')} unlock · x402   ${Pk('Tab')} switch   ${Pk('r')} refresh   ${Pk('q')} quit`;
+    else if (tab === TAB.SIGNALS && sigDetail) hint = narrow ? `${Pk('Esc')} back  ${Pk('↑↓')} scroll  ${Pk('o')} predict` : `${Pk('Esc')} back   ${Pk('↑↓')} scroll   ${Pk('o')} predict   ${Pk('c')} on-chain   ${Pk('Tab')} switch`;
+    else if (tab === TAB.SIGNALS) hint = narrow ? `${Pk('u')} buy ${Pk('a')} agent ${Pk('b')} bought ${Pk('↵')} read` : `${Pk('↑↓')} nav   ${Pk('u')} you buy   ${Pk('a')} agent buys   ${Pk('b')} bought   ${Pk('Enter')} read   ${Pk('Tab')} switch`;
+    else if (tab === TAB.MYAGENT) hint = narrow ? `${Pk('Enter')} send  ${Pk('Tab')} view  ${Pk('^C')} quit` : `${Pk('Enter')} send to your agent   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
     else hint = narrow ? `${Pk('1-6')} views  ${Pk('Tab')} next  ${Pk('q')} quit` : `${Pk('1-6')} views   ${Pk('Tab')} next   ${Pk('r')} refresh   ${Pk('Ctrl+P')} palette   ${Pk('q')} quit`;
     let s = '  ' + rule(TW - 4) + '\n  ' + hint + '\n';
     s += '  ' + (statusMsg ? Em('◈ ') + Tx(statusMsg) : di(new Date().toLocaleTimeString('en', { hour12: false }) + (loaded ? '  ·  ' + markets.length + ' mkts · ' + signals.length + ' signals' : '  ·  loading…')));
@@ -1038,7 +1107,8 @@ async function startTUI() {
     else if (tab === TAB.MARKETS) body = detailMarket ? rDetail(H) : rMarkets(H);
     else if (tab === TAB.SIGNALS) body = sigDetail ? rSignalDetail(H) : rSignals(H);
     else if (tab === TAB.PORTFOLIO) body = rPortfolio(H);
-    else body = rStats(H);
+    else if (tab === TAB.STATS) body = rStats(H);
+    else body = rMyAgent(H);
     const bl = body.split('\n');
     while (bl.length < H) bl.push('');
     buf += bl.slice(0, H).join('\n') + '\n';
@@ -1079,13 +1149,13 @@ async function startTUI() {
     const spin = SPINNERS.dots[frame % SPINNERS.dots.length];
     const steps = [
       ['402 Payment Required', '$' + u.price + ' USDC to read this alpha'],
-      ['Authorizing', 'signing the USDC transfer → ' + u.creator],
+      ['Authorizing', (u.byAgent ? 'your agent signs the transfer → ' : 'signing the USDC transfer → ') + u.creator],
       ['Settling on Arc', 'x402 nanopayment · sub-second finality'],
-      ['Unlocked', 'thesis revealed · ' + u.creator + ' paid'],
+      ['Unlocked', 'thesis revealed · ' + u.creator + ' paid' + (u.byAgent ? ' by your agent' : '')],
     ];
     const boxW = Math.min(60, TW - 6);
     const lines = [];
-    lines.push(grad('⚡ x402 Nanopayment', { glow: (frame % 30) / 30 }));
+    lines.push(grad('⚡ x402 Nanopayment' + (u.byAgent ? ' · via your agent' : ''), { glow: (frame % 30) / 30 }));
     lines.push(di('─'.repeat(boxW - 2)));
     lines.push(Wh(u.title.slice(0, boxW - 4)));
     lines.push('');
@@ -1135,11 +1205,12 @@ async function startTUI() {
     if (key === '\x1b[Z') { tab = (tab + tabs.length - 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; searching = false; render(); return; }
 
     // ── Chat tab: keystrokes are the message input ──
-    if (tab === TAB.CHAT) {
-      if (key === '\r') { await sendChat(); return; }
-      if (key === '\x7f' || key === '\b') { chatInput = chatInput.slice(0, -1); render(); return; }
-      if (key === '\x1b') { chatInput = ''; render(); return; }
-      if (key.length === 1 && key >= ' ') { chatInput += key; render(); return; }
+    if (tab === TAB.CHAT || tab === TAB.MYAGENT) {
+      const my = tab === TAB.MYAGENT;
+      if (key === '\r') { my ? await sendMyAgent() : await sendChat(); return; }
+      if (key === '\x7f' || key === '\b') { if (my) myInput = myInput.slice(0, -1); else chatInput = chatInput.slice(0, -1); render(); return; }
+      if (key === '\x1b') { if (my) myInput = ''; else chatInput = ''; render(); return; }
+      if (key.length === 1 && key >= ' ') { if (my) myInput += key; else chatInput += key; render(); return; }
       return;
     }
 
@@ -1153,7 +1224,7 @@ async function startTUI() {
     }
 
     if (key === 'q') return quit();
-    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; render(); return; }
+    if (key >= '1' && key <= '7') { tab = +key - 1; sel = 0; scrollOff = 0; detailMarket = null; sigDetail = null; docScroll = 0; render(); return; }
     if (key === 'r') { setStatus('Refreshing…'); render(); cacheClear(); await loadAll(); setStatus('Refreshed'); render(); return; }
 
     // ── Market detail sub-view ──
@@ -1167,7 +1238,8 @@ async function startTUI() {
       if (key === '\x1b' || key === '\b' || key === '\x7f') { sigDetail = null; docScroll = 0; render(); return; }
       if (key === '\x1b[A' || key === 'k') { docScroll = Math.max(0, docScroll - 1); render(); return; }
       if (key === '\x1b[B' || key === 'j') { docScroll++; render(); return; }
-      if (key === 'o' && sigDetail.onchain && sigDetail.onchain.tx) { openBrowser(sigDetail.onchain.explorer || WEB_BASE); setStatus('Opening on-chain…'); render(); return; }
+      if (key === 'o') { openBrowser(sigDetail.marketLink || (WEB_BASE + '/m/' + (sigDetail.marketSlug || ''))); setStatus('Opening prediction…'); render(); return; }
+      if (key === 'c' && sigDetail.onchain && sigDetail.onchain.tx) { openBrowser(sigDetail.onchain.explorer || WEB_BASE); setStatus('Opening on-chain…'); render(); return; }
       return;
     }
 
@@ -1185,11 +1257,14 @@ async function startTUI() {
 
     // ── Signals list ──
     if (tab === TAB.SIGNALS) {
+      const list = sigView();
       const maxVis = Math.max(2, Math.floor((TH - 13) / 2));
       if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
-      if (key === '\x1b[B' || key === 'j') { sel = Math.min(signals.length - 1, sel + 1); if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1; render(); return; }
+      if (key === '\x1b[B' || key === 'j') { sel = Math.min(list.length - 1, sel + 1); if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1; render(); return; }
+      if (key === 'b') { sigFilter = sigFilter === 'bought' ? 'all' : 'bought'; sel = 0; scrollOff = 0; setStatus(sigFilter === 'bought' ? 'Showing bought signals' : 'Showing all signals'); render(); return; }
       if (key === 'u') { await unlockSel(); return; }
-      if (key === '\r') { const cur = signals[sel]; if (cur && cur.unlocked) { sigDetail = cur; docScroll = 0; render(); } else { await unlockSel(); } return; }
+      if (key === 'a') { await unlockSel('agent'); return; }
+      if (key === '\r') { const cur = list[sel]; if (cur && cur.unlocked) { sigDetail = cur; docScroll = 0; render(); } else { await unlockSel(); } return; }
       return;
     }
   });
@@ -1736,14 +1811,15 @@ async function cmdUnlock(id) {
     ln('  ' + Dm('by ') + Am(creatorName(sig.creatorUserId)) + (sig.onchain?.tx ? Dm('   ⛓ ') + di(sig.onchain.tx.slice(0, 14) + '…') : ''));
     ln('');
   }
+  const byAgent = has('--agent');
   const price = sig ? micro(sig.priceUsdc) : '0.001';
   const creator = sig ? creatorName(sig.creatorUserId) : 'the creator';
   await x402Step(Rs('● HTTP 402'), 'Payment Required — $' + price + ' USDC to unlock');
-  await x402Step(am('● x402 '), 'authorizing USDC transfer → ' + creator);
+  await x402Step(am('● x402 '), (byAgent ? 'your agent authorizes USDC → ' : 'authorizing USDC transfer → ') + creator);
   await x402Step(am('● Arc  '), 'settling the nanopayment on-chain…');
   const sp = spinner('confirming settlement', 'arc');
   try {
-    const r = await api('/api/signals/' + encodeURIComponent(id) + '/unlock', { method: 'POST', body: {}, auth: true });
+    const r = await api('/api/signals/' + encodeURIComponent(id) + '/unlock', { method: 'POST', body: byAgent ? { payer: 'agent' } : {}, auth: true });
     sp.stop();
     if (jsonOut(r)) return;
     const s = r.signal || sig || {};
