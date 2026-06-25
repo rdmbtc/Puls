@@ -72,7 +72,16 @@ app.set('trust proxy', 1);
 // gzip-compress all responses — a big win for JSON API payloads (markets,
 // signals, feed). Registered early so every downstream route benefits. Clients
 // can opt out with an `x-no-compression` header.
-app.use(compression());
+// Compress responses — but skip the AI chat endpoints. Their replies are a
+// single small JSON; sending them with a fixed Content-Length (not gzip→chunked)
+// is delivered far more predictably through Cloudflare (chunked chat replies were
+// intermittently reset at the edge → client saw a 000/empty reply).
+app.use(compression({
+  filter: (req, res) => {
+    if (req.path === '/api/copilot/chat' || req.path === '/api/agent/chat' || req.path === '/api/oracle/ask') return false;
+    return compression.filter(req, res);
+  },
+}));
 
 // Short-lived edge/browser cache for PUBLIC, non-user-specific GETs so a CDN
 // (Cloudflare) serves them from the edge and the 1-vCPU origin is offloaded.
