@@ -2225,7 +2225,7 @@ app.get('/api/trade/recent', async (req, res) => {
 });
 
 // ── GET /api/portfolio ────────────────────────────────────────────────────────
-app.get('/api/portfolio', authenticateUser, async (req, res) => {
+app.get('/api/portfolio', apiKeyOrAuth, async (req, res) => {
   try {
     let { userId } = req.query;
     if (!userId) {
@@ -3039,6 +3039,7 @@ registerCreatorSignals(app, {
   getWalletId,
   getWalletInfo,
   authenticateUser,
+  apiKeyOrAuth,
   requireVerifiedUser,
   strictLimiter,
   walletClient,
