@@ -249,15 +249,19 @@ class _Navbar extends StatelessWidget {
             const SizedBox(width: 8),
             _NavLink('Versus', _pageUrl('/versus')),
             const SizedBox(width: 8),
+            _NavLink('CLI', _pageUrl('/cli')),
+            const SizedBox(width: 8),
+            _NavLink('Android', _pageUrl('/mobile-download')),
+            const SizedBox(width: 8),
             const _NavLink('Docs', 'https://docs.pulsmarket.tech'),
             // Utility links only when there's room — keeps mid-width tidy.
             if (isWide) ...[
               const SizedBox(width: 8),
+              _NavLink('Build', _pageUrl('/build')),
+              const SizedBox(width: 8),
+              _NavLink('Explorer', _pageUrl('/explorer')),
+              const SizedBox(width: 8),
               const _NavLink('GitHub', 'https://github.com/rdmbtc/Puls'),
-              const SizedBox(width: 8),
-              const _NavLink('Android', kAndroidApkUrl),
-              const SizedBox(width: 8),
-              const _NavLink('Explorer', 'https://testnet.arcscan.app/address/$factoryAddress'),
             ],
             const SizedBox(width: 16),
           ] else
@@ -343,10 +347,13 @@ class _MobileNavMenu extends StatelessWidget {
         _item(t, 'Live agent', _pageUrl('/pulse')),
         _item(t, 'Decision trace', _pageUrl('/agent')),
         _item(t, 'Humans vs AI', _pageUrl('/versus')),
+        _item(t, 'CLI', _pageUrl('/cli')),
+        _item(t, 'Android app', _pageUrl('/mobile-download')),
+        _item(t, 'Build an agent', _pageUrl('/build')),
+        _item(t, 'Economy Explorer', _pageUrl('/explorer')),
         _item(t, 'Live stats', _pageUrl('/stats')),
         _item(t, 'Docs', 'https://docs.pulsmarket.tech'),
         _item(t, 'GitHub', 'https://github.com/rdmbtc/Puls'),
-        _item(t, 'Android app', kAndroidApkUrl),
       ],
     );
   }
