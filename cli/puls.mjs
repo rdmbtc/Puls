@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.2.0';
+const VERSION = '6.3.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -700,14 +700,16 @@ async function startTUI() {
     return;
   }
 
-  const tabs = ['Markets', 'Portfolio', 'Feed', 'Alerts', 'Stats', 'Agents'];
-  let tab = 0, sel = 0, markets = [], search = '', searching = false;
-  let feedBuf = [], feedSeen = new Set(), sortMode = 'volume';
+  const tabs = ['Chat', 'Agents', 'Markets', 'Signals', 'Portfolio', 'Stats'];
+  const TAB = { CHAT: 0, AGENTS: 1, MARKETS: 2, SIGNALS: 3, PORTFOLIO: 4, STATS: 5 };
+  let tab = 0, sel = 0, scrollOff = 0;
+  let markets = [], search = '', searching = false, sortMode = 'volume';
+  let detailMarket = null;
+  let agentsData = null, pfData = null, statsData = null, signals = [];
+  let chatLog = [], chatInput = '', chatBusy = false, sigBusy = false;
   let statusMsg = '', statusTimer = null;
-  let detailMarket = null, paletteMode = false, paletteQuery = '', paletteSel = 0;
-  let scrollOff = 0;
+  let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
-  let agentsData = null, pfData = null;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -731,55 +733,67 @@ async function startTUI() {
       if (F.active) markets = markets.filter(m => (m.status || 'open').toLowerCase() === 'open');
     } catch {}
   }
-
-  async function loadFeed() {
-    try {
-      const list = await api('/api/trade/recent?limit=30');
-      for (const t of (Array.isArray(list) ? list : []).reverse()) {
-        const id = t.tx_id || t.txId || `${t.question}-${t.usdc_amount}-${t.created_at}`;
-        if (!feedSeen.has(id)) { feedSeen.add(id); feedBuf.unshift(t); }
-      }
-      feedBuf = feedBuf.slice(0, 50);
-    } catch {}
-  }
-
   async function loadAgents() {
-    try {
-      const [house, roster] = await Promise.all([
-        api('/api/agents/house').catch(() => null),
-        api('/api/agents/roster').catch(() => null),
-      ]);
-      agentsData = { house, roster };
-    } catch {}
+    try { const [house, roster] = await Promise.all([api('/api/agents/house').catch(() => null), api('/api/agents/roster').catch(() => null)]); agentsData = { house, roster }; } catch {}
   }
+  async function loadPf() { if (!loadCfg().key) return; try { pfData = await api('/api/portfolio', { auth: true }); } catch {} }
+  async function loadStats() { try { statsData = await api('/api/stats'); } catch {} }
+  async function loadSignals() { try { const d = await api('/api/signals', loadCfg().key ? { auth: true } : {}); signals = d.signals || (Array.isArray(d) ? d : []); } catch {} }
+  function loadAll() { return Promise.all([loadData(), loadAgents(), loadPf(), loadStats(), loadSignals()]); }
 
-  async function loadPf() {
-    if (!loadCfg().key) return;
-    try { pfData = await api('/api/portfolio', { auth: true }); } catch {}
+  async function sendChat() {
+    const msg = chatInput.trim(); if (!msg || chatBusy) return;
+    chatInput = '';
+    if (!loadCfg().key) { chatLog.push({ role: 'ai', text: 'Log in to chat with the copilot:  puls login pk_live_…' }); render(); return; }
+    chatLog.push({ role: 'you', text: msg }); chatBusy = true; render();
+    try {
+      const r = await api('/api/copilot/chat', { method: 'POST', body: { message: msg }, auth: true });
+      chatLog.push({ role: 'ai', text: String(r.reply || '(no reply)').replace(/\*([^*]+)\*/g, (_, t) => BD + t + RST), sources: r.sources || [] });
+    } catch (e) { chatLog.push({ role: 'ai', text: '⚠ ' + e.message }); }
+    chatBusy = false; render();
+  }
+  async function unlockSel() {
+    const s = signals[sel]; if (!s || sigBusy) return;
+    if (s.unlocked) { setStatus('Already unlocked'); render(); return; }
+    if (!loadCfg().key) { setStatus('Log in to unlock:  puls login pk_live_…'); render(); return; }
+    sigBusy = true; setStatus('● x402 · settling $' + micro(s.priceUsdc) + ' → ' + creatorName(s.creatorUserId) + '…'); render();
+    try {
+      const r = await api('/api/signals/' + encodeURIComponent(s.id) + '/unlock', { method: 'POST', body: {}, auth: true });
+      const sg = r.signal || {};
+      if (sg.thesis || sg.stance) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance, sources: sg.sources || s.sources }); setStatus('✓ x402 settled · paid $' + micro(s.priceUsdc) + ' → ' + creatorName(s.creatorUserId)); }
+      else if (r.alreadyUnlocked) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance }); setStatus('Already unlocked'); }
+      else setStatus(r.message || 'Unlock not completed');
+    } catch (e) { setStatus('✗ ' + (/Insufficient/i.test(e.message) ? 'Insufficient USDC — faucet.circle.com' : e.message)); }
+    sigBusy = false; render();
   }
 
   const allActions = [
-    { name: 'Refresh markets', key: 'r', fn: async () => { cacheClear(); await Promise.all([loadData(), loadFeed()]); setStatus('Refreshed'); } },
-    { name: 'Sort by volume', key: '', fn: () => { sortMode = 'volume'; loadData(); setStatus('Sorted by volume'); } },
-    { name: 'Sort by odds', key: '', fn: () => { sortMode = 'odds'; loadData(); setStatus('Sorted by odds'); } },
-    { name: 'Sort by newest', key: '', fn: () => { sortMode = 'newest'; loadData(); setStatus('Sorted by newest'); } },
-    { name: 'Search markets…', key: '/', fn: () => { searching = true; search = ''; } },
-    { name: 'View stats', key: '5', fn: () => { tab = 4; } },
-    { name: 'View agents', key: '6', fn: () => { tab = 5; } },
-    { name: 'View feed', key: '3', fn: () => { tab = 2; } },
-    { name: 'View alerts', key: '4', fn: () => { tab = 3; } },
+    { name: 'Chat with AI Copilot', key: '1', fn: () => { tab = TAB.CHAT; } },
+    { name: 'View AI Agents (swarm)', key: '2', fn: () => { tab = TAB.AGENTS; } },
+    { name: 'Browse Markets', key: '3', fn: () => { tab = TAB.MARKETS; detailMarket = null; sel = 0; scrollOff = 0; } },
+    { name: 'Alpha Signals (x402)', key: '4', fn: () => { tab = TAB.SIGNALS; sel = 0; scrollOff = 0; } },
+    { name: 'My Portfolio', key: '5', fn: () => { tab = TAB.PORTFOLIO; } },
+    { name: 'Platform Stats', key: '6', fn: () => { tab = TAB.STATS; } },
+    { name: 'Refresh all data', key: 'r', fn: async () => { cacheClear(); await loadAll(); setStatus('Refreshed'); } },
+    { name: 'Search markets…', key: '/', fn: () => { tab = TAB.MARKETS; searching = true; search = ''; sel = 0; scrollOff = 0; } },
+    { name: 'Sort markets by volume', key: '', fn: () => { sortMode = 'volume'; loadData(); setStatus('Sorted by volume'); } },
+    { name: 'Sort markets by odds', key: '', fn: () => { sortMode = 'odds'; loadData(); setStatus('Sorted by odds'); } },
+    { name: 'Sort markets by newest', key: '', fn: () => { sortMode = 'newest'; loadData(); setStatus('Sorted by newest'); } },
+    { name: 'Theme: Puls (pink→mint)', key: '', fn: () => { applyTheme('puls'); setStatus('Theme: Puls'); } },
     { name: 'Theme: Obsidian', key: '', fn: () => { applyTheme('obsidian'); setStatus('Theme: Obsidian'); } },
     { name: 'Theme: Ember', key: '', fn: () => { applyTheme('ember'); setStatus('Theme: Ember'); } },
     { name: 'Theme: Arctic', key: '', fn: () => { applyTheme('arctic'); setStatus('Theme: Arctic'); } },
     { name: 'Theme: Neon', key: '', fn: () => { applyTheme('neon'); setStatus('Theme: Neon'); } },
-    { name: 'Theme: Terminal', key: '', fn: () => { applyTheme('terminal'); setStatus('Theme: Terminal'); } },
     { name: 'Quit', key: 'q', fn: () => { quit(); } },
   ];
   function getActions() {
-    const marketActions = markets.slice(0, 10).map(m => ({
-      name: `Market: ${(m.question || m.slug || '').slice(0, 50)}`, key: '', fn: () => { detailMarket = m; },
+    const marketActions = (tab === TAB.MARKETS ? markets : []).slice(0, 8).map(m => ({
+      name: 'Open: ' + (m.question || m.slug || '').slice(0, 46), key: '', fn: () => { detailMarket = m; },
     }));
-    return [...allActions, ...marketActions];
+    const sigActions = (tab === TAB.SIGNALS ? signals : []).slice(0, 6).filter(s => !s.unlocked).map(s => ({
+      name: 'Unlock: ' + (s.title || '').slice(0, 42), key: '', fn: () => { const i = signals.indexOf(s); if (i >= 0) { sel = i; } unlockSel(); },
+    }));
+    return [...allActions, ...marketActions, ...sigActions];
   }
 
   function quit() {
@@ -788,97 +802,190 @@ async function startTUI() {
     ln(Dm('\n  bye.\n')); process.exit(0);
   }
 
-  function render() {
-    const h = TH - 4;
-    let buf = ESC + '2J' + ESC + 'H';
-    const tabLine = tabs.map((t, i) => i === tab ? Pk(`[${i + 1}]`) + Wh(' ' + t) : di(`[${i + 1}]`) + Dm(' ' + t)).join('    ');
-    buf += `  ${grad('PULS')}  ${di('v' + VERSION)}  ${di('│')}  ${tabLine}  ${di('│')}  ${dm(T.name)}\n`;
-    buf += '  ' + rule(TW - 4) + '\n';
+  const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return String(u || '').slice(0, 22); } };
+  const tabBar = () => tabs.map((t, i) => i === tab ? Pk(`${i + 1}`) + Wh(' ' + t) : di(`${i + 1}`) + dm(' ' + t)).join('   ');
 
-    if (tab === 0) {
-      const filtered = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
-      const maxVisible = Math.max(2, Math.floor((h - 4) / 3));   // each market renders on 3 lines
-      const maxOff = Math.max(0, filtered.length - maxVisible);
-      if (scrollOff > maxOff) scrollOff = maxOff;
-      const pos = filtered.length ? `   ${di(`${Math.min(scrollOff + 1, filtered.length)}–${Math.min(scrollOff + maxVisible, filtered.length)} of ${filtered.length}`)}` : '';
-      const sortLabel = `${Dm('sort:')} ${sortMode === 'volume' ? Pk('▼vol') : Dm('vol')}  ${sortMode === 'odds' ? Pk('▼odds') : Dm('odds')}  ${sortMode === 'newest' ? Pk('▼new') : Dm('new')}  ${searching ? Pk('/' + search + '█') : Dm('/ search')}${pos}`;
-      buf += '  ' + sortLabel + '\n\n';
-      const visible = filtered.slice(scrollOff, scrollOff + maxVisible);
-      if (!visible.length) buf += '  ' + Dm(search ? 'No matches.' : (loaded ? 'No markets — API unreachable? press r to retry' : 'Loading…')) + '\n';
-      for (let i = 0; i < visible.length; i++) {
-        const m = visible[i], isSel = (i + scrollOff) === sel;
-        const yes = m.yesPrice ?? m.priceYes ?? m.yes;
-        const odds = yes != null ? Math.round(Number(yes) * 100) : null;
-        const vol = m.volumeUsdc ?? m.volume;
-        const q = (m.question || m.slug || '').slice(0, Math.min(60, TW - 48));
-        const pre = isSel ? Pk('▸ ') : '  ';
-        const fakeH = Array.from({ length: 12 }, (_, j) => (odds ?? 50) + Math.sin(j * 1.2 + i + scrollOff) * 12);
-        buf += `${pre}${isSel ? Wh(q) : Tx(q)}\n`;
-        buf += `    ${di((m.slug || '').slice(0, 36))}  ${odds !== null ? probColor(odds)(odds + '¢') : di('—')}  ${probBar(odds ?? 50, 16)}  ${sparkMini(fakeH, 10)}  ${vol != null ? cy('$' + abbr(vol)) : di('—')}  ${statusBadge(m.status)}\n\n`;
-      }
-      if (scrollOff + maxVisible < filtered.length) buf += '  ' + Dm('▼ ' + (filtered.length - scrollOff - maxVisible) + ' more — press ↓') + '\n';
-      else if (scrollOff > 0 && filtered.length) buf += '  ' + Dm('▲ top — press ↑') + '\n';
-    } else if (tab === 1) {
-      buf += `  ${Pk('◆')} ${Wh('Your Portfolio')}\n\n`;
-      if (!loadCfg().key) buf += `  ${Dm('Log in to see positions:  ')}${Pk('puls login pk_live_…')}\n`;
-      else if (!pfData) buf += `  ${Dm(loaded ? 'No data — press r to retry' : 'Loading…')}\n`;
+  function rChat(H) {
+    const lines = [];
+    if (!chatLog.length) {
+      lines.push('  ' + Pk('◆ Puls AI Trading Copilot'));
+      lines.push('  ' + Dm('Ask anything — grounded in live web research, with cited sources.'));
+      lines.push('');
+      lines.push('  ' + Dm('try:'));
+      lines.push('   ' + cy('›') + ' ' + Tx('Will BTC hold above $90k this quarter?'));
+      lines.push('   ' + cy('›') + ' ' + Tx('Who is favored to win the 2026 World Cup?'));
+      lines.push('   ' + cy('›') + ' ' + Tx('Is the market mispricing a Fed rate cut?'));
+    }
+    for (const m of chatLog) {
+      if (m.role === 'you') { lines.push('  ' + Cy('You')); wrapText(m.text, PW - 6, '   ').forEach(l => lines.push(tx(l))); }
       else {
-        const pos = pfData.positions || pfData.holdings || [];
-        const spent = pfData.totalSpent ?? pfData.investedUsdc;
-        const openN = pos.filter(p => !p.resolved).length;
-        buf += `  ${Dm('invested ')}${Cy('$' + usd(spent || 0))}${Dm('  ·  ' + openN + ' open · ' + pos.length + ' total')}\n\n`;
-        if (!pos.length) buf += `  ${Dm('No positions yet.')}\n`;
-        for (const p of pos.slice(0, Math.max(2, h - 7))) {
-          const side = String(p.side || '').toUpperCase();
-          const st = p.claimed ? di('claimed') : p.resolved ? ((!!p.outcome === (side === 'YES')) ? Em('won') : rs('lost')) : am('open');
-          buf += `  ${(side === 'YES' ? Em : Rs)((side || '·').padEnd(3))} ${Tx(String(p.question || p.slug || '').slice(0, TW - 30))}  ${p.usdcAmount != null ? cy('$' + usd(p.usdcAmount)) : ''}  ${st}\n`;
-        }
+        lines.push('  ' + Pk('◆ Copilot'));
+        wrapText(m.text, PW - 6, '   ').forEach(l => lines.push(Tx(l)));
+        if (m.sources && m.sources.length) lines.push('   ' + Dm('↳ ' + m.sources.map(x => hostOf(x.url || x.title)).filter(Boolean).slice(0, 3).join('  ·  ')));
       }
-    } else if (tab === 2) {
-      buf += `  ${Pk('◈')} ${Wh('Live Trade Feed')}\n\n`;
-      for (const t of feedBuf.slice(0, h - 4)) {
-        const side = (t.side || '').toUpperCase();
-        buf += `  ${di(timeAgo(t.created_at).padEnd(10))} ${(side === 'YES' ? Em : Rs)(side.padEnd(4))} ${cy('$' + fmt(t.usdc_amount ?? t.amount ?? 0).padStart(8))}  ${Tx((t.question || '').slice(0, TW - 36))}\n`;
-      }
-      if (!feedBuf.length) buf += `  ${Dm('Waiting for trades…')}\n`;
-    } else if (tab === 3) {
-      const alerts = loadAlerts();
-      buf += `  ${Pk('◆')} ${Wh('Price Alerts')}\n\n`;
-      if (!alerts.length) buf += `  ${Dm('No alerts.')}\n\n`;
-      for (const a of alerts)
-        buf += `  ${a.direction === 'above' ? Em('↑') : Rs('↓')} ${Tx(a.slug)}  ${Dm(a.direction)} ${Pk(a.threshold + '¢')}  ${di(timeAgo(a.createdAt))}\n`;
-    } else if (tab === 4) {
-      buf += `  ${Pk('◈')} ${Wh('Platform Dashboard')}\n\n`;
-      buf += `  ${Dm('Press r to refresh, or')} ${Pk('puls stats')}${Dm(' for full view.')}\n`;
-    } else if (tab === 5) {
-      buf += `  ${Pk('◆')} ${Wh('Agent Swarm')}  ${Dm('autonomous · on-chain')}\n\n`;
-      const ad = agentsData;
-      if (!ad) buf += `  ${Dm(loaded ? 'No agent data — API unreachable? press r' : 'Loading…')}\n`;
-      else {
-        const house = ad.house, pulse = house && (house.agent || house.pulse), sage = house && house.sage;
-        if (pulse) buf += `  ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + usd(pulse.balance) + ' USDC') : ''}\n`;
-        if (sage) buf += `  ${Pk('✍️  Sage')}  ${Dm('creator')}  ${sage.balance != null ? cy('$' + usd(sage.balance) + ' USDC') : ''}\n`;
-        const agents = Array.isArray(ad.roster) ? ad.roster : (ad.roster?.agents || ad.roster?.roster || ad.roster?.swarm || []);
-        if (agents.length) {
-          buf += `\n  ${Dm('the swarm · ' + agents.length + ' agents')}\n`;
-          for (const a of agents.slice(0, Math.max(2, h - 12))) {
-            const nm = a.name || a.displayName || a.userId || 'agent';
-            const bal = a.balance ?? a.usdcBalance;
-            buf += `  ${Pk('•')} ${Tx(String(nm).padEnd(12))} ${bal != null ? cy('$' + usd(bal)) : ''}\n`;
-          }
-        }
-        const decs = (house && house.decisions) || [];
-        if (decs.length) {
-          buf += `\n  ${Dm('Pulse · recent decisions')}\n`;
-          for (const d of decs.slice(0, 4)) buf += `  ${d.action === 'go' ? Em((d.side||'BUY').padEnd(4)) : Am('HOLD')} ${Tx((d.question||'').slice(0, TW - 16))}\n`;
-        }
-        if (!pulse && !sage && !agents.length) buf += `  ${Dm('No agent data available.')}\n`;
+      lines.push('');
+    }
+    if (chatBusy) lines.push('  ' + Pk('◆ Copilot') + Dm('  researching the open web + reasoning…'));
+    const avail = Math.max(2, H - 2);
+    const shown = lines.slice(Math.max(0, lines.length - avail));
+    let s = shown.join('\n') + '\n';
+    s += '\n'.repeat(Math.max(0, avail - shown.length));
+    s += '  ' + di('─'.repeat(TW - 4)) + '\n';
+    s += '  ' + (loadCfg().key ? Cy('› ') + Tx(chatInput) + (chatBusy ? Dm(' …') : Pk('▏')) : Dm('Log in to chat:  ') + Pk('puls login pk_live_…'));
+    return s;
+  }
+
+  function rAgents(H) {
+    let s = `  ${Pk('◆')} ${Wh('Agent Swarm')}  ${Dm('autonomous economic actors · on-chain')}\n\n`;
+    if (!agentsData) return s + `  ${Dm(loaded ? 'No agent data — press r' : 'Loading…')}`;
+    const house = agentsData.house, pulse = house && (house.agent || house.pulse), sage = house && house.sage;
+    if (pulse) s += `  ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + usd(pulse.balance) + ' USDC') : ''}  ${pulse.reputation != null ? Dm('rep ' + pulse.reputation) : ''}\n`;
+    if (sage) { const sig = sage.signal || {}; s += `  ${Pk('✍️  Sage')}  ${Dm('creator')}  ${sage.balance != null ? cy('$' + usd(sage.balance) + ' USDC') : ''}  ${sig.revenueUsdc != null ? Em('earned $' + usd(sig.revenueUsdc)) : ''}\n`; }
+    const agents = Array.isArray(agentsData.roster) ? agentsData.roster : (agentsData.roster?.agents || agentsData.roster?.roster || agentsData.roster?.swarm || []);
+    if (agents.length) {
+      s += `\n  ${Dm('the swarm · ' + agents.length + ' agents')}\n`;
+      for (const a of agents.slice(0, Math.max(2, H - 14))) {
+        const nm = a.name || a.displayName || a.userId || 'agent'; const bal = a.balance ?? a.usdcBalance;
+        s += `  ${Pk('•')} ${Tx(String(nm).slice(0, 16).padEnd(16))} ${bal != null ? cy('$' + usd(bal)) : ''}\n`;
       }
     }
+    const decs = (house && house.decisions) || [];
+    if (decs.length) {
+      s += `\n  ${Dm('Pulse · recent decisions')}\n`;
+      for (const d of decs.slice(0, 3)) s += `  ${d.action === 'go' ? Em((d.side || 'BUY').padEnd(4)) : Am('HOLD')} ${Tx((d.question || '').slice(0, TW - 12))}\n`;
+    }
+    return s;
+  }
 
-    buf += '\n  ' + rule(TW - 4) + '\n';
-    buf += `  ${Pk('↑↓')} nav  ${Pk('Enter')} detail  ${Pk('/')} search  ${Pk('s')} sort  ${Pk('Ctrl+P')} palette  ${Pk('r')} refresh  ${Pk('q')} quit`;
-    buf += `\n  ${statusMsg ? Em('◈') + ' ' + Tx(statusMsg) : di(new Date().toLocaleTimeString('en', { hour12: false }) + ' · ' + markets.length + ' markets · ' + feedBuf.length + ' trades')}`;
+  function rMarkets(H) {
+    const filtered = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
+    const maxVisible = Math.max(2, Math.floor((H - 2) / 3));
+    const maxOff = Math.max(0, filtered.length - maxVisible); if (scrollOff > maxOff) scrollOff = maxOff;
+    if (sel >= filtered.length) sel = Math.max(0, filtered.length - 1);
+    const posLbl = filtered.length ? `   ${di(`${Math.min(scrollOff + 1, filtered.length)}–${Math.min(scrollOff + maxVisible, filtered.length)}/${filtered.length}`)}` : '';
+    let s = `  ${Dm('sort:')} ${sortMode === 'volume' ? Pk('▼vol') : Dm('vol')}  ${sortMode === 'odds' ? Pk('▼odds') : Dm('odds')}  ${sortMode === 'newest' ? Pk('▼new') : Dm('new')}  ${searching ? Pk('/' + search + '▏') : Dm('/ to search')}${posLbl}\n\n`;
+    const visible = filtered.slice(scrollOff, scrollOff + maxVisible);
+    if (!visible.length) s += '  ' + Dm(search ? 'No matches.' : (loaded ? 'No markets — press r' : 'Loading…')) + '\n';
+    for (let i = 0; i < visible.length; i++) {
+      const m = visible[i], isSel = (i + scrollOff) === sel;
+      const yes = m.yesPrice ?? m.priceYes ?? m.yes; const odds = yes != null ? Math.round(Number(yes) * 100) : null;
+      const vol = m.volumeUsdc ?? m.volume; const q = (m.question || m.slug || '').slice(0, Math.min(64, TW - 44));
+      const fakeH = Array.from({ length: 12 }, (_, j) => (odds ?? 50) + Math.sin(j * 1.2 + i + scrollOff) * 12);
+      s += `${isSel ? Pk(' ▸ ') : '   '}${isSel ? Wh(q) : Tx(q)}\n`;
+      s += `     ${odds !== null ? probColor(odds)(String(odds).padStart(2) + '¢') : di('—')}  ${probBar(odds ?? 50, 14)}  ${sparkMini(fakeH, 10)}  ${vol != null ? cy('$' + abbr(vol)) : di('—')}  ${statusBadge(m.status)}\n\n`;
+    }
+    return s;
+  }
+
+  function rDetail(H) {
+    const m = detailMarket;
+    const yes = m.yesPrice ?? m.priceYes ?? m.yes; const odds = yes != null ? Math.round(Number(yes) * 100) : 50;
+    let s = `  ${Pk('◆')} ${Wh((m.question || m.slug || '').slice(0, TW - 6))}\n`;
+    s += `  ${di((m.slug || '').slice(0, 52))}   ${statusBadge(m.status)}\n\n`;
+    s += `  ${probColor(odds)(BD + 'YES ' + odds + '¢' + RST)}    ${probColor(100 - odds)(BD + 'NO ' + (100 - odds) + '¢' + RST)}    ${probBar(odds, Math.min(32, TW - 32))}\n\n`;
+    const closes = fakeOHLC(odds, 64).map(c => c.close);
+    const cw = Math.min(64, TW - 12), ch = Math.max(5, Math.min(10, H - 9));
+    const pts = []; for (let i = 0; i < cw; i++) pts.push(closes[Math.floor(i / cw * closes.length)]);
+    const lo = Math.min(...pts), hi = Math.max(...pts), rng = (hi - lo) || 1;
+    for (let r = 0; r < ch; r++) {
+      const thr = hi - (r / (ch - 1)) * rng;
+      let line = '   ';
+      for (let c = 0; c < cw; c++) { const v = pts[c]; line += v >= thr ? fg(...gradColor(v / 100)) + '█' + RST : (v >= thr - rng / ch ? fg(...gradColor(v / 100)) + '▄' + RST : ' '); }
+      s += line + '\n';
+    }
+    s += `   ${di(Math.round(lo) + '¢')}${' '.repeat(Math.max(1, cw - 8))}${di(Math.round(hi) + '¢')}\n\n`;
+    const meta = []; const vol = m.volumeUsdc ?? m.volume; if (vol != null) meta.push(cy('$' + abbr(vol) + ' vol')); if (m.trades != null) meta.push(Dm(abbr(m.trades) + ' trades')); if (m.createdAt) meta.push(Dm(timeAgo(m.createdAt)));
+    if (meta.length) s += '  ' + meta.join('   ·   ') + '\n';
+    s += '  ' + Dm('simulated intraday · full candlesticks: ') + Pk('puls market ' + (m.slug || '')) + '\n';
+    return s;
+  }
+
+  function rSignals(H) {
+    let s = `  ${Pk('◆')} ${Wh('Alpha Marketplace')}  ${Dm(signals.length + ' signals · x402 → creators')}\n\n`;
+    if (!signals.length) return s + '  ' + Dm(loaded ? 'No signals — press r' : 'Loading…');
+    const listH = Math.max(2, Math.floor((H - 8) / 2));
+    if (sel >= signals.length) sel = signals.length - 1;
+    const maxOff = Math.max(0, signals.length - listH); if (scrollOff > maxOff) scrollOff = maxOff;
+    const vis = signals.slice(scrollOff, scrollOff + listH);
+    for (let i = 0; i < vis.length; i++) {
+      const sg = vis[i], isSel = (i + scrollOff) === sel;
+      const lock = sg.unlocked ? Em('🔓') : pk('🔒');
+      s += `${isSel ? Pk(' ▸ ') : '   '}${lock} ${isSel ? Wh((sg.title || '').slice(0, TW - 26)) : Tx((sg.title || '').slice(0, TW - 26))}\n`;
+      s += `      ${Cy('$' + micro(sg.priceUsdc))} ${Dm('· ' + creatorName(sg.creatorUserId))}${sg.bond ? am(' · ◆bond') : ''}${sg.onchain?.tx ? vt(' · ⛓') : ''}\n`;
+    }
+    const cur = signals[sel];
+    s += '\n  ' + di('─'.repeat(TW - 4)) + '\n';
+    if (cur) {
+      s += '  ' + Wh((cur.title || '').slice(0, TW - 6)) + '\n';
+      if (cur.unlocked && cur.thesis) {
+        s += '  ' + Dm('call ') + (cur.stance === 'YES' ? Em('YES') : Rs('NO')) + Dm('  ·  ') + Tx(wrapText(cur.thesis, TW - 10, '').join(' ').trim().slice(0, TW - 14)) + Dm('…') + '\n';
+      } else {
+        s += '  ' + Dm((cur.teaser || 'Locked — the agent\'s side, thesis & sources are paid alpha.').slice(0, TW - 6)) + '\n';
+        s += '  ' + pk('🔒 press ') + Pk('u') + pk(' to unlock') + Dm('  ·  $' + micro(cur.priceUsdc) + ' → ' + creatorName(cur.creatorUserId) + ' via x402') + '\n';
+      }
+    }
+    return s;
+  }
+
+  function rPortfolio(H) {
+    let s = `  ${Pk('◆')} ${Wh('Your Portfolio')}\n\n`;
+    if (!loadCfg().key) return s + `  ${Dm('Log in to see positions:  ')}${Pk('puls login pk_live_…')}`;
+    if (!pfData) return s + `  ${Dm(loaded ? 'No data — press r' : 'Loading…')}`;
+    const pos = pfData.positions || pfData.holdings || []; const spent = pfData.totalSpent ?? pfData.investedUsdc; const openN = pos.filter(p => !p.resolved).length;
+    s += `  ${Dm('invested ')}${Cy('$' + usd(spent || 0))}${Dm('  ·  ' + openN + ' open · ' + pos.length + ' total')}\n\n`;
+    if (!pos.length) return s + `  ${Dm('No positions yet.')}`;
+    for (const p of pos.slice(0, Math.max(2, H - 5))) {
+      const side = String(p.side || '').toUpperCase();
+      const st = p.claimed ? di('claimed') : p.resolved ? ((!!p.outcome === (side === 'YES')) ? Em('won') : rs('lost')) : am('open');
+      s += `  ${(side === 'YES' ? Em : Rs)((side || '·').padEnd(3))} ${Tx(String(p.question || p.slug || '').slice(0, TW - 32))}  ${p.usdcAmount != null ? cy('$' + usd(p.usdcAmount)) : ''}  ${st}\n`;
+    }
+    return s;
+  }
+
+  function rStats(H) {
+    if (!statsData) return `  ${Pk('◈')} ${Wh('Platform Dashboard')}\n\n  ${Dm(loaded ? 'No data — press r' : 'Loading…')}`;
+    const s2 = statsData; const np = s2.nanopayments && typeof s2.nanopayments === 'object' ? s2.nanopayments.count : s2.nanopayments;
+    const deco = (seed) => { const chars = '▁▂▃▄▅▆▇█▇▆▅▄▃▂'; let o = ''; for (let i = 0; i < 14; i++) { const v = Math.sin((seed + i) * 0.7) * 0.5 + 0.5; o += fg(...gradColor(i / 13)) + chars[(v * (chars.length - 1)) | 0]; } return o + RST; };
+    let s = `  ${Pk('◈')} ${Wh('Platform Dashboard')}  ${Dm('live · Arc testnet')}\n\n`;
+    s += `   ${Dm('Trades'.padEnd(16))} ${Pk(BD + fmt(s2.trades) + RST)}   ${deco(3)}\n`;
+    s += `   ${Dm('USDC Volume'.padEnd(16))} ${Cy(BD + '$' + fmt(s2.volumeUsdc) + RST)}   ${deco(9)}\n`;
+    s += `   ${Dm('Markets'.padEnd(16))} ${Tx(BD + fmt(s2.marketsDeployed) + RST)}   ${deco(14)}\n`;
+    s += '\n  ' + di('─'.repeat(Math.min(64, TW - 6))) + '\n';
+    s += `   ${Dm('Agents'.padEnd(16))} ${Am(BD + fmt(s2.agents) + RST)}\n`;
+    s += `   ${Dm('Agent trades'.padEnd(16))} ${Am(fmt(s2.agentTrades))}\n`;
+    s += `   ${Dm('Nanopayments'.padEnd(16))} ${Vt(fmt(np))} ${Dm('x402 settlements')}\n`;
+    s += `   ${Dm('Wallets'.padEnd(16))} ${Tx(fmt(s2.users))}\n`;
+    return s;
+  }
+
+  function footer() {
+    let hint;
+    if (tab === TAB.CHAT) hint = `${Pk('Enter')} send   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
+    else if (tab === TAB.MARKETS && detailMarket) hint = `${Pk('Esc')} back   ${Pk('o')} open in browser   ${Pk('Tab')} switch   ${Pk('q')} quit`;
+    else if (tab === TAB.MARKETS) hint = `${Pk('↑↓')} nav   ${Pk('Enter')} detail   ${Pk('/')} search   ${Pk('s')} sort   ${Pk('Tab')} switch   ${Pk('q')} quit`;
+    else if (tab === TAB.SIGNALS) hint = `${Pk('↑↓')} nav   ${Pk('u')} unlock · x402   ${Pk('Tab')} switch   ${Pk('r')} refresh   ${Pk('q')} quit`;
+    else hint = `${Pk('1-6')} views   ${Pk('Tab')} next   ${Pk('r')} refresh   ${Pk('Ctrl+P')} palette   ${Pk('q')} quit`;
+    let s = '  ' + rule(TW - 4) + '\n  ' + hint + '\n';
+    s += '  ' + (statusMsg ? Em('◈ ') + Tx(statusMsg) : di(new Date().toLocaleTimeString('en', { hour12: false }) + (loaded ? '  ·  ' + markets.length + ' markets · ' + signals.length + ' signals' : '  ·  loading…')));
+    return s;
+  }
+
+  function render() {
+    const H = Math.max(6, TH - 5);
+    let buf = ESC + '2J' + ESC + 'H';
+    buf += `  ${grad('PULS')} ${di('v' + VERSION)}    ${tabBar()}    ${dm(T.name)}\n`;
+    buf += '  ' + rule(TW - 4) + '\n';
+    let body;
+    if (tab === TAB.CHAT) body = rChat(H);
+    else if (tab === TAB.AGENTS) body = rAgents(H);
+    else if (tab === TAB.MARKETS) body = detailMarket ? rDetail(H) : rMarkets(H);
+    else if (tab === TAB.SIGNALS) body = rSignals(H);
+    else if (tab === TAB.PORTFOLIO) body = rPortfolio(H);
+    else body = rStats(H);
+    const bl = body.split('\n');
+    while (bl.length < H) bl.push('');
+    buf += bl.slice(0, H).join('\n') + '\n';
+    buf += footer();
     wr(buf);
     if (paletteMode) renderPalette();
   }
@@ -909,7 +1016,7 @@ async function startTUI() {
   }
 
   render(); // paint immediately so the screen is never blank while data loads
-  Promise.all([loadData(), loadFeed(), loadAgents(), loadPf()]).then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
+  loadAll().then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
 
   process.stdin.on('data', async key => {
     if (paletteMode) {
@@ -925,8 +1032,22 @@ async function startTUI() {
       if (key.length === 1 && key >= ' ') { paletteQuery += key; paletteSel = 0; render(); return; }
       return;
     }
-    if (key === 'q' || key === '\x03') return quit();
-    if (key === '\x10') { paletteMode = true; paletteQuery = ''; paletteSel = 0; render(); return; }
+
+    if (key === '\x03') return quit();                                                     // Ctrl+C always quits
+    if (key === '\x10') { paletteMode = true; paletteQuery = ''; paletteSel = 0; render(); return; }  // Ctrl+P palette
+    if (key === '\t') { tab = (tab + 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; searching = false; render(); return; }
+    if (key === '\x1b[Z') { tab = (tab + tabs.length - 1) % tabs.length; sel = 0; scrollOff = 0; detailMarket = null; searching = false; render(); return; }
+
+    // ── Chat tab: keystrokes are the message input ──
+    if (tab === TAB.CHAT) {
+      if (key === '\r') { await sendChat(); return; }
+      if (key === '\x7f' || key === '\b') { chatInput = chatInput.slice(0, -1); render(); return; }
+      if (key === '\x1b') { chatInput = ''; render(); return; }
+      if (key.length === 1 && key >= ' ') { chatInput += key; render(); return; }
+      return;
+    }
+
+    // ── Markets search typing ──
     if (searching) {
       if (key === '\x1b') { searching = false; search = ''; sel = 0; scrollOff = 0; render(); return; }
       if (key === '\x7f' || key === '\b') { search = search.slice(0, -1); sel = 0; scrollOff = 0; render(); return; }
@@ -934,22 +1055,38 @@ async function startTUI() {
       if (key.length === 1 && key >= ' ') { search += key; sel = 0; scrollOff = 0; render(); return; }
       return;
     }
-    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; detailMarket = null; scrollOff = 0; render(); return; }
-    const maxVis = Math.max(2, Math.floor((TH - 8) / 3));
-    if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
-    if (key === '\x1b[B' || key === 'j') {
+
+    if (key === 'q') return quit();
+    if (key >= '1' && key <= '6') { tab = +key - 1; sel = 0; scrollOff = 0; detailMarket = null; render(); return; }
+    if (key === 'r') { setStatus('Refreshing…'); render(); cacheClear(); await loadAll(); setStatus('Refreshed'); render(); return; }
+
+    // ── Market detail sub-view ──
+    if (tab === TAB.MARKETS && detailMarket) {
+      if (key === '\x1b' || key === '\b' || key === '\x7f') { detailMarket = null; render(); return; }
+      if (key === 'o') { openBrowser(WEB_BASE + '/m/' + (detailMarket.slug || '')); setStatus('Opening in browser…'); render(); return; }
+      return;
+    }
+
+    // ── Markets list ──
+    if (tab === TAB.MARKETS) {
       const filt = search ? fuzzyFilter(markets, search, m => (m.question || '') + ' ' + (m.slug || '')) : markets;
-      sel = Math.min(filt.length - 1, sel + 1);
-      if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1;
-      render(); return;
+      const maxVis = Math.max(2, Math.floor((TH - 7) / 3));
+      if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
+      if (key === '\x1b[B' || key === 'j') { sel = Math.min(filt.length - 1, sel + 1); if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1; render(); return; }
+      if (key === '\r') { if (filt[sel]) { detailMarket = filt[sel]; render(); } return; }
+      if (key === '/') { searching = true; search = ''; sel = 0; scrollOff = 0; render(); return; }
+      if (key === 's') { const modes = ['volume', 'odds', 'newest']; sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.length]; await loadData(); sel = 0; scrollOff = 0; setStatus('Sorted by ' + sortMode); render(); return; }
+      return;
     }
-    if (key === '/' && tab === 0) { searching = true; search = ''; render(); return; }
-    if (key === 's' && tab === 0) {
-      const modes = ['volume', 'odds', 'newest'];
-      sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.length];
-      await loadData(); sel = 0; scrollOff = 0; setStatus('Sorted by ' + sortMode); render(); return;
+
+    // ── Signals list ──
+    if (tab === TAB.SIGNALS) {
+      const maxVis = Math.max(2, Math.floor((TH - 13) / 2));
+      if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); if (sel < scrollOff) scrollOff = sel; render(); return; }
+      if (key === '\x1b[B' || key === 'j') { sel = Math.min(signals.length - 1, sel + 1); if (sel >= scrollOff + maxVis) scrollOff = sel - maxVis + 1; render(); return; }
+      if (key === 'u' || key === '\r') { await unlockSel(); return; }
+      return;
     }
-    if (key === 'r') { cacheClear(); setStatus('Refreshing…'); render(); await Promise.all([loadData(), loadFeed(), loadAgents(), loadPf()]); setStatus('Refreshed'); render(); return; }
   });
 }
 
