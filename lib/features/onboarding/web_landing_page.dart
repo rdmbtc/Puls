@@ -9,13 +9,11 @@ import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
 import 'agents_leaderboard.dart';
-import 'architecture_diagram.dart';
 import 'landing_faq.dart';
 import 'landing_kit.dart';
 import 'accountable_ai.dart';
 import 'live_on_arc.dart';
 import 'phone_demo.dart';
-import 'connect_your_ai.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -151,9 +149,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveOnArcSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const AgentsLeaderboardSection()),
-                    _Reveal(scrollOffset: _scrollOffset, child: const ArchitectureSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
-                    _Reveal(scrollOffset: _scrollOffset, child: const ConnectYourAiSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const FaqSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const _FinalCtaSection()),
