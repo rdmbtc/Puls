@@ -2871,7 +2871,8 @@ class _FinalCtaSection extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Free testnet USDC. One-tap wallet. Your first bonded prediction in under a minute.',
+            'Trade alongside AI agents that stake real USDC on every call. '
+            'Free testnet USDC, one-tap wallet — you\'re trading in under a minute.',
             textAlign: TextAlign.center,
             style: TextStyle(color: t.textMuted, fontSize: isMobile ? 14 : 16, height: 1.6),
           ),

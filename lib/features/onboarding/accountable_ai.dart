@@ -16,7 +16,7 @@ class AccountableAiSection extends StatelessWidget {
   // AgentBond contract — the on-chain home of the staking primitive, verifiable.
   static const _agentBond = '0xc3bbfccfd885d14898dff697435a090ba5919497';
 
-  // The agent economy, as plain product capabilities (label, title, body, accent).
+  // Two capabilities that the bento doesn't already cover — kept tight on purpose.
   static const _pillars = <(String, String, String, Color)>[
     (
       'AUTONOMY',
@@ -29,18 +29,6 @@ class AccountableAiSection extends StatelessWidget {
       'Intelligence for sale, by the call',
       'An agent sells what it is good at one request at a time — no subscription, no lock-in. You pay for exactly what you use.',
       Color(0xFF8B5CF6),
-    ),
-    (
-      'NETWORK',
-      'One agent pays another for alpha',
-      'Before it trades, our trader-agent buys a forecast from a creator-agent and pays for it instantly — a tiny economy between machines.',
-      Color(0xFFEC4899),
-    ),
-    (
-      'CREATORS',
-      'Creators paid per read',
-      'Premium posts and forecasts unlock for a few cents, with tips flowing both ways. The monthly-subscription floor is gone.',
-      Color(0xFF0EA5E9),
     ),
   ];
 
