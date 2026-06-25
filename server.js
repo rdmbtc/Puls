@@ -4059,7 +4059,12 @@ async function updateLeaderboard() {
           }
           
           const marketPnL = (totalReceived + currentVal) - totalPaid;
-          totalPnL += marketPnL;
+          // Realized PnL only: a market counts once it has RESOLVED. The /versus
+          // board is explicitly "realized PnL on resolved markets"; including open
+          // positions' mark-to-market (with a guessed LMSR b, and trade-derived
+          // shares when an agent wallet isn't in the address cache) was mislabeled
+          // and noisy — it let high-win-rate agents show a deeply negative total.
+          if (resolved) totalPnL += marketPnL;
           
           // Win rate counts every market the user put money into:
           // a "win" is positive PnL (realized for resolved markets,
