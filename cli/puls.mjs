@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.1.1';
+const VERSION = '6.1.2';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -224,6 +224,7 @@ const padR = (s, w) => { const d = w - vlen(s); return d > 0 ? s + ' '.repeat(d)
 const padL = (s, w) => { const d = w - vlen(s); return d > 0 ? ' '.repeat(d) + s : s; };
 const center = (s, w) => { const d = w - vlen(s); if (d <= 0) return s; const l = d >> 1; return ' '.repeat(l) + s + ' '.repeat(d - l); };
 const fmt = n => (Number(n) || 0).toLocaleString('en-US');
+const usd = n => (Number(n) || 0).toFixed(2);
 function abbr(n) {
   n = Number(n) || 0;
   if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -833,15 +834,15 @@ async function startTUI() {
       if (!ad) buf += `  ${Dm(loaded ? 'No agent data — API unreachable? press r' : 'Loading…')}\n`;
       else {
         const house = ad.house, pulse = house && (house.agent || house.pulse), sage = house && house.sage;
-        if (pulse) buf += `  ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + pulse.balance + ' USDC') : ''}\n`;
-        if (sage) buf += `  ${Pk('✍️  Sage')}  ${Dm('creator')}  ${sage.balance != null ? cy('$' + sage.balance + ' USDC') : ''}\n`;
+        if (pulse) buf += `  ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + usd(pulse.balance) + ' USDC') : ''}\n`;
+        if (sage) buf += `  ${Pk('✍️  Sage')}  ${Dm('creator')}  ${sage.balance != null ? cy('$' + usd(sage.balance) + ' USDC') : ''}\n`;
         const agents = Array.isArray(ad.roster) ? ad.roster : (ad.roster?.agents || ad.roster?.roster || ad.roster?.swarm || []);
         if (agents.length) {
           buf += `\n  ${Dm('the swarm · ' + agents.length + ' agents')}\n`;
           for (const a of agents.slice(0, Math.max(2, h - 12))) {
             const nm = a.name || a.displayName || a.userId || 'agent';
             const bal = a.balance ?? a.usdcBalance;
-            buf += `  ${Pk('•')} ${Tx(String(nm).padEnd(12))} ${bal != null ? cy('$' + bal) : ''}\n`;
+            buf += `  ${Pk('•')} ${Tx(String(nm).padEnd(12))} ${bal != null ? cy('$' + usd(bal)) : ''}\n`;
           }
         }
         const decs = (house && house.decisions) || [];
@@ -1314,10 +1315,10 @@ async function cmdAgents() {
       const pulse = house.agent || house.pulse;
       const sage = house.sage;
       ln('  ' + Wh('House agents'));
-      if (pulse) ln(`    ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + pulse.balance + ' USDC') : ''}  ${pulse.reputation != null ? Dm('rep ' + pulse.reputation) : ''}`);
+      if (pulse) ln(`    ${Pk('🤖 Pulse')} ${Dm('trader')}   ${pulse.balance != null ? cy('$' + usd(pulse.balance) + ' USDC') : ''}  ${pulse.reputation != null ? Dm('rep ' + pulse.reputation) : ''}`);
       if (sage) {
         const sig = sage.signal || {};
-        ln(`    ${Pk('✍️  Sage')} ${Dm('creator')}   ${sage.balance != null ? cy('$' + sage.balance + ' USDC') : ''}  ${sig.revenueUsdc != null ? Em('earned $' + sig.revenueUsdc) : ''}`);
+        ln(`    ${Pk('✍️  Sage')} ${Dm('creator')}   ${sage.balance != null ? cy('$' + usd(sage.balance) + ' USDC') : ''}  ${sig.revenueUsdc != null ? Em('earned $' + usd(sig.revenueUsdc)) : ''}`);
       }
       const decisions = house.decisions || [];
       if (decisions.length) {
@@ -1325,7 +1326,7 @@ async function cmdAgents() {
         for (const d of decisions.slice(0, 5)) {
           const go = d.action === 'go';
           const act = go ? Em((d.side || 'BUY').padEnd(4)) : Am('HOLD');
-          ln(`    ${act} ${d.amount ? cy('$' + d.amount + ' ') : ''}${Tx((d.question || '').slice(0, PW - 22))}`);
+          ln(`    ${act} ${d.amount ? cy('$' + usd(d.amount) + ' ') : ''}${Tx((d.question || '').slice(0, PW - 22))}`);
           if (d.reasoning) ln('      ' + Dm(String(d.reasoning).slice(0, PW - 8)));
         }
       }
@@ -1339,7 +1340,7 @@ async function cmdAgents() {
         const bal = a.balance ?? a.usdcBalance;
         const rep = a.reputation ?? a.rep ?? a.reputationScore;
         const last = a.lastAction || a.action || (a.decisions && a.decisions[0] && a.decisions[0].action);
-        ln(`    ${Pk('•')} ${Tx(String(name).padEnd(10))} ${bal != null ? cy('$' + String(bal).padStart(6)) : di('     —')}  ${rep != null ? Dm('rep ' + rep) : ''}  ${last ? Dm(String(last)) : ''}`);
+        ln(`    ${Pk('•')} ${Tx(String(name).padEnd(10))} ${bal != null ? cy('$' + usd(bal).padStart(6)) : di('     —')}  ${rep != null ? Dm('rep ' + rep) : ''}  ${last ? Dm(String(last)) : ''}`);
       }
     }
 
