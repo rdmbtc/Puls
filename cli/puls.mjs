@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.3.0';
+const VERSION = '6.4.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -66,9 +66,14 @@ const args = rawArgs.filter((a, i) => {
 });
 
 const IS_TTY = process.stdout.isTTY && !F.na;
-const TW = (() => { try { return process.stdout.columns || 100; } catch { return 100; } })();
-const TH = (() => { try { return process.stdout.rows || 40; } catch { return 40; } })();
-const PW = Math.min(TW, 120);
+let TW = (() => { try { return process.stdout.columns || 100; } catch { return 100; } })();
+let TH = (() => { try { return process.stdout.rows || 40; } catch { return 40; } })();
+let PW = Math.min(TW, 120);
+function recomputeSize() {
+  try { TW = process.stdout.columns || TW; TH = process.stdout.rows || TH; } catch {}
+  TW = Math.max(24, TW); TH = Math.max(10, TH);
+  PW = Math.min(TW, 120);
+}
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEME ENGINE
@@ -710,6 +715,7 @@ async function startTUI() {
   let statusMsg = '', statusTimer = null;
   let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
+  let frame = 0, animTimer = null, onResize = null, unlocking = null;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -753,18 +759,26 @@ async function startTUI() {
     chatBusy = false; render();
   }
   async function unlockSel() {
-    const s = signals[sel]; if (!s || sigBusy) return;
-    if (s.unlocked) { setStatus('Already unlocked'); render(); return; }
+    const s = signals[sel]; if (!s || unlocking) return;
+    if (s.unlocked) { setStatus('Already unlocked — thesis shown below'); render(); return; }
     if (!loadCfg().key) { setStatus('Log in to unlock:  puls login pk_live_…'); render(); return; }
-    sigBusy = true; setStatus('● x402 · settling $' + micro(s.priceUsdc) + ' → ' + creatorName(s.creatorUserId) + '…'); render();
+    const price = micro(s.priceUsdc), creator = creatorName(s.creatorUserId);
+    unlocking = { title: s.title || '', creator, price, step: 1, error: null, txId: null };
+    render(); await sleep(850);                       // 402 Payment Required
+    unlocking.step = 2; render(); await sleep(750);   // authorizing
+    unlocking.step = 3; render(); await sleep(550);   // settling on Arc
     try {
       const r = await api('/api/signals/' + encodeURIComponent(s.id) + '/unlock', { method: 'POST', body: {}, auth: true });
       const sg = r.signal || {};
-      if (sg.thesis || sg.stance) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance, sources: sg.sources || s.sources }); setStatus('✓ x402 settled · paid $' + micro(s.priceUsdc) + ' → ' + creatorName(s.creatorUserId)); }
-      else if (r.alreadyUnlocked) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance }); setStatus('Already unlocked'); }
-      else setStatus(r.message || 'Unlock not completed');
-    } catch (e) { setStatus('✗ ' + (/Insufficient/i.test(e.message) ? 'Insufficient USDC — faucet.circle.com' : e.message)); }
-    sigBusy = false; render();
+      if (sg.thesis || sg.stance) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance, sources: sg.sources || s.sources }); unlocking.txId = r.txId || (r.payment && r.payment.tx) || (sg.onchain && sg.onchain.tx) || null; unlocking.step = 4; }
+      else if (r.alreadyUnlocked) { Object.assign(s, { unlocked: true, thesis: sg.thesis, stance: sg.stance }); unlocking.step = 4; }
+      else unlocking.error = r.message || 'Unlock not completed';
+    } catch (e) { unlocking.error = /Insufficient/i.test(e.message) ? 'Insufficient USDC — top up at faucet.circle.com' : e.message; }
+    const err = unlocking.error;
+    render(); await sleep(err ? 1700 : 1500);
+    unlocking = null;
+    setStatus(err ? '✗ ' + err : '✓ x402 settled · paid $' + price + ' → ' + creator);
+    render();
   }
 
   const allActions = [
@@ -797,6 +811,8 @@ async function startTUI() {
   }
 
   function quit() {
+    if (animTimer) clearInterval(animTimer);
+    if (onResize) { try { process.stdout.removeListener('resize', onResize); } catch {} }
     try { process.stdin.setRawMode(false); } catch {}
     process.stdin.pause(); MAIN_SCREEN(); SC(); TITLE('');
     ln(Dm('\n  bye.\n')); process.exit(0);
@@ -825,13 +841,14 @@ async function startTUI() {
       }
       lines.push('');
     }
-    if (chatBusy) lines.push('  ' + Pk('◆ Copilot') + Dm('  researching the open web + reasoning…'));
+    if (chatBusy) lines.push('  ' + Pk('◆ Copilot') + '  ' + pk(SPINNERS.dots[frame % SPINNERS.dots.length]) + Dm(' researching the open web + reasoning…'));
     const avail = Math.max(2, H - 2);
     const shown = lines.slice(Math.max(0, lines.length - avail));
     let s = shown.join('\n') + '\n';
     s += '\n'.repeat(Math.max(0, avail - shown.length));
     s += '  ' + di('─'.repeat(TW - 4)) + '\n';
-    s += '  ' + (loadCfg().key ? Cy('› ') + Tx(chatInput) + (chatBusy ? Dm(' …') : Pk('▏')) : Dm('Log in to chat:  ') + Pk('puls login pk_live_…'));
+    const cursor = chatBusy ? pk(SPINNERS.dots[frame % SPINNERS.dots.length]) : (frame % 12 < 7 ? Pk('▏') : ' ');
+    s += '  ' + (loadCfg().key ? Cy('› ') + Tx(chatInput) + cursor : Dm('Log in to chat:  ') + Pk('puls login pk_live_…'));
     return s;
   }
 
@@ -883,7 +900,8 @@ async function startTUI() {
     let s = `  ${Pk('◆')} ${Wh((m.question || m.slug || '').slice(0, TW - 6))}\n`;
     s += `  ${di((m.slug || '').slice(0, 52))}   ${statusBadge(m.status)}\n\n`;
     s += `  ${probColor(odds)(BD + 'YES ' + odds + '¢' + RST)}    ${probColor(100 - odds)(BD + 'NO ' + (100 - odds) + '¢' + RST)}    ${probBar(odds, Math.min(32, TW - 32))}\n\n`;
-    const closes = fakeOHLC(odds, 64).map(c => c.close);
+    const seed = [...(m.slug || m.question || 'x')].reduce((a, c) => a + c.charCodeAt(0), 0);
+    const closes = Array.from({ length: 64 }, (_, i) => Math.max(3, Math.min(97, odds + Math.sin(i * 0.34 + seed) * (7 + seed % 7) + Math.sin(i * 0.13 + seed * 0.5) * 4)));
     const cw = Math.min(64, TW - 12), ch = Math.max(5, Math.min(10, H - 9));
     const pts = []; for (let i = 0; i < cw; i++) pts.push(closes[Math.floor(i / cw * closes.length)]);
     const lo = Math.min(...pts), hi = Math.max(...pts), rng = (hi - lo) || 1;
@@ -959,21 +977,22 @@ async function startTUI() {
   }
 
   function footer() {
+    const narrow = TW < 80;
     let hint;
-    if (tab === TAB.CHAT) hint = `${Pk('Enter')} send   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
-    else if (tab === TAB.MARKETS && detailMarket) hint = `${Pk('Esc')} back   ${Pk('o')} open in browser   ${Pk('Tab')} switch   ${Pk('q')} quit`;
-    else if (tab === TAB.MARKETS) hint = `${Pk('↑↓')} nav   ${Pk('Enter')} detail   ${Pk('/')} search   ${Pk('s')} sort   ${Pk('Tab')} switch   ${Pk('q')} quit`;
-    else if (tab === TAB.SIGNALS) hint = `${Pk('↑↓')} nav   ${Pk('u')} unlock · x402   ${Pk('Tab')} switch   ${Pk('r')} refresh   ${Pk('q')} quit`;
-    else hint = `${Pk('1-6')} views   ${Pk('Tab')} next   ${Pk('r')} refresh   ${Pk('Ctrl+P')} palette   ${Pk('q')} quit`;
+    if (tab === TAB.CHAT) hint = narrow ? `${Pk('Enter')} send  ${Pk('Tab')} view  ${Pk('^C')} quit` : `${Pk('Enter')} send   ${Pk('Tab')} switch view   ${Pk('Ctrl+P')} palette   ${Pk('Ctrl+C')} quit`;
+    else if (tab === TAB.MARKETS && detailMarket) hint = narrow ? `${Pk('Esc')} back  ${Pk('o')} open  ${Pk('Tab')} view` : `${Pk('Esc')} back   ${Pk('o')} open in browser   ${Pk('Tab')} switch   ${Pk('q')} quit`;
+    else if (tab === TAB.MARKETS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('↵')} detail  ${Pk('/')} find  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('Enter')} detail   ${Pk('/')} search   ${Pk('s')} sort   ${Pk('Tab')} switch   ${Pk('q')} quit`;
+    else if (tab === TAB.SIGNALS) hint = narrow ? `${Pk('↑↓')} nav  ${Pk('u')} unlock  ${Pk('Tab')} view` : `${Pk('↑↓')} nav   ${Pk('u')} unlock · x402   ${Pk('Tab')} switch   ${Pk('r')} refresh   ${Pk('q')} quit`;
+    else hint = narrow ? `${Pk('1-6')} views  ${Pk('Tab')} next  ${Pk('q')} quit` : `${Pk('1-6')} views   ${Pk('Tab')} next   ${Pk('r')} refresh   ${Pk('Ctrl+P')} palette   ${Pk('q')} quit`;
     let s = '  ' + rule(TW - 4) + '\n  ' + hint + '\n';
-    s += '  ' + (statusMsg ? Em('◈ ') + Tx(statusMsg) : di(new Date().toLocaleTimeString('en', { hour12: false }) + (loaded ? '  ·  ' + markets.length + ' markets · ' + signals.length + ' signals' : '  ·  loading…')));
+    s += '  ' + (statusMsg ? Em('◈ ') + Tx(statusMsg) : di(new Date().toLocaleTimeString('en', { hour12: false }) + (loaded ? '  ·  ' + markets.length + ' mkts · ' + signals.length + ' signals' : '  ·  loading…')));
     return s;
   }
 
   function render() {
     const H = Math.max(6, TH - 5);
-    let buf = ESC + '2J' + ESC + 'H';
-    buf += `  ${grad('PULS')} ${di('v' + VERSION)}    ${tabBar()}    ${dm(T.name)}\n`;
+    let buf = ESC + 'H';
+    buf += `  ${grad('PULS', { glow: (frame % 36) / 36 })} ${di('v' + VERSION)}    ${tabBar()}    ${dm(T.name)}\n`;
     buf += '  ' + rule(TW - 4) + '\n';
     let body;
     if (tab === TAB.CHAT) body = rChat(H);
@@ -986,8 +1005,9 @@ async function startTUI() {
     while (bl.length < H) bl.push('');
     buf += bl.slice(0, H).join('\n') + '\n';
     buf += footer();
-    wr(buf);
+    wr(buf.split('\n').map(l => l + ESC + 'K').join('\n') + ESC + '0J');
     if (paletteMode) renderPalette();
+    if (unlocking) renderUnlockOverlay();
   }
 
   function renderPalette() {
@@ -1015,8 +1035,45 @@ async function startTUI() {
     MV(ox, oy + 4 + maxShow); wr(Pk('╚') + Pk('═'.repeat(palW - 2)) + Pk('╝'));
   }
 
+  function renderUnlockOverlay() {
+    const u = unlocking; if (!u) return;
+    const spin = SPINNERS.dots[frame % SPINNERS.dots.length];
+    const steps = [
+      ['402 Payment Required', '$' + u.price + ' USDC to read this alpha'],
+      ['Authorizing', 'signing the USDC transfer → ' + u.creator],
+      ['Settling on Arc', 'x402 nanopayment · sub-second finality'],
+      ['Unlocked', 'thesis revealed · ' + u.creator + ' paid'],
+    ];
+    const boxW = Math.min(60, TW - 6);
+    const lines = [];
+    lines.push(grad('⚡ x402 Nanopayment', { glow: (frame % 30) / 30 }));
+    lines.push(di('─'.repeat(boxW - 2)));
+    lines.push(Wh(u.title.slice(0, boxW - 4)));
+    lines.push('');
+    for (let i = 0; i < steps.length; i++) {
+      const n = i + 1;
+      let mark, lc;
+      if (u.error && n >= u.step) { mark = n === u.step ? Rs('✗') : di('○'); lc = n === u.step ? rs : di; }
+      else if (n < u.step) { mark = Em('✓'); lc = Tx; }
+      else if (n === u.step) { mark = Pk(spin); lc = Wh; }
+      else { mark = di('○'); lc = di; }
+      lines.push(' ' + mark + '  ' + lc(steps[i][0]));
+      if (n <= u.step && !(u.error && n === u.step) && steps[i][1]) lines.push('    ' + di(steps[i][1].slice(0, boxW - 8)));
+    }
+    if (u.error) { lines.push(''); lines.push(' ' + Rs('✗ ' + u.error.slice(0, boxW - 6))); }
+    else if (u.step >= 4 && u.txId) { lines.push(''); lines.push(' ' + Dm('⛓ tx ') + cy(String(u.txId).slice(0, boxW - 9))); }
+    const ox = Math.max(2, ((TW - boxW) / 2) | 0), oy = Math.max(2, ((TH - lines.length - 2) / 2) | 0);
+    MV(ox, oy); wr(Pk('╭') + Pk('─'.repeat(boxW - 2)) + Pk('╮'));
+    for (let i = 0; i < lines.length; i++) { MV(ox, oy + 1 + i); const c = ' ' + lines[i]; wr(Pk('│') + c + ' '.repeat(Math.max(0, boxW - 2 - vlen(c))) + Pk('│')); }
+    MV(ox, oy + 1 + lines.length); wr(Pk('╰') + Pk('─'.repeat(boxW - 2)) + Pk('╯'));
+  }
+
   render(); // paint immediately so the screen is never blank while data loads
   loadAll().then(() => { loaded = true; render(); }, () => { loaded = true; render(); });
+  recomputeSize();
+  onResize = () => { recomputeSize(); sel = 0; scrollOff = 0; render(); };
+  process.stdout.on('resize', onResize);
+  animTimer = setInterval(() => { frame++; render(); }, 90);
 
   process.stdin.on('data', async key => {
     if (paletteMode) {
