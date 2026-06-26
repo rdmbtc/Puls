@@ -3928,7 +3928,12 @@ async function updateLeaderboard() {
       userTrades.get(key).push(t);
     }
     
-    for (const [userId, tradesList] of userTrades.entries()) {
+    // Process users CONCURRENTLY (bounded) — per-user work is independent and
+    // dominated by on-chain reads, so batching cuts the recompute from ~90s to a
+    // few seconds → fresher /versus + /stats. (P5)
+    const __lbEntries = [...userTrades.entries()];
+    const __LB_CONC = 6;
+    const __computeUser = async ([userId, tradesList]) => {
       try {
         let totalVolume = 0;
         let tradesCount = 0;
@@ -4156,6 +4161,9 @@ async function updateLeaderboard() {
       } catch (err) {
         console.error(`Error calculating leaderboard stats for user ${userId}:`, err.message);
       }
+    };
+    for (let __i = 0; __i < __lbEntries.length; __i += __LB_CONC) {
+      await Promise.all(__lbEntries.slice(__i, __i + __LB_CONC).map(__computeUser));
     }
     leaderboardCache.clear(); // serve fresh stats promptly
     console.log(`Leaderboard updated successfully (${leaderboardStats.size} traders).`);
