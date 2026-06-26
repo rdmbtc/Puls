@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.5.0';
+const VERSION = '6.6.0';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -2079,6 +2079,132 @@ async function cmdDoctor() {
 //  HELP & ROUTER
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Trading: buy / sell / claim (authed, settled on Arc) ──────────────────────
+const TERMINAL_STATES = new Set(['COMPLETE', 'CONFIRMED', 'FAILED', 'DENIED', 'CANCELLED']);
+async function pollTrade(txId, label = 'confirming on Arc') {
+  if (!txId) return {};
+  const sp = spinner(label, 'arc');
+  const deadline = Date.now() + 60000;
+  let last = { state: 'INITIATED' };
+  try {
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1800));
+      try { last = await api('/api/trade/status?txId=' + encodeURIComponent(txId)); } catch {}
+      if (TERMINAL_STATES.has(String(last.state || '').toUpperCase())) break;
+    }
+  } finally { sp.stop(); }
+  return last;
+}
+function tradeDone(st) { return ['COMPLETE', 'CONFIRMED'].includes(String(st.state || '').toUpperCase()); }
+
+async function cmdBuy(slug, sideArg, amountArg) {
+  TITLE('buy');
+  if (!slug || !sideArg || !amountArg) { ln(Dm('\n  Usage: ') + Pk('puls buy <slug> yes|no <usdc>') + Dm('     e.g. ') + Pk('puls buy will-… yes 0.5') + '\n'); return; }
+  if (!(await checkLogin())) return;
+  const side = /^y/i.test(sideArg) ? 'YES' : /^n/i.test(sideArg) ? 'NO' : null;
+  const amount = parseFloat(amountArg);
+  if (!side) { ln(Er('\n  Side must be ') + Pk('yes') + Er(' or ') + Pk('no') + Er('.\n')); return; }
+  if (!(amount > 0)) { ln(Er('\n  Amount must be a positive USDC number.\n')); return; }
+  let m = null;
+  try { const d = await api('/api/markets'); const list = Array.isArray(d) ? d : (d.markets || []); m = list.find(x => x.slug === slug || String(x.slug || '').startsWith(slug)); if (m) slug = m.slug; } catch {}
+  header('Buy ' + side, '$' + amount + ' USDC · settled on Arc', side === 'YES' ? '▲' : '▼'); ln('');
+  if (m) { ln('  ' + Wh(clip(m.question || slug, PW - 4))); if (m.yesPrice != null) ln('  ' + Dm('consensus ') + Wh(Math.round(Number(m.yesPrice) * 100) + '¢ YES')); ln(''); }
+  if (!(has('-y') || has('--yes'))) {
+    const a = await prompt('  ' + (side === 'YES' ? Em('▲ YES') : Rs('▼ NO')) + Dm('  stake $' + amount + ' USDC?  ') + Dm('[y/N] '));
+    if (!/^y/i.test(String(a || '').trim())) { ln(Dm('  cancelled.\n')); return; }
+  }
+  const sp = spinner('submitting trade', 'arc');
+  try {
+    const entryPrice = (m && m.yesPrice != null) ? (side === 'YES' ? Number(m.yesPrice) : 1 - Number(m.yesPrice)) : undefined;
+    const r = await api('/api/trade/buy', { method: 'POST', auth: true, body: { slug, side, usdcAmount: amount, question: m && m.question, entryPrice } });
+    sp.stop();
+    if (jsonOut(r)) return;
+    const st = await pollTrade(r.txId, 'confirming on Arc');
+    ln('  ' + (tradeDone(st) ? Em('✓ bought ' + side) : Am('● ' + (st.state || 'submitted'))) + Dm('  ·  $' + amount + ' USDC'));
+    if (st.txHash) ln('  ' + Dm('⛓ ') + cy('https://testnet.arcscan.app/tx/' + st.txHash));
+    ln('  ' + Dm('track it: ') + Pk('puls portfolio') + Dm('  ·  ') + cy('pulsmarket.tech/versus'));
+    ln('\n  ' + rule(PW) + '\n');
+  } catch (e) {
+    sp.stop();
+    if (/Insufficient/i.test(e.message)) { ln('  ' + Er('✗ ' + e.message)); ln('  ' + Dm('Fund testnet USDC at ') + cy('faucet.circle.com') + Dm(' (Arc Testnet).') + '\n'); }
+    else await toastErr(e.message);
+  }
+}
+
+async function cmdSell(slug, amountArg) {
+  TITLE('sell');
+  if (!slug) { ln(Dm('\n  Usage: ') + Pk('puls sell <slug> [shares|all]') + Dm('   (sells an open position)') + '\n'); return; }
+  if (!(await checkLogin())) return;
+  const sp0 = spinner('loading your position', 'orbit');
+  let pos = null;
+  try {
+    const d = await api('/api/portfolio', { auth: true });
+    const positions = d.positions || d.holdings || [];
+    pos = positions.find(p => !p.resolved && Number(p.shares) > 0 && (p.slug === slug || String(p.slug || '').startsWith(slug) || p.contractAddress === slug || p.marketId === slug));
+  } catch {}
+  sp0.stop();
+  if (!pos) { ln(Er('\n  No open position found for "' + slug + '".') + Dm('  See ') + Pk('puls portfolio') + Dm('.\n')); return; }
+  const side = String(pos.side || '').toUpperCase();
+  const have = Number(pos.shares) || 0;
+  const shares = (!amountArg || /^all$/i.test(amountArg)) ? have : Math.min(have, parseFloat(amountArg) || 0);
+  if (!(shares > 0)) { ln(Er('\n  Nothing to sell.\n')); return; }
+  header('Sell ' + side, abbr(shares) + ' shares · on Arc', '↘'); ln('');
+  ln('  ' + Wh(clip(pos.question || slug, PW - 4))); ln('');
+  if (!(has('-y') || has('--yes'))) {
+    const a = await prompt('  sell ' + abbr(shares) + ' ' + side + ' shares back?  ' + Dm('[y/N] '));
+    if (!/^y/i.test(String(a || '').trim())) { ln(Dm('  cancelled.\n')); return; }
+  }
+  const sp = spinner('submitting sell', 'arc');
+  try {
+    const r = await api('/api/trade/sell', { method: 'POST', auth: true, body: { slug: pos.slug, contractAddress: pos.contractAddress || pos.marketId, side, shares, question: pos.question, owner: pos.owner, entryPrice: pos.entryPrice } });
+    sp.stop();
+    if (jsonOut(r)) return;
+    const st = await pollTrade(r.txId, 'settling sell on Arc');
+    ln('  ' + (tradeDone(st) ? Em('✓ sold ' + side) : Am('● ' + (st.state || 'submitted'))));
+    if (st.txHash) ln('  ' + Dm('⛓ ') + cy('https://testnet.arcscan.app/tx/' + st.txHash));
+    ln('\n  ' + rule(PW) + '\n');
+  } catch (e) { sp.stop(); await toastErr(e.message); }
+}
+
+async function cmdClaim(slug) {
+  TITLE('claim');
+  if (!slug) { ln(Dm('\n  Usage: ') + Pk('puls claim <slug>') + Dm('   (claim winnings from a resolved market)') + '\n'); return; }
+  if (!(await checkLogin())) return;
+  header('Claim winnings', 'resolved-market payout · on Arc', '🏆'); ln('');
+  if (!(has('-y') || has('--yes'))) {
+    const a = await prompt('  claim winnings for "' + clip(slug, 38) + '"?  ' + Dm('[y/N] '));
+    if (!/^y/i.test(String(a || '').trim())) { ln(Dm('  cancelled.\n')); return; }
+  }
+  const sp = spinner('claiming on Arc', 'arc');
+  try {
+    const r = await api('/api/trade/claim', { method: 'POST', auth: true, body: { slug } });
+    sp.stop();
+    if (jsonOut(r)) return;
+    const st = r.txId ? await pollTrade(r.txId, 'confirming claim') : r;
+    ln('  ' + Em('✓ claim submitted') + (r.payoutUsdc != null ? Dm('  ·  $' + usd(r.payoutUsdc) + ' USDC') : ''));
+    if (st.txHash) ln('  ' + Dm('⛓ ') + cy('https://testnet.arcscan.app/tx/' + st.txHash));
+    ln('\n  ' + rule(PW) + '\n');
+  } catch (e) {
+    sp.stop();
+    if (/no win|not resolved|nothing|already/i.test(e.message || '')) ln('  ' + Dm(e.message) + '\n');
+    else await toastErr(e.message);
+  }
+}
+
+function cmdBuild() {
+  TITLE('build');
+  header('Build on Puls', 'bring your own agent', '⚙'); ln('');
+  ln('  ' + Wh('Give your agent an economy — it trades + pays other agents on Arc.')); ln('');
+  ln('  ' + Pk('SDK  ') + Dm(' npm i ') + Wh('@pulsmarket/sdk') + Dm('   typed, zero-dep client'));
+  ln('  ' + Pk('Agent') + Dm(' one-command paying agent: ') + cy('github.com/rdmbtc/Puls/tree/main/examples'));
+  ln('  ' + Pk('Docs ') + Dm(' ') + cy('docs.pulsmarket.tech/cli') + Dm('  ·  ') + cy('pulsmarket.tech/build'));
+  ln('');
+  ln('  ' + di("  import { PulsClient } from '@pulsmarket/sdk';"));
+  ln('  ' + di('  const puls = new PulsClient();'));
+  ln('  ' + di('  await puls.signals.unlock(id);   // one AI pays another (x402)'));
+  ln('\n  ' + rule(PW) + '\n');
+}
+
 function help() {
   ln('');
   ln(`  ${grad('PULS')}  ${Dm('v' + VERSION + '  ·  ' + T.name + ' theme')}\n`);
@@ -2110,10 +2236,15 @@ function help() {
   ln(`    ${Wh('puls unlock')} ${Dm('<id>')}             ${Dm('pay the creator in USDC, reveal thesis')}`);
   ln(`    ${Wh('puls portfolio')}                ${Dm('your open positions + P&L')}\n`);
   ln(`  ${Pk('Trading')}`);
+  ln(`    ${Wh('puls buy')} ${Dm('<slug> yes|no <usdc>')} ${Dm('buy YES/NO shares on Arc')}`);
+  ln(`    ${Wh('puls sell')} ${Dm('<slug> [all]')}        ${Dm('sell a position back')}`);
+  ln(`    ${Wh('puls claim')} ${Dm('<slug>')}             ${Dm('claim winnings (resolved)')}`);
   ln(`    ${Wh('puls calc')} ${Dm('<odds> <bet>')}        ${Dm('bet calculator')}`);
   ln(`    ${Wh('puls alert')} ${Dm('<slug> up|down <¢>')} ${Dm('set price alert')}`);
   ln(`    ${Wh('puls alerts')}                   ${Dm('manage alerts')}\n`);
-  ln(`  ${Dm('flags:')} ${Pk('--json')} ${Pk('--no-color')} ${Pk('--no-anim')} ${Pk('--watch')} ${Pk('--compact')} ${Pk('--active')} ${Pk('--sort')} ${Pk('--limit')}\n`);
+  ln(`  ${Pk('Build on Puls')} ${Dm('· for agent builders')}`);
+  ln(`    ${Wh('puls build')}                    ${Dm('bring your own agent — SDK + x402')}\n`);
+  ln(`  ${Dm('flags:')} ${Pk('--json')} ${Pk('--no-color')} ${Pk('--no-anim')} ${Pk('--watch')} ${Pk('--compact')} ${Pk('--active')} ${Pk('--sort')} ${Pk('--limit')} ${Pk('-y')}\n`);
 }
 
 const cmd = (args[0] || '').toLowerCase();
@@ -2139,6 +2270,10 @@ try {
   else if (cmd === 'portfolio' || cmd === 'pf') { await cmdPortfolio(); }
   else if (cmd === 'signals' || cmd === 'alpha') { await cmdSignals(); }
   else if (cmd === 'unlock' || cmd === 'buy-signal') { await cmdUnlock(args[1]); }
+  else if (cmd === 'buy')      { await cmdBuy(args[1], args[2], args[3]); }
+  else if (cmd === 'sell')     { await cmdSell(args[1], args[2]); }
+  else if (cmd === 'claim')    { await cmdClaim(args[1]); }
+  else if (cmd === 'build')    { cmdBuild(); }
   else if (cmd === 'leaderboard' || cmd === 'lb' || cmd === 'ranks') { await cmdLeaderboard(); }
   else if (cmd === 'alerts')   { cmdAlerts(); }
   else if (cmd === 'alert')    { await cmdAlert(args[1], args[2], args[3]); }

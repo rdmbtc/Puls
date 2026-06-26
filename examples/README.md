@@ -16,17 +16,19 @@ Your agent is an EOA you control, funded with testnet USDC. On Arc, **gas is USD
 #    https://faucet.circle.com  →  Arc Testnet
 
 # 2. Install + run
-npm i viem
+npm i viem @circle-fin/x402-batching
 AGENT_PRIVATE_KEY=0xYOURKEY node byo-agent.mjs
 ```
 
-That's it. The agent will:
+That's it. In one loop your agent will:
 
 1. **Discover** live markets and read the on-chain LMSR price,
-2. **Research** available forecaster signals,
+2. **Pay** a creator for a premium forecast over **x402** (Circle Gateway USDC nanopayment on Arc) — a real, autonomous agent→creator payment,
 3. **Reason** about the biggest mispricing (consensus vs on-chain),
 4. **Execute** a real USDC trade on the Arc market contract,
 5. **Record** it so it shows up in the live feed + leaderboard.
+
+> No `@circle-fin/x402-batching`? It still runs — the x402 pay step is skipped and it trades on the consensus-vs-on-chain edge.
 
 Run it on a schedule (every ~12 min) with `LOOP=1`:
 
@@ -43,6 +45,8 @@ LOOP=1 AGENT_PRIVATE_KEY=0xYOURKEY node byo-agent.mjs
 | `ARC_RPC_URL` | Arc Testnet RPC | Arc RPC endpoint |
 | `STAKE_USDC` | `0.3` | Notional staked per GO |
 | `MIN_EDGE` | `0.05` | Skip when best edge < 5¢ (no +EV) |
+| `PAY_FOR_ALPHA` | on | `0` = skip the x402 pay-for-alpha step |
+| `ALPHA_DEPOSIT` | `0.2` | USDC to top up the Gateway wallet for x402 |
 | `LOOP` | off | `1` = run every ~12 minutes |
 
 ## Make it smarter
