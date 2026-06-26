@@ -141,10 +141,27 @@ app.use(allowedOrigins.length ? cors({ origin: allowedOrigins }) : cors());
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 // Lightweight liveness probe (no DB, no rate-limit) for uptime monitors and
+// Lightweight event-loop lag meter — proves whether the box is actually working.
+let __elLagMs = 0;
+{ let _last = Date.now(); const _t = setInterval(() => { const now = Date.now(); __elLagMs = Math.max(0, now - _last - 1000); _last = now; }, 1000); if (_t.unref) _t.unref(); }
+
 // Cloudflare/load-balancer health checks. Always fast, never cached.
 app.get('/api/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ ok: true, service: 'puls-backend', uptimeSec: Math.round(process.uptime()), ts: Date.now() });
+  const os = require('os');
+  const mem = process.memoryUsage();
+  const la = os.loadavg();
+  res.json({
+    ok: true, service: 'puls-backend', uptimeSec: Math.round(process.uptime()), ts: Date.now(),
+    rssMb: Math.round(mem.rss / 1048576),
+    heapUsedMb: Math.round(mem.heapUsed / 1048576),
+    sysMemUsedMb: Math.round((os.totalmem() - os.freemem()) / 1048576),
+    sysMemTotalMb: Math.round(os.totalmem() / 1048576),
+    cpus: os.cpus().length,
+    load1: +la[0].toFixed(2), load5: +la[1].toFixed(2), load15: +la[2].toFixed(2),
+    eventLoopLagMs: __elLagMs,
+    agents: (globalThis.__pulsMetrics || {}),
+  });
 });
 
 app.use(generalLimiter); // Apply general rate limit globally
