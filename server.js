@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
@@ -148,7 +149,6 @@ let __elLagMs = 0;
 // Cloudflare/load-balancer health checks. Always fast, never cached.
 app.get('/api/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  const os = require('os');
   const mem = process.memoryUsage();
   const la = os.loadavg();
   res.json({
