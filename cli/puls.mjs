@@ -734,7 +734,7 @@ async function startTUI() {
   let statusMsg = '', statusTimer = null;
   let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
-  let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0, sigFilter = 'all';
+  let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0, sigFilter = 'all', buyMode = null;
   let myAgent = null, myLog = [], myInput = '', myBusy = false;
 
   function setStatus(msg, ms = 3500) {
@@ -763,6 +763,59 @@ async function startTUI() {
     try { const [house, roster] = await Promise.all([api('/api/agents/house').catch(() => null), api('/api/agents/roster').catch(() => null)]); agentsData = { house, roster }; } catch {}
   }
   async function loadPf() { if (!loadCfg().key) return; try { pfData = await api('/api/portfolio', { auth: true }); } catch {} }
+
+  // ── In-TUI trading (buy / sell / claim) — authed, settled on Arc ──
+  async function tuiTradeResult(r) {
+    let st = r || {};
+    if (r && r.txId) {
+      const dl = Date.now() + 45000;
+      while (Date.now() < dl) {
+        await new Promise(z => setTimeout(z, 1600));
+        try { st = await api('/api/trade/status?txId=' + encodeURIComponent(r.txId)); } catch {}
+        if (TERMINAL_STATES.has(String(st.state || '').toUpperCase())) break;
+      }
+    }
+    return { done: ['COMPLETE', 'CONFIRMED'].includes(String(st.state || '').toUpperCase()), state: st.state };
+  }
+  async function execBuy() {
+    const m = detailMarket; const amt = parseFloat(buyMode && buyMode.amount); const side = (buyMode && buyMode.side) || 'YES';
+    buyMode = null;
+    if (!m) return;
+    if (!loadCfg().key) { setStatus('Log in to trade:  puls login pk_live_…'); render(); return; }
+    if (!(amt > 0)) { setStatus('Enter a positive USDC amount'); render(); return; }
+    const yes = m.yesPrice ?? m.priceYes ?? m.yes;
+    const entryPrice = yes != null ? (side === 'YES' ? Number(yes) : 1 - Number(yes)) : undefined;
+    setStatus('Submitting ' + side + ' $' + amt + '…'); render();
+    try {
+      const r = await api('/api/trade/buy', { method: 'POST', auth: true, body: { slug: m.slug, side, usdcAmount: amt, question: m.question, entryPrice } });
+      const res = await tuiTradeResult(r);
+      setStatus(res.done ? '✓ bought ' + side + ' · $' + amt + ' USDC' : '● ' + (res.state || 'submitted')); await loadPf(); render();
+    } catch (e) { setStatus('✗ ' + (e.message || e)); render(); }
+  }
+  async function execSell(p) {
+    if (!p) return;
+    if (!loadCfg().key) { setStatus('Log in to trade'); render(); return; }
+    if (p.resolved) { setStatus('Resolved — press c to claim'); render(); return; }
+    const side = String(p.side || '').toUpperCase(); const shares = Number(p.shares) || 0;
+    if (!(shares > 0)) { setStatus('Nothing to sell here'); render(); return; }
+    setStatus('Selling ' + side + '…'); render();
+    try {
+      const r = await api('/api/trade/sell', { method: 'POST', auth: true, body: { slug: p.slug, contractAddress: p.contractAddress || p.marketId, side, shares, question: p.question, owner: p.owner, entryPrice: p.entryPrice } });
+      const res = await tuiTradeResult(r);
+      setStatus(res.done ? '✓ sold ' + side : '● ' + (res.state || 'submitted')); await loadPf(); render();
+    } catch (e) { setStatus('✗ ' + (e.message || e)); render(); }
+  }
+  async function execClaim(p) {
+    if (!p) return;
+    if (!loadCfg().key) { setStatus('Log in to trade'); render(); return; }
+    if (!p.resolved) { setStatus("Not resolved yet — can't claim"); render(); return; }
+    setStatus('Claiming…'); render();
+    try {
+      const r = await api('/api/trade/claim', { method: 'POST', auth: true, body: { slug: p.slug, contractAddress: p.contractAddress || p.marketId } });
+      const res = await tuiTradeResult(r);
+      setStatus(res.done ? '✓ claim settled' : '● ' + (res.state || (r && r.ok ? 'claimed' : 'submitted'))); await loadPf(); render();
+    } catch (e) { setStatus('✗ ' + (e.message || e)); render(); }
+  }
   async function loadStats() { try { statsData = await api('/api/stats'); } catch {} }
   async function loadSignals() { try { const d = await api('/api/signals', loadCfg().key ? { auth: true } : {}); signals = d.signals || (Array.isArray(d) ? d : []); } catch {} }
   function loadAll() { return Promise.all([loadData(), loadAgents(), loadPf(), loadStats(), loadSignals(), loadMyAgent()]); }
@@ -965,6 +1018,14 @@ async function startTUI() {
     const meta = []; const vol = m.volumeUsdc ?? m.volume; if (vol != null) meta.push(cy('$' + abbr(vol) + ' vol')); if (m.trades != null) meta.push(Dm(abbr(m.trades) + ' trades')); if (m.createdAt) meta.push(Dm(timeAgo(m.createdAt)));
     if (meta.length) s += '  ' + meta.join('   ·   ') + '\n';
     s += '  ' + Dm('simulated intraday · full candlesticks: ') + Pk('puls market ' + (m.slug || '')) + '\n';
+    if (buyMode) {
+      s += '\n  ' + Pk('● Buy') + '   ' + (buyMode.side === 'YES' ? Em('▲ YES') : Dm('▲ yes')) + Dm('  /  ') + (buyMode.side === 'NO' ? Rs('▼ NO') : Dm('▼ no')) + Dm('   (y/n)') + '\n';
+      s += '  ' + Dm('amount  $') + Wh(buyMode.amount || '0') + Pk('▏') + Dm('   Enter buy · Esc cancel') + '\n';
+    } else if (loadCfg().key) {
+      s += '\n  ' + Dm('press ') + Pk('b') + Dm(' to buy · ') + Pk('o') + Dm(' open · ') + Pk('Esc') + Dm(' back') + '\n';
+    } else {
+      s += '\n  ' + Dm('log in to trade:  ') + Pk('puls login pk_live_…') + '\n';
+    }
     return s;
   }
 
@@ -1022,11 +1083,14 @@ async function startTUI() {
     const pos = pfData.positions || pfData.holdings || []; const spent = pfData.totalSpent ?? pfData.investedUsdc; const openN = pos.filter(p => !p.resolved).length;
     s += `  ${Dm('invested ')}${Cy('$' + usd(spent || 0))}${Dm('  ·  ' + openN + ' open · ' + pos.length + ' total')}\n\n`;
     if (!pos.length) return s + `  ${Dm('No positions yet.')}`;
-    for (const p of pos.slice(0, Math.max(2, H - 5))) {
+    if (sel >= pos.length) sel = Math.max(0, pos.length - 1);
+    pos.slice(0, Math.max(2, H - 6)).forEach((p, i) => {
+      const isSel = i === sel;
       const side = String(p.side || '').toUpperCase();
       const st = p.claimed ? di('claimed') : p.resolved ? ((!!p.outcome === (side === 'YES')) ? Em('won') : rs('lost')) : am('open');
-      s += `  ${(side === 'YES' ? Em : Rs)((side || '·').padEnd(3))} ${Tx(String(p.question || p.slug || '').slice(0, TW - 32))}  ${p.usdcAmount != null ? cy('$' + usd(p.usdcAmount)) : ''}  ${st}\n`;
-    }
+      s += `${isSel ? Pk(' ▸ ') : '   '}${(side === 'YES' ? Em : Rs)((side || '·').padEnd(3))} ${(isSel ? Wh : Tx)(String(p.question || p.slug || '').slice(0, TW - 34))}  ${p.usdcAmount != null ? cy('$' + usd(p.usdcAmount)) : ''}  ${st}\n`;
+    });
+    s += '\n  ' + Dm('↑↓ select · ') + Pk('s') + Dm(' sell · ') + Pk('c') + Dm(' claim');
     return s;
   }
 
@@ -1229,7 +1293,17 @@ async function startTUI() {
 
     // ── Market detail sub-view ──
     if (tab === TAB.MARKETS && detailMarket) {
+      if (buyMode) {
+        if (key === '\x1b') { buyMode = null; setStatus(''); render(); return; }
+        if (key === 'y' || key === '\x1b[D' || key === 'h') { buyMode.side = 'YES'; render(); return; }
+        if (key === 'n' || key === '\x1b[C' || key === 'l') { buyMode.side = 'NO'; render(); return; }
+        if (key === '\x7f' || key === '\b') { buyMode.amount = buyMode.amount.slice(0, -1); render(); return; }
+        if ((key >= '0' && key <= '9') || key === '.') { buyMode.amount += key; render(); return; }
+        if (key === '\r') { await execBuy(); return; }
+        return;
+      }
       if (key === '\x1b' || key === '\b' || key === '\x7f') { detailMarket = null; render(); return; }
+      if (key === 'b') { buyMode = { side: 'YES', amount: '' }; setStatus('Buy: type amount · y/n side · Enter · Esc'); render(); return; }
       if (key === 'o') { openBrowser(WEB_BASE + '/m/' + (detailMarket.slug || '')); setStatus('Opening in browser…'); render(); return; }
       return;
     }
@@ -1265,6 +1339,16 @@ async function startTUI() {
       if (key === 'u') { await unlockSel(); return; }
       if (key === 'a') { await unlockSel('agent'); return; }
       if (key === '\r') { const cur = list[sel]; if (cur && cur.unlocked) { sigDetail = cur; docScroll = 0; render(); } else { await unlockSel(); } return; }
+      return;
+    }
+
+    // ── Portfolio: sell / claim a position ──
+    if (tabs[tab] === 'Portfolio') {
+      const pos = (pfData && (pfData.positions || pfData.holdings)) || [];
+      if (key === '\x1b[A' || key === 'k') { sel = Math.max(0, sel - 1); render(); return; }
+      if (key === '\x1b[B' || key === 'j') { sel = Math.min(Math.max(0, pos.length - 1), sel + 1); render(); return; }
+      if (key === 's') { await execSell(pos[sel]); return; }
+      if (key === 'c') { await execClaim(pos[sel]); return; }
       return;
     }
   });
