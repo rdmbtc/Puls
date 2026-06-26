@@ -7,7 +7,8 @@
  * everyone else. It runs the same loop as the house agent "Pulse":
  *
  *   1. DISCOVER   — read live markets + the on-chain LMSR price.
- *   2. RESEARCH   — (optional) read a forecaster's published Signal as alpha.
+ *   2. PAY ALPHA  — pay a creator for a premium forecast over x402 (Circle Gateway
+ *                   nanopayments on Arc) — a REAL autonomous agent→creator payment.
  *   3. REASON     — decide YES / NO / SKIP (LLM if you wire one, else a simple
  *                   value rule comparing consensus vs the on-chain price).
  *   4. EXECUTE    — buy outcome shares on the market contract, in USDC, on Arc.
@@ -17,8 +18,9 @@
  * https://faucet.circle.com → Arc Testnet). On Arc, gas is USDC — no ETH needed.
  *
  * Usage:
- *   npm i viem
+ *   npm i viem @circle-fin/x402-batching     # x402-batching = the pay-for-alpha step
  *   AGENT_PRIVATE_KEY=0x... node byo-agent.mjs
+ *   (no @circle-fin/x402-batching installed? it still runs — the x402 step skips.)
  *
  * Env:
  *   AGENT_PRIVATE_KEY   (required) funded agent EOA private key
@@ -26,6 +28,8 @@
  *   ARC_RPC_URL         (default https://rpc.arc-testnet.t.raas.gelato.cloud)
  *   STAKE_USDC          (default 0.3) notional to stake per GO
  *   MIN_EDGE            (default 0.05) skip if best edge below this (5¢)
+ *   PAY_FOR_ALPHA       (default on; set 0 to skip the x402 alpha purchase)
+ *   ALPHA_DEPOSIT       (default 0.2) USDC to top up the Gateway wallet for x402
  *   LOOP                (default once; set LOOP=1 to run every ~12 min)
  *
  * Testnet only — test USDC, no monetary value. Not financial advice. 18+.
@@ -98,11 +102,29 @@ async function cycle() {
   const active = markets.filter(m => m.contractAddress && m.yesPrice != null);
   if (!active.length) { console.log('[byo-agent] no active deployed markets right now.'); return; }
 
-  // 2) RESEARCH — peek at a published forecaster Signal (free teaser; unlocking pays the creator).
-  try {
-    const sigs = (await j('/api/signals')).signals || [];
-    if (sigs.length) console.log(`[byo-agent] ${sigs.length} forecaster signals available (unlock to pay creator via x402).`);
-  } catch (_) {}
+  // 2) PAY ALPHA — pay a creator for a premium forecast via x402 (Circle Gateway
+  //    nanopayments on Arc): a REAL autonomous agent→creator payment, settled in
+  //    USDC on Arc. Gracefully skipped if @circle-fin/x402-batching isn't installed.
+  let paidAlpha = null;
+  if (process.env.PAY_FOR_ALPHA !== '0') {
+    try {
+      const { GatewayClient } = await import('@circle-fin/x402-batching/client');
+      const gateway = new GatewayClient({ chain: 'arcTestnet', privateKey: PK.startsWith('0x') ? PK : `0x${PK}` });
+      const gb = await gateway.getBalances();
+      if (!gb.gateway?.available || gb.gateway.available < 100_000n) {
+        await gateway.deposit(process.env.ALPHA_DEPOSIT || '0.2'); // one-time top-up of the Gateway wallet
+      }
+      const r = await gateway.pay(`${PULS_API}/api/alpha/sample`, { method: 'GET' });
+      paidAlpha = r.data ?? r.body ?? null;
+      console.log(`[byo-agent] paid ${r.formattedAmount ?? ''} USDC for a forecast via x402 — a real agent→creator nanopayment on Arc.`);
+    } catch (e) {
+      console.log(`[byo-agent] x402 alpha skipped (${e.message || e}). Install @circle-fin/x402-batching to pay creators; trading on consensus vs on-chain.`);
+      try {
+        const sigs = (await j('/api/signals')).signals || [];
+        if (sigs.length) console.log(`[byo-agent] ${sigs.length} free forecaster signal teasers available.`);
+      } catch (_) {}
+    }
+  }
 
   // 3) REASON — find the biggest gap between consensus and the on-chain price.
   let best = null;
@@ -119,6 +141,7 @@ async function cycle() {
     console.log(`[byo-agent] HOLD — best edge ${best ? (best.edge * 100).toFixed(1) : 0}¢ < ${(MIN_EDGE * 100).toFixed(0)}¢ bar. No +EV.`);
     return;
   }
+  if (paidAlpha) console.log('[byo-agent] (you paid for alpha above — it is in `paidAlpha`; wire it into REASON to weight your call.)');
   console.log(`[byo-agent] DECISION: ${best.side} on "${best.question}" — consensus ${(best.consensus * 100).toFixed(0)}¢ vs on-chain ${(best.ocYes * 100).toFixed(0)}¢ (edge ${(best.edge * 100).toFixed(1)}¢)`);
 
   // 4) EXECUTE — approve (once) then buyYes/buyNo on the market contract.
