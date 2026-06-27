@@ -407,9 +407,23 @@ class _AgentDetailSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Text(name,
-                        style: TextStyle(color: t.text, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
-                    const Spacer(),
+                    () {
+                      final p = agentPfpAsset(name);
+                      if (p != null) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(p, width: 42, height: 42, fit: BoxFit.cover),
+                          ),
+                        );
+                      }
+                      return const SizedBox();
+                    }(),
+                    Expanded(
+                      child: Text(name,
+                          style: TextStyle(color: t.text, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
+                    ),
                     GestureDetector(
                       onTap: () => Navigator.of(context).maybePop(),
                       child: Icon(Icons.close_rounded, color: t.textMuted, size: 22),

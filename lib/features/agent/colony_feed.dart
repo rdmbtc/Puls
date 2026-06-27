@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_emoji_text.dart';
+import '../../core/utils/agent_pfp.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
 /// actions. Each event reads like a story: 🔍 researched → 💸 paid a peer for
@@ -172,7 +173,16 @@ class _EventCard extends StatelessWidget {
                 gradient: LinearGradient(colors: [PulsColors.brandMint, t.brand]),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(isCreate ? Icons.add_chart_rounded : isSell ? Icons.sell_rounded : isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16),
+              child: () {
+                final p = agentPfpAsset(name);
+                if (p != null) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: Image.asset(p, width: 30, height: 30, fit: BoxFit.cover),
+                  );
+                }
+                return Icon(isCreate ? Icons.add_chart_rounded : isSell ? Icons.sell_rounded : isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16);
+              }(),
             ),
             const SizedBox(width: 9),
             Expanded(
