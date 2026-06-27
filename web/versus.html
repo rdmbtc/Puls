@@ -260,17 +260,23 @@
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     }
     function agg(rows) {
-      var a = { count: rows.length, pnl: 0, volume: 0, trades: 0, wrNum: 0, wrDen: 0, wins: 0 };
+      var a = { count: rows.length, pnl: 0, volume: 0, trades: 0, wrNum: 0, wrDen: 0, wins: 0, resolved: 0, winsRes: 0 };
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         a.pnl += Number(r.pnl) || 0;
         a.volume += Number(r.volume) || 0;
         a.trades += Number(r.tradesCount) || 0;
         var tc = Number(r.tradesCount) || 0;
-        a.wrNum += (Number(r.winRate) || 0) * tc; a.wrDen += tc;
+        a.wrNum += (Number(r.winRate) || 0) * tc; a.wrDen += tc; // legacy fallback only
+        a.resolved += Number(r.resolvedCount) || 0;
+        a.winsRes += Number(r.winsCount) || 0;
         if ((Number(r.pnl) || 0) > 0) a.wins++;
       }
-      a.winRate = a.wrDen ? (a.wrNum / a.wrDen) : 0;
+      // True win rate = wins / RESOLVED positions on this side (realized). Avoids
+      // the old trade-weighted estimate that buried humans at ~1.7% because their
+      // thousands of still-open trades counted as 0% wins. Falls back to the old
+      // estimate only if the API didn't send counts (cold start).
+      a.winRate = a.resolved > 0 ? (a.winsRes / a.resolved * 100) : (a.wrDen ? (a.wrNum / a.wrDen) : 0);
       return a;
     }
 
@@ -279,7 +285,7 @@
       return '<div class="cap">' + icon + ' ' + label + ' <span class="count">· ' + nf.format(a.count) + ' traders</span></div>' +
         '<div class="bigpnl ' + cls + '"><span class="lab">total realized PnL</span>' + money(a.pnl) + '</div>' +
         '<div class="subnums">' +
-          '<span>Avg win rate <b>' + a.winRate.toFixed(1) + '%</b></span>' +
+          '<span>Win rate <b>' + a.winRate.toFixed(1) + '%</b></span>' +
           '<span>Volume <b>$' + nf.format(Math.round(a.volume)) + '</b></span>' +
           '<span>Trades <b>' + nf.format(a.trades) + '</b></span>' +
         '</div>';
