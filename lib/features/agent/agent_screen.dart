@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/widgets/puls_snack.dart';
 import '../../core/widgets/tactile.dart';
 import 'package:http/http.dart' as http;
@@ -473,7 +475,7 @@ class _AgentScreenState extends State<AgentScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [5, 10, 25, 50].map((v) {
-                  final sel = _budget.text == '$v';
+                  final sel = _budget.text == v.toString();
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Tactile(
@@ -555,7 +557,7 @@ class _AgentScreenState extends State<AgentScreen>
         _strategy = r['strategy'] as String? ?? 'NONE';
         final strategyName = _strategy == 'NONE'
             ? 'Manual Chat'
-            : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA');
+            : 'DCA';
         _msgs.add(_Msg(true,
             '⚙️ Presets changed: Autonomous strategy set to **$strategyName** mode.'));
       });
@@ -599,7 +601,7 @@ class _AgentScreenState extends State<AgentScreen>
                 child: Text(
                   _strategy == 'NONE'
                       ? 'Manual Chat'
-                      : (_strategy == 'ARBITRAGE' ? 'Arbitrage' : 'DCA Active'),
+                      : 'DCA Active',
                   style: TextStyle(
                     color: _strategy == 'NONE' ? t.textMuted : t.yes,
                     fontSize: 9,
@@ -613,12 +615,12 @@ class _AgentScreenState extends State<AgentScreen>
           Row(
             children: [
               Expanded(
-                  child: _strategyOption(t, 'NONE', 'Manual Chat',
+                  child: _strategyOption(t, 'NONE', 'Manual',
                       Icons.chat_bubble_outline_rounded)),
               const SizedBox(width: 8),
               Expanded(
                   child: _strategyOption(
-                      t, 'DCA', 'DCA Mode', Icons.schedule_rounded)),
+                      t, 'DCA', 'DCA', Icons.schedule_rounded)),
             ],
           ),
         ],
@@ -629,34 +631,49 @@ class _AgentScreenState extends State<AgentScreen>
   Widget _strategyOption(
       PulsThemeColors t, String value, String label, IconData icon) {
     final isSelected = _strategy == value;
+    final isPremium = value == 'DCA';
+
+    Widget content = Container(
+      height: 42,
+      decoration: BoxDecoration(
+        color: isSelected ? (isPremium ? t.brand.withValues(alpha: 0.15) : t.brand) : t.surfaceRaised,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: isSelected ? t.brand : t.border,
+            width: isSelected && isPremium ? 1.5 : 1.0),
+        boxShadow: isSelected && isPremium
+            ? [BoxShadow(color: t.brand.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1)]
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon,
+              size: 14, color: isSelected ? (isPremium ? t.brand : Colors.white) : t.textMuted),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? (isPremium ? t.brand : Colors.white) : t.text,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isPremium && isSelected) {
+      content = content.animate(onPlay: (controller) => controller.repeat(reverse: true))
+          .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3))
+          .elevation(end: 4, color: t.brand);
+    }
+
     return Tactile(
       behavior: HitTestBehavior.opaque,
       onTap: () => _updateStrategy(value),
-      child: Container(
-        height: 38,
-        decoration: BoxDecoration(
-          color: isSelected ? t.brand : t.surfaceRaised,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isSelected ? t.brand : t.border),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 13, color: isSelected ? Colors.white : t.textMuted),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : t.text,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 
@@ -751,14 +768,19 @@ class _AgentScreenState extends State<AgentScreen>
         ? '${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}'
         : addr;
     final remaining = (_budgetVal - _spent).clamp(0, double.infinity);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: t.surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: t.border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: t.surfaceRaised.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: t.border.withValues(alpha: 0.5)),
+            ),
       child: Row(
         children: [
           Container(
@@ -884,7 +906,9 @@ class _AgentScreenState extends State<AgentScreen>
           ),
         ],
       ),
-    );
+    ),
+    ),
+    )).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _bubble(_Msg m, PulsThemeColors t) {
@@ -893,20 +917,30 @@ class _AgentScreenState extends State<AgentScreen>
     final bg = m.fromAgent ? t.surfaceRaised : t.brand;
     final fg = m.fromAgent ? t.text : Colors.white;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: align,
         children: [
           Container(
-            constraints: const BoxConstraints(maxWidth: 320),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(14),
-              border: m.fromAgent ? Border.all(color: t.border) : null,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(m.fromAgent ? 4 : 16),
+                bottomRight: Radius.circular(m.fromAgent ? 16 : 4),
+              ),
+              boxShadow: m.fromAgent ? [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
+              ] : [
+                BoxShadow(color: t.brand.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))
+              ],
+              border: m.fromAgent ? Border.all(color: t.border.withValues(alpha: 0.5)) : null,
             ),
             child: PulsEmojiText(m.text,
-                style: TextStyle(color: fg, fontSize: 14, height: 1.35)),
+                style: TextStyle(color: fg, fontSize: 14.5, height: 1.4)),
           ),
           if (m.fromAgent && m.sources.isNotEmpty) ...[
             const SizedBox(height: 5),
@@ -994,44 +1028,66 @@ class _AgentScreenState extends State<AgentScreen>
 
   Widget _composer(PulsThemeColors t) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
-          color: t.bg, border: Border(top: BorderSide(color: t.border))),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _input,
-              style: TextStyle(color: t.text),
-              minLines: 1,
-              maxLines: 3,
-              onSubmitted: (_) => _send(),
-              decoration: InputDecoration(
-                hintText: 'Ask the agent to trade…',
-                hintStyle: TextStyle(color: t.textSubtle),
-                filled: true,
-                fillColor: t.surfaceRaised,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none),
+        color: t.bg,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: t.surfaceRaised,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: t.border.withValues(alpha: 0.6)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, -4))
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _input,
+                style: TextStyle(color: t.text, fontSize: 15),
+                minLines: 1,
+                maxLines: 4,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(
+                  hintText: 'Ask the agent to trade…',
+                  hintStyle: TextStyle(color: t.textSubtle),
+                  filled: false,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: InputBorder.none,
+                ),
               ),
             ),
-          ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _busy ? null : _send,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                  color: _busy ? t.border : t.brand, shape: BoxShape.circle),
-              child: const Icon(Icons.arrow_upward_rounded,
-                  color: Colors.white, size: 20),
-            ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _input,
+            builder: (context, val, child) {
+              final isEmpty = val.text.trim().isEmpty;
+              final disabled = _busy || isEmpty;
+              return GestureDetector(
+                onTap: disabled ? null : _send,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                      color: disabled ? t.surface : t.brand, 
+                      shape: BoxShape.circle,
+                      boxShadow: disabled ? [] : [
+                        BoxShadow(color: t.brand.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1)
+                      ]
+                  ),
+                  child: Icon(Icons.arrow_upward_rounded,
+                      color: disabled ? t.textSubtle : Colors.white, size: 20),
+                ),
+              );
+            },
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
