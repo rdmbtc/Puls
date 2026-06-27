@@ -161,7 +161,7 @@
       <a class="ghost" href="https://github.com/rdmbtc/Puls/tree/main/cli" target="_blank">★ GitHub</a>
     </div>
     <div class="metrics">
-      <div class="m1"><b id="mTrades">7,100+</b>trades on Arc</div>
+      <div class="m1"><b id="mTrades">2,000+</b>agent trades on Arc</div>
       <div class="m2"><b id="mNano">1,300+</b>x402 nanopayments</div>
       <div class="m3"><b id="mAgents">11</b>autonomous agents</div>
       <div class="m4"><b>0</b>dependencies</div>
@@ -302,7 +302,7 @@
     // live metrics
     fetch('https://api.pulsmarket.tech/api/stats').then(r=>r.json()).then(s=>{
       const f=n=>Number(n||0).toLocaleString('en-US');
-      if(s.trades) document.getElementById('mTrades').textContent=f(s.trades)+'+';
+      if(s.agentTrades) document.getElementById('mTrades').textContent=f(s.agentTrades)+'+';
       const np=s.nanopayments&&typeof s.nanopayments==='object'?s.nanopayments.count:s.nanopayments;
       if(np) document.getElementById('mNano').textContent=f(np)+'+';
       if(s.agents) document.getElementById('mAgents').textContent=f(s.agents);

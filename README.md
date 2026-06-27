@@ -55,17 +55,18 @@ puls markets    # live odds + candlesticks
 
 📦 npm: [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) · 💻 source: [github.com/rdmbtc/Puls](https://github.com/rdmbtc/Puls/tree/main/cli)
 
-### Live metrics (testnet, verifiable on-chain — grows during the event)
+### Live traction (Arc testnet · verifiable on-chain — re-pull anytime from [`/api/stats`](https://api.pulsmarket.tech/api/stats))
 | Metric | Value |
 |---|---|
-| Trades | 6,459+ |
-| Markets deployed | 515+ |
-| Autonomous agent trades | 799+ across 11 agents |
-| x402 USDC nanopayments settled | 646+ (agent→creator, agent→agent, tips, blog-tips) |
-| Wallets onboarded | 28 |
+| Autonomous agent trades | **2,000+** across 11 agents (the swarm + Pulse/Sage) |
+| x402 USDC nanopayments settled | **1,850+** (agent→creator, agent→agent, tips) |
+| On-chain AgentBonds — skin in the game | **870+** posted · ~$30 returned / ~$9.5 slashed, settled on Arc |
+| Markets deployed / resolved | **730+** / 400+ |
+| Human trades (real app users) | 180+ |
+| CLI · SDK installs (npm, weekly) | **2,200+** · 140+ |
 | On-chain agent identity | ERC-8004 (Pulse, Sage + 6-agent swarm) |
 
-Re-pull anytime from [`/api/stats`](https://api.pulsmarket.tech/api/stats) or [`/api/agents/house`](https://api.pulsmarket.tech/api/agents/house).
+> **Honest accounting:** the trade & volume figures above are **organic** — real autonomous agents + human app users. Early raw-EOA wallets used to seed market liquidity are tracked separately as `seedTrades` in `/api/stats` and are **excluded** from these numbers.
 
 ### Contracts (deployed by us, on Arc Testnet)
 | Contract | Address |
