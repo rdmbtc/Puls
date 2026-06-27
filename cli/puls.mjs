@@ -37,7 +37,7 @@ import readline from 'node:readline';
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-const VERSION = '6.6.0';
+const VERSION = '6.6.1';
 const API_BASE = (process.env.PULS_API || 'https://api.pulsmarket.tech').replace(/\/+$/, '');
 const WEB_BASE = 'https://app.pulsmarket.tech';
 const CFG_DIR  = join(homedir(), '.puls');
@@ -319,6 +319,25 @@ async function typeWrite(text, speed = 11) {
     if ('.!?'.includes(ch)) d *= 4; else if (',;:'.includes(ch)) d *= 2.5;
     await sleep(d);
   }
+}
+
+// A shimmering, phrase-cycling "thinking" line (Claude-Code-style): a braille
+// spinner + a moving highlight sweep across rotating phrases + elapsed time.
+const THINK_PHRASES = ['researching the open web', 'reading live sources', 'reasoning over the data', 'weighing the edge', 'sizing the call'];
+function thinkingLine(frame, startMs, phrases = THINK_PHRASES) {
+  const sp = SPINNERS.dots[frame % SPINNERS.dots.length];
+  const phrase = phrases[Math.floor(frame / 16) % phrases.length] + '…';
+  const pos = (frame % (phrase.length + 10)) - 5;
+  let body = '';
+  for (let i = 0; i < phrase.length; i++) {
+    const d = Math.abs(i - pos);
+    let r = 110, g = 110, b = 122;
+    if (d < 6) { const k = (1 - d / 6) * 0.95; r = mix(r, 236, k); g = mix(g, 72, k); b = mix(b, 153, k); }
+    body += fg(r, g, b) + phrase[i];
+  }
+  const [pr, pg, pb] = gradColor((frame % 60) / 60);
+  const el = startMs ? '  ' + Dm(((Date.now() - startMs) / 1000).toFixed(1) + 's') : '';
+  return fg(pr, pg, pb) + sp + RST + ' ' + body + RST + el;
 }
 
 async function toast(msg, icon, color) {
@@ -730,12 +749,12 @@ async function startTUI() {
   let markets = [], search = '', searching = false, sortMode = 'volume';
   let detailMarket = null;
   let agentsData = null, pfData = null, statsData = null, signals = [];
-  let chatLog = [], chatInput = '', chatBusy = false, sigBusy = false;
+  let chatLog = [], chatInput = '', chatBusy = false, chatBusyAt = 0, sigBusy = false;
   let statusMsg = '', statusTimer = null;
   let paletteMode = false, paletteQuery = '', paletteSel = 0;
   let loaded = false;
   let frame = 0, animTimer = null, onResize = null, unlocking = null, sigDetail = null, docScroll = 0, sigFilter = 'all', buyMode = null;
-  let myAgent = null, myLog = [], myInput = '', myBusy = false;
+  let myAgent = null, myLog = [], myInput = '', myBusy = false, myBusyAt = 0;
 
   function setStatus(msg, ms = 3500) {
     statusMsg = msg; if (statusTimer) clearTimeout(statusTimer);
@@ -824,7 +843,7 @@ async function startTUI() {
     const msg = chatInput.trim(); if (!msg || chatBusy) return;
     chatInput = '';
     if (!loadCfg().key) { chatLog.push({ role: 'ai', text: 'Log in to chat with the copilot:  puls login pk_live_…' }); render(); return; }
-    chatLog.push({ role: 'you', text: msg }); chatBusy = true; render();
+    chatLog.push({ role: 'you', text: msg }); chatBusy = true; chatBusyAt = Date.now(); render();
     try {
       const r = await api('/api/copilot/chat', { method: 'POST', body: { message: msg }, auth: true });
       chatLog.push({ role: 'ai', text: String(r.reply || '(no reply)').replace(/\*([^*]+)\*/g, (_, t) => BD + t + RST), sources: r.sources || [] });
@@ -866,7 +885,7 @@ async function startTUI() {
     const msg = myInput.trim(); if (!msg || myBusy) return;
     myInput = '';
     if (!loadCfg().key) { myLog.push({ role: 'ai', text: 'Log in first:  puls login pk_live_…' }); render(); return; }
-    myLog.push({ role: 'you', text: msg }); myBusy = true; render();
+    myLog.push({ role: 'you', text: msg }); myBusy = true; myBusyAt = Date.now(); render();
     async function ask() { return api('/api/agent/chat', { method: 'POST', body: { message: msg }, auth: true }); }
     try {
       let r;
@@ -877,6 +896,7 @@ async function startTUI() {
       }
       let txt = String(r.reply || '(no reply)').replace(/\*([^*]+)\*/g, (_, t) => BD + t + RST);
       if (r.trade) txt += '\n' + Em('⚡ traded ') + (r.trade.side || '') + ' ' + (r.trade.question || '');
+      if (r.signal) txt += '\n' + Em('⚡ bought signal ') + '“' + (r.signal.title || '') + '”' + (r.signal.price != null ? ' · $' + r.signal.price : '') + (r.signal.stance ? ' (' + r.signal.stance + ')' : '') + Dm(' · x402 on Arc');
       myLog.push({ role: 'ai', text: txt, sources: r.sources || [] });
       if (r.remaining != null || r.reputation != null) myAgent = { ...(myAgent || { exists: true }), balance: r.remaining ?? (myAgent && myAgent.balance), reputation: r.reputation ?? (myAgent && myAgent.reputation), exists: true };
     } catch (e) { myLog.push({ role: 'ai', text: '⚠ ' + e.message }); }
@@ -944,7 +964,7 @@ async function startTUI() {
       }
       lines.push('');
     }
-    if (chatBusy) lines.push('  ' + Pk('◆ Copilot') + '  ' + pk(SPINNERS.dots[frame % SPINNERS.dots.length]) + Dm(' researching the open web + reasoning…'));
+    if (chatBusy) lines.push('  ' + Pk('◆ Copilot') + '  ' + thinkingLine(frame, chatBusyAt));
     const avail = Math.max(2, H - 2);
     const shown = lines.slice(Math.max(0, lines.length - avail));
     let s = shown.join('\n') + '\n';
@@ -1134,7 +1154,7 @@ async function startTUI() {
       else { lines.push('  ' + Pk('🤖 Agent')); wrapText(m.text, PW - 6, '   ').forEach(l => lines.push(Tx(l))); if (m.sources && m.sources.length) lines.push('   ' + Dm('↳ ' + m.sources.map(x => hostOf(x.url || x.title)).filter(Boolean).slice(0, 3).join('  ·  '))); }
       lines.push('');
     }
-    if (myBusy) lines.push('  ' + Pk('🤖 Agent') + '  ' + pk(SPINNERS.dots[frame % SPINNERS.dots.length]) + Dm(' thinking + maybe trading…'));
+    if (myBusy) lines.push('  ' + Pk('🤖 Agent') + '  ' + thinkingLine(frame, myBusyAt, ['researching the market', 'reasoning over the data', 'checking my budget', 'pricing the edge', 'sizing the trade']));
     const avail = Math.max(2, H - 2);
     const shown = lines.slice(Math.max(0, lines.length - avail));
     let s = shown.join('\n') + '\n';
