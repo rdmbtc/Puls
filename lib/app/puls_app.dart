@@ -5,7 +5,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/puls_emoji.dart';
 import '../core/widgets/puls_page_route.dart';
 import '../data/mock/mock_market_repository.dart';
-import '../features/market/market_detail_screen.dart';
+import '../features/market/market_detail_screen.dart' deferred as market_detail;
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/shell/puls_shell.dart';
 import '../features/wallet/wallet_service.dart';
@@ -55,10 +55,11 @@ class _PulsAppState extends State<PulsApp> {
       final market = await _state.ensureMarketBySlug(slug);
       _pendingDeepLinkSlug = null;
       if (market == null) return; // unknown slug — stay on the feed
+      await market_detail.loadLibrary();
       _navigatorKey.currentState?.push(
         pulsRoute<void>(
           _navigatorKey.currentContext,
-          builder: (_) => MarketDetailScreen(marketId: market.id),
+          builder: (_) => market_detail.MarketDetailScreen(marketId: market.id),
         ),
       );
     });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/agent_pfp.dart';
@@ -69,12 +70,12 @@ class PulsAvatar extends StatelessWidget {
     } else if (url == null || url!.isEmpty) {
       child = fallback;
     } else {
-      child = Image.network(
-        normalizeAvatarUrl(url!, size: (size * 2).round().clamp(64, 256)),
+      child = CachedNetworkImage(
+        imageUrl: normalizeAvatarUrl(url!, size: (size * 2).round().clamp(64, 256)),
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
+        errorWidget: (_, __, ___) => fallback,
       );
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 String _proxied(String url) {
   if (!kIsWeb || url.isEmpty) return url;
@@ -14,11 +15,11 @@ Widget networkImage(
   BoxFit fit = BoxFit.cover,
 }) {
   if (url.isEmpty) return const SizedBox.shrink();
-  return Image.network(
-    _proxied(url),
+  return CachedNetworkImage(
+    imageUrl: _proxied(url),
     height: height,
     width: width,
     fit: fit,
-    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    errorWidget: (_, __, ___) => const SizedBox.shrink(),
   );
 }

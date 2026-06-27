@@ -53,7 +53,7 @@ class PulsAppState extends ChangeNotifier {
   String? feedError;
 
   bool onboardingComplete = false;
-  ThemeMode themeMode = ThemeMode.light;
+  ThemeMode themeMode = ThemeMode.dark;
   bool fastBuyEnabled = false;
   double fastBuyAmount = 1.0;
   // AI Oracle Panel on market detail — opt-in, off by default.
