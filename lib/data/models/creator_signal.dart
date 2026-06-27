@@ -25,6 +25,8 @@ class CreatorSignal {
     this.analytics,
     this.publishedAt,
     this.bond,
+    this.marketResolved = false,
+    this.marketOutcome,
   });
 
   final String id;
@@ -50,12 +52,19 @@ class CreatorSignal {
   final SignalAnalytics? analytics;
   final DateTime? publishedAt;
   final SignalBond? bond;
+  final bool marketResolved; // linked market resolved on-chain → signal finished
+  final bool? marketOutcome; // resolved outcome (YES = true) when known
 
   bool get isPublished => status == 'published';
   bool get isDraft => status == 'draft';
   bool get hasThesis => thesis != null && thesis!.isNotEmpty;
   bool get hasMarketLink => (marketSlug != null && marketSlug!.isNotEmpty);
   bool get hasSources => sources.isNotEmpty;
+
+  /// The linked market has resolved (outcome known) OR the staked bond has
+  /// settled — either way the call is over and the alpha is closed: the UI
+  /// shows it as Finished and it can no longer be unlocked/bought.
+  bool get isFinished => marketResolved || (bond != null && !bond!.isActive);
 
   /// True only when the paid alpha (the YES/NO pick) is legitimately available
   /// to this viewer: they've unlocked it (paid per-read) or they own it.
@@ -107,6 +116,8 @@ class CreatorSignal {
       bond: j['bond'] is Map<String, dynamic>
           ? SignalBond.fromJson(j['bond'] as Map<String, dynamic>)
           : null,
+      marketResolved: j['marketResolved'] == true,
+      marketOutcome: j['marketOutcome'] is bool ? j['marketOutcome'] as bool : null,
     );
   }
 }

@@ -84,6 +84,10 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
   Future<void> _unlock(CreatorSignal s) async {
     final wallet = WalletServiceScope.of(context);
     final snack = PulsSnack.of(context);
+    if (s.isFinished) {
+      snack.show('Market resolved — this signal is finished.');
+      return;
+    }
     try {
       final res = await wallet.unlockSignal(s.id);
       if (res['live'] == false) {
@@ -108,12 +112,13 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
     return _Author(isAgent ? 'Puls Agent 🤖' : 'Puls Trader', isAgent);
   }
 
+  @override
   Widget build(BuildContext context) {
     final t = context.puls;
     final shown = _filter == 'bought'
         ? _signals.where((s) => s.unlocked).toList()
         : _filter == 'finished'
-            ? _signals.where((s) => s.bond?.isReturned == true || s.bond?.isSlashed == true).toList()
+            ? _signals.where((s) => s.isFinished).toList()
             : _signals;
     if (_loading) {
       return const Padding(padding: EdgeInsets.all(40), child: PulsLoader());
@@ -130,7 +135,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
             const SizedBox(width: 8),
             _filterChip(t, 'bought', 'Bought', _signals.where((s) => s.unlocked).length),
             const SizedBox(width: 8),
-            _filterChip(t, 'finished', 'Finished', _signals.where((s) => s.bond?.isReturned == true || s.bond?.isSlashed == true).length),
+            _filterChip(t, 'finished', 'Finished', _signals.where((s) => s.isFinished).length),
           ]),
           const SizedBox(height: 12),
           if (_error != null)
@@ -144,7 +149,7 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
                   _MarketSignalCard(
                     signal: s,
                     author: _authorFor(s.creatorUserId),
-                    onUnlock: (!s.unlocked) ? () => _unlock(s) : null,
+                    onUnlock: (!s.unlocked && !s.isFinished) ? () => _unlock(s) : null,
                   ),
                   const SizedBox(height: 10),
                 ]),
@@ -340,6 +345,30 @@ class _MarketSignalCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+              ),
+            ),
+          ] else if (signal.isFinished) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: t.surfaceRaised,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.border),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.flag_rounded, size: 14, color: t.textMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    signal.marketOutcome == null
+                        ? 'Finished — market resolved'
+                        : 'Finished — resolved ${signal.marketOutcome! ? 'YES' : 'NO'}',
+                    style: TextStyle(color: t.textMuted, fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ],
               ),
             ),
           ],
