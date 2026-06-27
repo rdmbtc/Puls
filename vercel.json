@@ -17,5 +17,20 @@
     { "source": "/mobile-download", "destination": "/mobile-download.html" },
     { "source": "/explorer", "destination": "/explorer.html" },
     { "source": "/((?!api/|_vercel/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    },
+    {
+      "source": "/(.*).(wasm|png|webp|ttf)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }
