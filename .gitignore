@@ -19,6 +19,8 @@ android/app/profile
 android/app/release
 
 *.iml
+ngrok.exe
+
 *.log
 VPS.txt
 .idea/

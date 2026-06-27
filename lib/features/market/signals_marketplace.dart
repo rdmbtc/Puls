@@ -108,10 +108,13 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
     return _Author(isAgent ? 'Puls Agent 🤖' : 'Puls Trader', isAgent);
   }
 
-  @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final shown = _filter == 'bought' ? _signals.where((s) => s.unlocked).toList() : _signals;
+    final shown = _filter == 'bought'
+        ? _signals.where((s) => s.unlocked).toList()
+        : _filter == 'finished'
+            ? _signals.where((s) => s.bond?.isReturned == true || s.bond?.isSlashed == true).toList()
+            : _signals;
     if (_loading) {
       return const Padding(padding: EdgeInsets.all(40), child: PulsLoader());
     }
@@ -126,6 +129,8 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
             _filterChip(t, 'all', 'All', _signals.length),
             const SizedBox(width: 8),
             _filterChip(t, 'bought', 'Bought', _signals.where((s) => s.unlocked).length),
+            const SizedBox(width: 8),
+            _filterChip(t, 'finished', 'Finished', _signals.where((s) => s.bond?.isReturned == true || s.bond?.isSlashed == true).length),
           ]),
           const SizedBox(height: 12),
           if (_error != null)

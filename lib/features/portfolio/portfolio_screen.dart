@@ -399,6 +399,34 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     );
   }
 
+  Widget _tradeMarketsBtn(PulsThemeColors t) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: () => ShellNavScope.maybeOf(context)?.goToTab(PulsTab.feed),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: t.brand.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.explore_rounded, color: t.brand, size: 18),
+              const SizedBox(width: 8),
+              Text('Trade Prediction Markets', style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   double? _calcPnl(Map<String, dynamic> position, dynamic appState) {
     final cost = (position['usdcAmount'] as num?)?.toDouble() ?? 0;
     final entryPrice = (position['entryPrice'] as num?)?.toDouble() ?? 0;
@@ -546,6 +574,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty) _tradeMarketsBtn(t),
                     Row(
                       children: [
                         Expanded(child: _tabToggle(t)),
@@ -664,6 +693,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
+                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty) _tradeMarketsBtn(t),
                     Row(
                       children: [
                         Expanded(child: _tabToggle(t)),
