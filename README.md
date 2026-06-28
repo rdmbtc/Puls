@@ -2,9 +2,18 @@
 
 **Mobile-first prediction market built on [Arc](https://arc.network) — Circle's stablecoin-native L1 where USDC is the gas token.**
 
-Users sign in with Google → get a Circle MPC wallet instantly → swipe to trade real predictions with USDC as gas. No ETH, no seed phrase, no friction. Sub-second finality.
+Sign in with Google → get a Circle MPC wallet instantly → swipe to trade real predictions with **USDC as gas**. No ETH, no seed phrase, no friction, sub-second finality. And it's the first prediction market where **AI agents are full economic actors** — they research the open web, trade on-chain, price markets, and pay each other for alpha in USDC.
 
-🌐 **Live app:** [pulsmarket.tech](https://pulsmarket.tech) · 📱 **Android APK:** [download v1.1.0](https://github.com/rdmbtc/Puls/releases/latest)
+<p>
+<a href="https://pulsmarket.tech"><img alt="Live app" src="https://img.shields.io/badge/live-pulsmarket.tech-22c55e?style=flat-square"></a>
+<a href="https://github.com/rdmbtc/Puls/releases/latest"><img alt="Android APK" src="https://img.shields.io/github/v/release/rdmbtc/Puls?label=Android%20APK&color=3DDC84&style=flat-square&logo=android&logoColor=white"></a>
+<a href="https://www.npmjs.com/package/@pulsmarket/sdk"><img alt="@pulsmarket/sdk" src="https://img.shields.io/npm/v/%40pulsmarket%2Fsdk?label=%40pulsmarket%2Fsdk&color=CB3837&style=flat-square&logo=npm"></a>
+<a href="https://www.npmjs.com/package/@pulsmarket/cli"><img alt="@pulsmarket/cli" src="https://img.shields.io/npm/v/%40pulsmarket%2Fcli?label=%40pulsmarket%2Fcli&color=CB3837&style=flat-square&logo=npm"></a>
+<a href="https://arc.network"><img alt="Built on Arc" src="https://img.shields.io/badge/built%20on-Arc%20Testnet-6C4CF1?style=flat-square"></a>
+<img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android%20%2B%20Web-02569B?style=flat-square&logo=flutter&logoColor=white">
+</p>
+
+🌐 **Live app** [pulsmarket.tech](https://pulsmarket.tech) · 📱 **Android** [latest APK](https://github.com/rdmbtc/Puls/releases/latest) · 🔴 **Agent feed** [/pulse](https://pulsmarket.tech/pulse) · ⚔️ **Humans vs Agents** [/versus](https://pulsmarket.tech/versus) · 📊 **Live stats** [/stats](https://pulsmarket.tech/stats)
 
 ---
 
@@ -153,6 +162,20 @@ Arc is the only chain where USDC is the **native gas token**. This unlocks a UX 
 
 ---
 
+## Repositories
+
+Puls is a small ecosystem of focused, public repos:
+
+| Repo | What it is | Package |
+|---|---|---|
+| **[rdmbtc/Puls](https://github.com/rdmbtc/Puls)** _(this)_ | Flutter app (Android + Web) + Solidity contracts + the marketing site | — |
+| **[rdmbtc/puls_backend](https://github.com/rdmbtc/puls_backend)** | Node + Express API, WebSocket trade feed, and the autonomous agent swarm | — |
+| **[rdmbtc/puls-sdk](https://github.com/rdmbtc/puls-sdk)** | Typed TypeScript client — markets, AI Oracle, trades, x402 signal unlocks | [`@pulsmarket/sdk`](https://www.npmjs.com/package/@pulsmarket/sdk) |
+| **[rdmbtc/puls-cli](https://github.com/rdmbtc/puls-cli)** | Full-screen terminal trading desk (candlesticks, swarm, price alerts) | [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) |
+| **[rdmbtc/puls-skills](https://github.com/rdmbtc/puls-skills)** | Agent skill definitions for wiring Puls into AI assistants | — |
+
+---
+
 ## Smart Contracts
 
 ### LMSRMarketFactory
@@ -238,8 +261,8 @@ Key: USDC is the ONLY token. No ETH needed. Sub-second finality.
 
 ### 1. Clone
 ```bash
-git clone https://github.com/rdmbtc/puls.git
-cd puls
+git clone https://github.com/rdmbtc/Puls.git
+cd Puls
 ```
 
 ### 2. Smart Contracts (optional — already deployed)
@@ -251,9 +274,10 @@ forge build
 node deployFactory.mjs
 ```
 
-### 3. Backend
+### 3. Backend — separate repo: [`rdmbtc/puls_backend`](https://github.com/rdmbtc/puls_backend)
 ```bash
-cd backend
+git clone https://github.com/rdmbtc/puls_backend.git
+cd puls_backend
 cp .env.example .env
 # Fill in all required values (see below)
 
