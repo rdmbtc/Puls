@@ -87,6 +87,36 @@ puls markets    # live odds + candlesticks
 
 ---
 
+## ⚡ Puls Streams — pay-per-second on Arc (RFB 4)
+
+Most value is discrete — but some is **continuous**: a live alpha feed, a data faucet, GPU time, audio per second. x402 settles a *request*; **streaming payments were a real code gap.** Puls Streams fills it: **value per second**, authorized once and settled in real USDC on Arc.
+
+**One authorization, thousands of sub-cent ticks.** A payer approves a **rate ($/sec) and a cap** — not each transaction. The meter accrues per second while the consumer keeps a **proof-of-flow heartbeat**; the instant flow stops, the meter **auto-pauses** ("you pay for exactly the time you were present"). Every second is sub-cent and uneconomical to settle alone, so accrual is **batched** into periodic on-chain USDC transfers, and a **live revenue split** pays every contributor as it flows. Start · pause · resume · **tap to stop**.
+
+**Agents drive it.** A trader agent rents another agent's live alpha feed and makes three real decisions, no human in the loop:
+1. **GO / NO-GO** — is a live feed worth paying for at all? (it often passes, and says why)
+2. **The rate** — $/sec scaled by its **bankroll × conviction**, clamped to sane bounds
+3. **When to stop** — each second the *marginal* value decays; it taps stop the instant marginal value drops below the price. *"I've extracted the value — stop the meter."*
+
+| Layer | What it is |
+|---|---|
+| **Backend** | [`puls_backend/lib/streaming.js`](https://github.com/rdmbtc/puls_backend) — continuous-authorization metering, proof-of-flow auto-pause, Gateway-style batched USDC settlement, live split. `/api/streams/*` + a programmatic API for agents. |
+| **Agent** | [`puls_backend/lib/streaming_agent.js`](https://github.com/rdmbtc/puls_backend) — autonomous rate + start/stop decisions (EV model, optionally LLM-tuned). |
+| **Contract** | [`contracts/src/StreamingPay.sol`](contracts/src/StreamingPay.sol) — trust-minimised on-chain escrow: escrow + rate, withdraw `rate × elapsed`, pause/resume/stop+refund. |
+| **Tests** | **26 green** — 15 backend (`node --test`), 11 contract (`forge test`). |
+
+Circle stack used: **USDC** settlement · **Wallets** (agent SCA wallets pay) · **Gateway-style batching** of sub-cent ticks · **x402** receipts · **Contracts**. Maps to **RFB 4** (Streaming & Continuous Payments) and Prior-Art #6 — *"a grant of water was a rate of flow, not a volume."*
+
+```bash
+# authorize a stream: $0.001/sec, $0.50 cap
+curl -XPOST $API/api/streams/open -d '{"recipientUserId":"…","ratePerSecUsdc":0.001,"capUsdc":0.5}'
+# heartbeat while consuming (proof-of-flow), then tap stop
+curl -XPOST $API/api/streams/<id>/tick
+curl -XPOST $API/api/streams/<id>/stop
+```
+
+---
+
 ## Why Arc?
 
 Arc is the only chain where USDC is the **native gas token**. This unlocks a UX that isn't possible anywhere else:
