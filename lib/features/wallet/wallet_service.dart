@@ -848,6 +848,62 @@ class WalletService extends ChangeNotifier {
     });
   }
 
+  // ── Puls Streams (pay-per-second USDC streaming on Arc — RFB 4) ──────────
+  /// Public streaming config (rate/cap model, settle threshold, live flag).
+  Future<Map<String, dynamic>> streamsConfig() => _get('/api/streams/config', {});
+
+  /// Network-wide streaming totals (streamed / settled USDC, active count).
+  Future<Map<String, dynamic>> streamsSummary() => _get('/api/streams/stats/summary', {});
+
+  /// Your streams (as payer or recipient). Returns { streams }.
+  Future<Map<String, dynamic>> listStreams() async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _get('/api/streams', {'userId': _state.userId!});
+  }
+
+  /// Open a stream — authorize a rate ($/sec) + cap (continuous authorization).
+  Future<Map<String, dynamic>> openStream({
+    String? recipientUserId,
+    String? recipientAddress,
+    String? resource,
+    required double ratePerSecUsdc,
+    required double capUsdc,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/streams/open', {
+      'userId': _state.userId!,
+      if (recipientUserId != null) 'recipientUserId': recipientUserId,
+      if (recipientAddress != null) 'recipientAddress': recipientAddress,
+      if (resource != null) 'resource': resource,
+      'ratePerSecUsdc': ratePerSecUsdc,
+      'capUsdc': capUsdc,
+    }, timeout: const Duration(seconds: 30));
+  }
+
+  /// Heartbeat / proof-of-flow — advance the meter by the time consumed.
+  Future<Map<String, dynamic>> tickStream(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/streams/$id/tick', {'userId': _state.userId!});
+  }
+
+  /// Pause the meter.
+  Future<Map<String, dynamic>> pauseStream(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/streams/$id/pause', {'userId': _state.userId!});
+  }
+
+  /// Resume a paused stream.
+  Future<Map<String, dynamic>> resumeStream(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/streams/$id/resume', {'userId': _state.userId!});
+  }
+
+  /// Stop the stream — final settle of exactly what flowed.
+  Future<Map<String, dynamic>> stopStream(String id) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/streams/$id/stop', {'userId': _state.userId!});
+  }
+
   // ── Token swap (Circle App Kit: USDC <-> EURC on Arc) ────────────────────
 
   /// Quote a swap. Returns { ok, estimate }.
