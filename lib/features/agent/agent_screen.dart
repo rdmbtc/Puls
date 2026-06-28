@@ -69,6 +69,7 @@ class _AgentScreenState extends State<AgentScreen>
   double _budgetVal = 0, _spent = 0;
   final List<_Msg> _msgs = [];
   String _strategy = 'NONE';
+  bool _showTools = false; // strategy + Finance Director collapsed by default
 
   String? get _userId => WalletServiceScope.of(context).state.userId;
 
@@ -692,15 +693,13 @@ class _AgentScreenState extends State<AgentScreen>
     return Column(
       children: [
         _header(t),
+        if (_showTools) _toolsPanel(t),
         Expanded(
           child: ListView.builder(
             controller: _scroll,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            itemCount: _msgs.length + 2,
-            itemBuilder: (_, i) {
-              if (i == 0) return const FinanceDirectorCard();
-              if (i == 1) return _strategySelector(t);
-              final mi = i - 2;
+            itemCount: _msgs.length,
+            itemBuilder: (_, mi) {
               return FadeInUp(
                 key: ValueKey(mi),
                 duration: const Duration(milliseconds: 300),
@@ -710,49 +709,96 @@ class _AgentScreenState extends State<AgentScreen>
             },
           ),
         ),
-        if (_msgs.length <= 1 && !_busy) _suggestions(t),
         if (_busy) _thinking(t),
+        _quickBuyBar(t),
         _composer(t),
       ],
     );
   }
 
-  static const _prompts = [
-    'Buy \$2 YES on the top market',
-    'Pick a crypto market and bet \$1',
-    'What can you trade right now?',
-  ];
+  // Fast one-tap buys, routed through the agent (it picks + sizes + executes).
+  void _quickBuy(String instruction) {
+    if (_busy || _userId == null) return;
+    Haptics.impact(HapticImpactStyle.light);
+    _input.text = instruction;
+    _send();
+  }
 
-  Widget _suggestions(PulsThemeColors t) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _prompts
-              .map((p) => Tactile(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _input.text = p;
-                      _send();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: t.brandSubtle,
-                        borderRadius: BorderRadius.circular(20),
-                        border:
-                            Border.all(color: t.brand.withValues(alpha: 0.25)),
-                      ),
-                      child: Text(p,
-                          style: TextStyle(
-                              color: t.brand,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ))
-              .toList(),
+  Widget _quickBuyBar(PulsThemeColors t) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: _quickAction(
+                  t,
+                  Icons.trending_up_rounded,
+                  'Top Market',
+                  () => _quickBuy(
+                      'Buy \$2 on the single hottest trending market right now — pick it yourself and execute immediately.')),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _quickAction(
+                  t,
+                  Icons.bolt_rounded,
+                  'Top Signal',
+                  () => _quickBuy(
+                      'Find the top-rated creator signal and buy \$2 into its market right now.')),
+            ),
+          ],
+        ),
+      );
+
+  Widget _quickAction(
+      PulsThemeColors t, IconData icon, String label, VoidCallback onTap) {
+    final disabled = _busy;
+    return Tactile(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap, // _quickBuy guards _busy internally
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 40,
+        decoration: BoxDecoration(
+          color: disabled ? t.surface : t.brandSubtle,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: disabled ? t.border : t.brand.withValues(alpha: 0.35)),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: disabled ? t.textSubtle : t.brand),
+            const SizedBox(width: 7),
+            Text(label,
+                style: TextStyle(
+                    color: disabled ? t.textSubtle : t.brand,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800)),
+            const SizedBox(width: 5),
+            Icon(Icons.flash_on_rounded,
+                size: 12,
+                color: disabled
+                    ? t.textSubtle
+                    : t.brand.withValues(alpha: 0.7)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Agent tools (autonomous strategy + Finance Director), tucked behind the
+  // header's tune button so the conversation stays the focus. Collapsed default.
+  Widget _toolsPanel(PulsThemeColors t) => Container(
+        constraints: const BoxConstraints(maxHeight: 360),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _strategySelector(t),
+              const FinanceDirectorCard(),
+            ],
+          ),
         ),
       );
 
@@ -878,6 +924,18 @@ class _AgentScreenState extends State<AgentScreen>
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                tooltip: 'Agent tools — strategy & Finance Director',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 28),
+                icon: Icon(
+                    _showTools ? Icons.close_rounded : Icons.tune_rounded,
+                    size: 18,
+                    color: _showTools ? t.brand : t.textMuted),
+                onPressed: () => setState(() => _showTools = !_showTools),
+              ),
+              const SizedBox(height: 2),
               TextButton(
                 onPressed: _busy ? null : _deposit,
                 style: TextButton.styleFrom(
