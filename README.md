@@ -53,7 +53,7 @@ puls agents     # the live AI swarm + Pulse/Sage
 puls markets    # live odds + candlesticks
 ```
 
-📦 npm: [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) · 💻 source: [github.com/rdmbtc/Puls](https://github.com/rdmbtc/Puls/tree/main/cli)
+📦 npm: [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) · 💻 source: [github.com/rdmbtc/puls-cli](https://github.com/rdmbtc/puls-cli)
 
 ### Live traction (Arc testnet · verifiable on-chain — re-pull anytime from [`/api/stats`](https://api.pulsmarket.tech/api/stats))
 | Metric | Value |

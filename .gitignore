@@ -49,3 +49,18 @@ test_vps.py
 contracts/lib/
 contracts/out/
 contracts/cache/
+
+# ── Repo hygiene ─────────────────────────────────────────────────────────────
+# CLI lives in its own repo now: https://github.com/rdmbtc/puls-cli
+cli/
+# Skills live in their own repo now: https://github.com/rdmbtc/puls-skills
+skills/
+skills-lock.json
+# Unused asset packs / scaffolds / scratch files (removed from the product repo)
+icons8-glassmorphism/
+icons8-3d-business/
+landing/
+.superpowers/
+particles-shader*.tsx
+content/
+SUBMISSION.md
