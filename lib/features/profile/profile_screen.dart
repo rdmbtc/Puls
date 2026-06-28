@@ -421,13 +421,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: Icons.motion_photos_paused_outlined,
                           title: 'Reduce motion',
                           subtitle: (appState.reduceMotionOverride ??
-                                  (MediaQuery.maybeDisableAnimationsOf(context) ?? false))
+                                  false)
                               ? 'Animations minimized'
                               : 'Full animations',
                           t: t,
                           trailing: Switch(
                             value: appState.reduceMotionOverride ??
-                                (MediaQuery.maybeDisableAnimationsOf(context) ?? false),
+                                false,
                             activeTrackColor: t.brand,
                             onChanged: (v) => appState.setReduceMotion(v),
                           ),
@@ -683,13 +683,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.motion_photos_paused_outlined,
                   title: 'Reduce motion',
                   subtitle: (appState.reduceMotionOverride ??
-                          (MediaQuery.maybeDisableAnimationsOf(context) ?? false))
+                          false)
                       ? 'Animations minimized'
                       : 'Full animations',
                   t: t,
                   trailing: Switch(
                     value: appState.reduceMotionOverride ??
-                        (MediaQuery.maybeDisableAnimationsOf(context) ?? false),
+                        false,
                     activeTrackColor: t.brand,
                     onChanged: (v) => appState.setReduceMotion(v),
                   ),

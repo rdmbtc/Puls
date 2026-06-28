@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_snack.dart';
 
-/// Puls Streams — pay-per-second USDC streaming on Arc (RFB 4).
+/// Puls Streams — pay-per-second USDC streaming on Arc.
 ///
 /// A read-first view of the streaming primitive: the live config (the rate+cap
 /// model, settle threshold, whether real USDC settlement is on), network-wide

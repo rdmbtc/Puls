@@ -848,7 +848,7 @@ class WalletService extends ChangeNotifier {
     });
   }
 
-  // ── Puls Streams (pay-per-second USDC streaming on Arc — RFB 4) ──────────
+  // ── Puls Streams (pay-per-second USDC streaming on Arc) ─────────────────
   /// Public streaming config (rate/cap model, settle threshold, live flag).
   Future<Map<String, dynamic>> streamsConfig() => _get('/api/streams/config', {});
 

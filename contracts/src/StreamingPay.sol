@@ -8,8 +8,8 @@ interface IERC20 {
 }
 
 /// @title StreamingPay
-/// @notice On-chain pay-per-second USDC streaming on Arc (RFB 4: Streaming &
-///         Continuous Payments). The trust-minimised counterpart to Puls'
+/// @notice On-chain pay-per-second USDC streaming on Arc (streaming &
+///         continuous payments). The trust-minimised counterpart to Puls'
 ///         off-chain stream metering: a payer escrows USDC and authorises a
 ///         RATE (micro-USDC/second) instead of signing each payment. The
 ///         recipient can withdraw exactly `rate * elapsed-active-seconds` at any

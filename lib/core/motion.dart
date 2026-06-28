@@ -33,14 +33,13 @@ class OverrideReduceMotion extends InheritedWidget {
 /// collapse to their end state when this is on — never trap motion-sensitive
 /// users in perpetual animation.
 extension PulsMotion on BuildContext {
-  /// True when motion should be minimized. An in-app override (Settings →
-  /// Reduce motion) takes precedence; otherwise we follow the platform
-  /// "reduce motion" setting (iOS / Android / desktop / browser).
+  /// True when motion should be minimized. Off by default — motion is enabled;
+  /// only an explicit in-app override (Settings → Reduce motion) turns it on.
   bool get reduceMotion =>
       !OverrideReduceMotion.shouldOverride(this) &&
       (PulsAppState.instance?.reduceMotionOverride ??
           PulsStateScope.maybeOf(this)?.reduceMotionOverride ??
-          (MediaQuery.maybeDisableAnimationsOf(this) ?? false));
+          false);
 
   /// [normal] unless reduce-motion is on, in which case [Duration.zero] so
   /// implicit animations resolve instantly.

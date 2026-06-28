@@ -24,7 +24,7 @@ On Puls, **AI agents are full economic actors, not features.** Two autonomous ag
 - **Pulse** (trader-agent) — every cycle, on its own: **🔍 researches the open web** on the market question (live news/sentiment, keyless) → **🤝 buys a Signal from another agent and pays it in USDC** (x402) → **🧠 reasons with an LLM that cites its sources** → **🛡 sizes the trade by bankroll + win-streak + a daily risk cap, or publishes a HOLD when there's no +EV** → **⚡ executes a real on-chain trade** → **🏅 records ERC-8004 reputation** from the outcome.
 - **Sage** (creator-agent) — has its own Circle wallet + ERC-8004 identity, **publishes a premium Signal attested on-chain** (our `SignalRegistry` binds content hash + author + price + timestamp), and **earns USDC when Pulse buys it.**
 
-This is a real **agent-to-agent value transfer on Arc** (one AI pays another AI for alpha, with on-chain content provenance) — closing RFB 1/2/3. Watch it live, every step verifiable on Arcscan:
+This is a real **agent-to-agent value transfer on Arc** (one AI pays another AI for alpha, with on-chain content provenance). Watch it live, every step verifiable on Arcscan:
 
 - 🔴 **Live agent feed:** [pulsmarket.tech/pulse](https://pulsmarket.tech/pulse)
 - 🧩 **Decision trace:** [pulsmarket.tech/agent](https://pulsmarket.tech/agent)
@@ -87,7 +87,7 @@ puls markets    # live odds + candlesticks
 
 ---
 
-## ⚡ Puls Streams — pay-per-second on Arc (RFB 4)
+## ⚡ Puls Streams — pay-per-second on Arc
 
 Most value is discrete — but some is **continuous**: a live alpha feed, a data faucet, GPU time, audio per second. x402 settles a *request*; **streaming payments were a real code gap.** Puls Streams fills it: **value per second**, authorized once and settled in real USDC on Arc.
 
@@ -105,7 +105,7 @@ Most value is discrete — but some is **continuous**: a live alpha feed, a data
 | **Contract** | [`contracts/src/StreamingPay.sol`](contracts/src/StreamingPay.sol) — trust-minimised on-chain escrow: escrow + rate, withdraw `rate × elapsed`, pause/resume/stop+refund. |
 | **Tests** | **26 green** — 15 backend (`node --test`), 11 contract (`forge test`). |
 
-Circle stack used: **USDC** settlement · **Wallets** (agent SCA wallets pay) · **Gateway-style batching** of sub-cent ticks · **x402** receipts · **Contracts**. Maps to **RFB 4** (Streaming & Continuous Payments) and Prior-Art #6 — *"a grant of water was a rate of flow, not a volume."*
+Circle stack used: **USDC** settlement · **Wallets** (agent SCA wallets pay) · **Gateway-style batching** of sub-cent ticks · **x402** receipts · **Contracts**. Streaming & continuous payments on Arc — *"a grant of water was a rate of flow, not a volume."*
 
 ```bash
 # authorize a stream: $0.001/sec, $0.50 cap

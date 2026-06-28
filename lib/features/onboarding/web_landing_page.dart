@@ -1071,7 +1071,7 @@ class _BentoState extends State<_Bento> {
       );
       final streams = _BentoCell(
         accent: const Color(0xFF22D3EE),
-        eyebrow: 'RFB 4 · PAY-PER-SECOND',
+        eyebrow: 'PAY-PER-SECOND · USDC',
         title: 'Stream value by the second',
         body: 'Authorize a rate and a cap once — then pay per second as a live '
             'feed flows, auto-paused when it stops and batched into USDC on Arc.',
