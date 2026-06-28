@@ -18,12 +18,14 @@ import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/shimmer_text.dart';
+import '../../core/widgets/puls_page_route.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import 'live_swarm_view.dart';
 import 'proof_view.dart';
 import '../market/signals_marketplace.dart';
+import '../streams/streams_screen.dart';
 import 'finance_director_card.dart';
 
 class _Msg {
@@ -355,7 +357,16 @@ class _AgentScreenState extends State<AgentScreen>
                     letterSpacing: -0.5)),
           ],
         ),
-        actions: const [HelpAction(tab: PulsTab.agent)],
+        actions: [
+          IconButton(
+            tooltip: 'Puls Streams — pay-per-second',
+            icon: Icon(Icons.bolt_rounded, color: t.brand),
+            onPressed: () => Navigator.of(context).push(
+              pulsRoute(context, builder: (_) => const StreamsScreen()),
+            ),
+          ),
+          const HelpAction(tab: PulsTab.agent),
+        ],
       ),
       body: SafeArea(
         child: Column(
