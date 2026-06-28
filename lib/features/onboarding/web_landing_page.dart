@@ -1069,6 +1069,15 @@ class _BentoState extends State<_Bento> {
         visual: const _SwipeViz(),
         horizontal: wide,
       );
+      final streams = _BentoCell(
+        accent: const Color(0xFF22D3EE),
+        eyebrow: 'RFB 4 · PAY-PER-SECOND',
+        title: 'Stream value by the second',
+        body: 'Authorize a rate and a cap once — then pay per second as a live '
+            'feed flows, auto-paused when it stops and batched into USDC on Arc.',
+        visual: const _StreamMeterViz(),
+        horizontal: wide,
+      );
 
       if (!wide) {
         return Column(
@@ -1083,7 +1092,9 @@ class _BentoState extends State<_Bento> {
             const SizedBox(height: gap),
             SizedBox(height: 280, child: _cell(director, 4)),
             const SizedBox(height: gap),
-            SizedBox(height: 300, child: _cell(swipe, 5)),
+            SizedBox(height: 300, child: _cell(streams, 5)),
+            const SizedBox(height: gap),
+            SizedBox(height: 300, child: _cell(swipe, 6)),
           ],
         );
       }
@@ -1116,7 +1127,9 @@ class _BentoState extends State<_Bento> {
             ),
           ),
           const SizedBox(height: gap),
-          SizedBox(height: 208, child: _cell(swipe, 5)),
+          SizedBox(height: 208, child: _cell(streams, 5)),
+          const SizedBox(height: gap),
+          SizedBox(height: 208, child: _cell(swipe, 6)),
         ],
       );
     });
@@ -1299,6 +1312,136 @@ class _SpotlightPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SpotlightPainter old) =>
       old.center != center || old.color != color;
+}
+
+// ── Visual · Puls Streams pay-per-second meter ─────────────────────────────────
+// A live meter accruing USDC every second toward a cap — the "water meter" for
+// value. Loops: flow ticks up, settles, resets. Honors reduce-motion.
+class _StreamMeterViz extends StatefulWidget {
+  const _StreamMeterViz();
+  @override
+  State<_StreamMeterViz> createState() => _StreamMeterVizState();
+}
+
+class _StreamMeterVizState extends State<_StreamMeterViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  static const _accent = Color(0xFF22D3EE); // cyan — "flow"
+  static const _cap = 0.5; // USDC cap shown
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 7));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = context.reduceMotion;
+    if (reduce) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+    final t = context.puls;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final p = reduce ? 0.62 : _c.value; // 0..1 fill of the meter
+        final accrued = _cap * p; // USDC streamed so far
+        final secs = accrued / 0.015; // at $0.015/sec
+        final on = reduce ? true : (p * 6).floor().isEven; // live pulse
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: t.bg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: t.border),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: on ? _accent : _accent.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                      boxShadow: on
+                          ? [
+                              BoxShadow(
+                                  color: _accent.withValues(alpha: 0.6),
+                                  blurRadius: 6)
+                            ]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text('STREAMING · live-alpha',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1)),
+                  const Spacer(),
+                  const Text('\$0.015/s',
+                      style: TextStyle(
+                          color: _accent,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('\$${accrued.toStringAsFixed(3)}',
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1)),
+              const SizedBox(height: 2),
+              Text('${secs.toStringAsFixed(0)}s · settled in USDC on Arc',
+                  style: TextStyle(color: t.textMuted, fontSize: 11)),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(100),
+                child: LinearProgressIndicator(
+                  value: p,
+                  minHeight: 7,
+                  backgroundColor: t.border,
+                  valueColor: const AlwaysStoppedAnimation(_accent),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('rate × time',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700)),
+                  Text('cap \$${_cap.toStringAsFixed(2)}',
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ── Visual 1 · the flagship decision engine ────────────────────────────────────
