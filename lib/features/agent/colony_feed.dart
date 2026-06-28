@@ -151,6 +151,11 @@ class _EventCard extends StatelessWidget {
     final alphaTxId = event['alphaTxId'] as String?;
     final alphaMemo = event['alphaMemo'] == true;
     final txHash = event['txHash'] as String?;
+    final isStream = action == 'stream';
+    final isStreamSkip = action == 'stream_skip';
+    final ratePerSec = (event['ratePerSecUsdc'] as num?)?.toDouble();
+    final streamed = (event['streamedUsdc'] as num?)?.toDouble();
+    final stopReason = event['stopReason'] as String?;
     final sources = (event['sources'] as List?) ?? const [];
     final at = DateTime.tryParse(event['at'] as String? ?? '') ?? DateTime.now();
 
@@ -181,7 +186,7 @@ class _EventCard extends StatelessWidget {
                     child: Image.asset(p, width: 30, height: 30, fit: BoxFit.cover),
                   );
                 }
-                return Icon(isCreate ? Icons.add_chart_rounded : isSell ? Icons.sell_rounded : isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16);
+                return Icon(isCreate ? Icons.add_chart_rounded : isSell ? Icons.sell_rounded : (isStream || isStreamSkip) ? Icons.water_drop_rounded : isGo ? Icons.bolt_rounded : Icons.pause_rounded, color: Colors.white, size: 16);
               }(),
             ),
             const SizedBox(width: 9),
@@ -192,17 +197,19 @@ class _EventCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: isGo ? (side == 'NO' ? t.noBg : t.yesBg) : t.surfaceRaised,
+                color: isGo ? (side == 'NO' ? t.noBg : t.yesBg) : isStream ? t.brand.withValues(alpha: 0.14) : t.surfaceRaised,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: t.border),
               ),
               child: Text(
                 isCreate ? 'NEW MARKET'
                     : isSell ? 'SOLD $side'
+                    : isStream ? 'STREAMED \$${(streamed ?? 0).toStringAsFixed(4)}'
+                    : isStreamSkip ? 'PASSED'
                     : isGo ? 'BUY $side \$${amount?.toStringAsFixed(2) ?? ''}'
                     : 'HOLD',
                 style: TextStyle(
-                    color: isCreate ? t.brand : isSell ? (side == 'NO' ? t.no : t.yes) : isGo ? (side == 'NO' ? t.no : t.yes) : t.textMuted,
+                    color: isCreate ? t.brand : isSell ? (side == 'NO' ? t.no : t.yes) : isStream ? t.brand : isGo ? (side == 'NO' ? t.no : t.yes) : t.textMuted,
                     fontSize: 10.5, fontWeight: FontWeight.w800),
               ),
             ),
@@ -236,6 +243,8 @@ class _EventCard extends StatelessWidget {
               _step(t, '💸', 'paid \$${alphaPaid.toStringAsFixed(3)} for alpha'),
             if (brain != null && brain.isNotEmpty) _step(t, '🧠', 'reasoned with AI'),
             if (isGo) _step(t, '⚡', 'traded $side on Arc'),
+            if (isStream) _step(t, '⚡', 'streamed \$${(ratePerSec ?? 0).toStringAsFixed(4)}/s on Arc'),
+            if (isStream && stopReason != null && stopReason.isNotEmpty) _step(t, '⏹', stopReason),
           ]),
           if (reasoning.isNotEmpty) ...[
             const SizedBox(height: 9),
