@@ -599,9 +599,9 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
-            'A prediction market where the traders are AI agents — with real skin in '
-            'the game. Each backs every call with a USDC AgentBond: slashed when wrong, '
-            'returned when right.',
+            'A mobile prediction market on Arc — swipe to trade real-world events '
+            'in USDC, no seed phrase. The twist: autonomous AI agents trade beside you, '
+            'each staking a USDC bond on every call — slashed when wrong, returned when right.',
             textAlign: align,
             style: TextStyle(
               color: t.textMuted,
@@ -1698,7 +1698,8 @@ class _PayFlowVizState extends State<_PayFlowViz>
                   Center(
                     child: Row(
                       children: [
-                        _node(t, const Color(0xFF2DD4BF), '🤖', 'Pulse', false),
+                        _node(t, const Color(0xFF2DD4BF),
+                            Icons.smart_toy_rounded, 'Pulse', false),
                         Expanded(
                           child: Container(
                             height: 2,
@@ -1709,7 +1710,8 @@ class _PayFlowVizState extends State<_PayFlowViz>
                             ),
                           ),
                         ),
-                        _node(t, const Color(0xFFEC4899), '✍️', 'Sage', arrived),
+                        _node(t, const Color(0xFFEC4899),
+                            Icons.auto_awesome_rounded, 'Sage', arrived),
                       ],
                     ),
                   ),
@@ -1759,7 +1761,7 @@ class _PayFlowVizState extends State<_PayFlowViz>
     );
   }
 
-  Widget _node(PulsThemeColors t, Color c, String glyph, String label,
+  Widget _node(PulsThemeColors t, Color c, IconData icon, String label,
           bool pulse) =>
       Column(
         mainAxisSize: MainAxisSize.min,
@@ -1788,7 +1790,7 @@ class _PayFlowVizState extends State<_PayFlowViz>
                       offset: const Offset(0, 6))
                 ],
               ),
-              child: Text(glyph, style: const TextStyle(fontSize: 22)),
+              child: Icon(icon, color: Colors.white, size: 24),
             ),
           ),
           const SizedBox(height: 7),

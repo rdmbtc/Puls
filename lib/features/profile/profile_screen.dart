@@ -23,7 +23,6 @@ import '../support/support_screen.dart';
 import '../portfolio/bridge_sheet.dart';
 import '../portfolio/swap_sheet.dart';
 import '../portfolio/funds_sheet.dart';
-import 'referral_contest_card.dart';
 import 'api_keys_card.dart';
 import '../../core/config.dart';
 
@@ -382,8 +381,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const ReferralContestCard(),
-                    const SizedBox(height: 20),
                     const ApiKeysCard(),
                     const SizedBox(height: 20),
                     _Section(
@@ -483,7 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     _Section(
-                      title: 'Platform Architecture',
+                      title: 'Built on Arc + Circle',
                       t: t,
                       children: [
                         _Row(
@@ -522,6 +519,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           trailing: Icon(Icons.open_in_new_rounded,
                               size: 14, color: t.textSubtle),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _Section(
+                      title: 'Wallet & resources',
+                      t: t,
+                      children: [
                         _Row(
                           icon: Icons.south_west_rounded,
                           title: 'Deposit USDC',
@@ -624,12 +628,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             delay: const Duration(milliseconds: 80),
             duration: const Duration(milliseconds: 350),
             child: _WalletCard(ws: ws, wallet: wallet, t: t),
-          ),
-          const SizedBox(height: 16),
-          FadeInUp(
-            delay: const Duration(milliseconds: 90),
-            duration: const Duration(milliseconds: 350),
-            child: const ReferralContestCard(),
           ),
           const SizedBox(height: 16),
           FadeInUp(
@@ -757,7 +755,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             delay: const Duration(milliseconds: 160),
             duration: const Duration(milliseconds: 350),
             child: _Section(
-              title: 'About',
+              title: 'Built on Arc + Circle',
               t: t,
               children: [
                 _Row(
@@ -784,6 +782,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   trailing: Icon(Icons.open_in_new_rounded,
                       size: 14, color: t.textSubtle),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          FadeInUp(
+            delay: const Duration(milliseconds: 170),
+            duration: const Duration(milliseconds: 350),
+            child: _Section(
+              title: 'Wallet & resources',
+              t: t,
+              children: [
                 _Row(
                   icon: Icons.south_west_rounded,
                   title: 'Deposit USDC',

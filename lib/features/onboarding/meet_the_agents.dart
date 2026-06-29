@@ -370,12 +370,19 @@ class _AgentCardState extends State<_AgentCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('💭 LATEST MOVE',
-                        style: TextStyle(
-                            color: c,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 12, color: c),
+                        const SizedBox(width: 4),
+                        Text('LATEST MOVE',
+                            style: TextStyle(
+                                color: c,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5)),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Text(a.lastMove,
                         maxLines: 3,
