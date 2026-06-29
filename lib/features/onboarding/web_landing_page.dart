@@ -647,7 +647,7 @@ class _HeroCopy extends StatelessWidget {
           children: [
             Icon(Icons.menu_book_rounded, size: 15, color: t.textSubtle),
             const SizedBox(width: 6),
-            const _InlineLink(label: 'How it works — read the docs', url: 'https://docs.pulsmarket.tech'),
+            const _InlineLink(label: 'Read the technical docs', url: 'https://docs.pulsmarket.tech'),
           ],
         ).animate().fadeIn(duration: 600.ms, delay: 420.ms),
         SizedBox(height: isMobile ? 12 : 14),
