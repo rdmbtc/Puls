@@ -8,6 +8,7 @@ import 'hero_market_stack.dart';
 import 'live_activity.dart';
 import 'live_ticker.dart';
 import 'meet_the_agents.dart';
+import 'live_traction.dart';
 import 'landing_faq.dart';
 import 'landing_kit.dart';
 import 'accountable_ai.dart';
@@ -145,6 +146,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                     _Reveal(scrollOffset: _scrollOffset, child: const AccountableAiSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const PhoneDemoSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const MeetTheAgentsSection()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const LiveTractionSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveActivitySection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const _StatsSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const FaqSection()),
