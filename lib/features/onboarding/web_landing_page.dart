@@ -1021,7 +1021,7 @@ class _HowItWorksSection extends StatelessWidget {
                 )
               else
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var i = 0; i < steps.length; i++) ...[
                       if (i > 0) const SizedBox(width: 18),

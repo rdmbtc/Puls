@@ -97,7 +97,7 @@ class _LiveTractionSectionState extends State<LiveTractionSection> {
                 )
               else
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var i = 0; i < stats.length; i++) ...[
                       if (i > 0) const SizedBox(width: 16),
