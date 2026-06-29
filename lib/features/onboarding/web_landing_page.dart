@@ -140,6 +140,7 @@ class _WebLandingPageState extends State<WebLandingPage>
                   children: [
                     _HeroSection(scrollOffset: _scrollOffset),
                     _Reveal(scrollOffset: _scrollOffset, child: const LiveMarketTicker()),
+                    _Reveal(scrollOffset: _scrollOffset, child: const _HowItWorksSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: _FeaturesSection(scrollOffset: _scrollOffset)),
                     _Reveal(scrollOffset: _scrollOffset, child: const AccountableAiSection()),
                     _Reveal(scrollOffset: _scrollOffset, child: const PhoneDemoSection()),
@@ -954,6 +955,157 @@ class _GradientHeadline extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── How it works (3 quick steps) ───────────────────────────────────────────────
+class _HowItWorksSection extends StatelessWidget {
+  const _HowItWorksSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final isMobile = w < 760;
+    const steps = [
+      (
+        Icons.login_rounded,
+        '1',
+        'Sign in with Google',
+        'A Circle MPC wallet is created on Arc instantly — no seed phrase, no extension, no ETH.',
+      ),
+      (
+        Icons.water_drop_rounded,
+        '2',
+        'Fund with USDC',
+        'Claim free testnet USDC. On Arc, USDC is the gas token — one token pays for everything.',
+      ),
+      (
+        Icons.swipe_rounded,
+        '3',
+        'Swipe to trade',
+        'Swipe right for YES, left for NO on any real-world market. Confirms on-chain in under a second.',
+      ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 48, vertical: isMobile ? 52 : 96),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            children: [
+              const _SectionEyebrow(label: 'HOW IT WORKS'),
+              const SizedBox(height: 22),
+              _GradientHeadline(
+                lead: 'From zero to trading,',
+                accent: 'in under a minute.',
+                isMobile: isMobile,
+              ),
+              SizedBox(height: isMobile ? 36 : 64),
+              if (isMobile)
+                Column(
+                  children: [
+                    for (var i = 0; i < steps.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 14),
+                      _HowStep(
+                          icon: steps[i].$1,
+                          step: steps[i].$2,
+                          title: steps[i].$3,
+                          body: steps[i].$4),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < steps.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 18),
+                      Expanded(
+                        child: _HowStep(
+                            icon: steps[i].$1,
+                            step: steps[i].$2,
+                            title: steps[i].$3,
+                            body: steps[i].$4),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HowStep extends StatelessWidget {
+  const _HowStep(
+      {required this.icon,
+      required this.step,
+      required this.title,
+      required this.body});
+  final IconData icon;
+  final String step;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: PulsColors.pulseGradient,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: [
+                    BoxShadow(
+                        color: t.brand.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 23),
+              ),
+              const Spacer(),
+              Text(step,
+                  style: TextStyle(
+                      fontFamily: PulsColors.fontDisplay,
+                      color: t.border,
+                      fontSize: 42,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(title,
+              style: TextStyle(
+                  color: t.text,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3)),
+          const SizedBox(height: 7),
+          Text(body,
+              style:
+                  TextStyle(color: t.textMuted, fontSize: 13.5, height: 1.55)),
+        ],
+      ),
     );
   }
 }
