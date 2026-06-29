@@ -16,7 +16,7 @@ import '../../core/widgets/puls_video_illustration.dart';
 import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
-import '../../core/config.dart' show backendUrl;
+import '../../core/config.dart' show backendUrl, appUrl;
 import '../../core/widgets/shimmer_text.dart';
 import '../../core/widgets/puls_page_route.dart';
 import '../shell/web_layout.dart';
@@ -30,12 +30,18 @@ import 'finance_director_card.dart';
 
 class _Msg {
   _Msg(this.fromAgent, this.text,
-      {this.txId, this.contract, this.sources = const []});
+      {this.txId,
+      this.contract,
+      this.sources = const [],
+      this.trades = const [],
+      this.signals = const []});
   final bool fromAgent;
   final String text;
   final String? txId;
   final String? contract;
   final List<Map<String, dynamic>> sources;
+  final List<Map<String, dynamic>> trades;
+  final List<Map<String, dynamic>> signals;
 }
 
 /// Lets other tabs deep-link into one of the Agent screen's sub-tabs.
@@ -219,14 +225,20 @@ class _AgentScreenState extends State<AgentScreen>
     try {
       final r =
           await _post('/api/agent/chat', {'userId': uid, 'message': text});
+      List<Map<String, dynamic>> asList(dynamic v) =>
+          (v as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .toList();
       final trade = r['trade'] as Map<String, dynamic>?;
+      final trades = asList(r['trades']);
+      final signals = asList(r['signals']);
       setState(() {
         _msgs.add(_Msg(true, r['reply'] as String? ?? 'Done.',
             txId: trade?['txHash'] as String?,
             contract: trade?['contractAddress'] as String?,
-            sources: (r['sources'] as List<dynamic>? ?? const [])
-                .whereType<Map<String, dynamic>>()
-                .toList()));
+            sources: asList(r['sources']),
+            trades: trades,
+            signals: signals));
         if (r['remaining'] != null) {
           _spent = _budgetVal - (r['remaining'] as num).toDouble();
         }
@@ -234,8 +246,9 @@ class _AgentScreenState extends State<AgentScreen>
           _reputation = (r['reputation'] as num).toInt();
         }
       });
-      // Agent placed a trade → refresh balance + portfolio instantly.
-      if (trade != null && mounted) {
+      // Agent bought a signal or placed a trade → refresh balance + portfolio.
+      if ((trade != null || trades.isNotEmpty || signals.isNotEmpty) &&
+          mounted) {
         WalletServiceScope.of(context).notifyTrade();
       }
     } catch (e) {
@@ -1053,7 +1066,13 @@ class _AgentScreenState extends State<AgentScreen>
               ),
             ),
           ],
-          if (m.txId != null) ...[
+          // Verifiable, on-chain action receipts — the agent's signal buys and
+          // trades, each clickable through to the market + Arcscan.
+          if (m.fromAgent) ...[
+            for (final s in m.signals) _signalCard(s, t),
+            for (final tr in m.trades) _tradeCard(tr, t),
+          ],
+          if (m.fromAgent && m.trades.isEmpty && m.txId != null) ...[
             const SizedBox(height: 4),
             GestureDetector(
               onTap: () => launchUrl(
@@ -1074,7 +1093,7 @@ class _AgentScreenState extends State<AgentScreen>
                 ],
               ),
             ),
-          ] else if (m.contract != null) ...[
+          ] else if (m.fromAgent && m.trades.isEmpty && m.contract != null) ...[
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -1094,6 +1113,187 @@ class _AgentScreenState extends State<AgentScreen>
       ),
     );
   }
+
+  // ── Verifiable action cards — the WOW: every agent action, clickable on-chain.
+  Widget _signalCard(Map<String, dynamic> s, PulsThemeColors t) {
+    final title = (s['title'] as String?) ?? 'Premium signal';
+    final price = (s['price'] as num?)?.toDouble() ?? 0;
+    final stance = (s['stance'] as String?)?.toUpperCase();
+    final slug = s['marketSlug'] as String?;
+    const accent = Color(0xFF8B5CF6);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      constraints: const BoxConstraints(maxWidth: 340),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.workspace_premium_rounded,
+                  size: 14, color: accent),
+              const SizedBox(width: 6),
+              const Text('ALPHA UNLOCKED',
+                  style: TextStyle(
+                      color: accent,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0)),
+              const Spacer(),
+              Text('\$${price.toStringAsFixed(3)} · x402',
+                  style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(title,
+              style: TextStyle(
+                  color: t.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25)),
+          if (stance != null || slug != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (stance != null) _pill(stance, stance == 'NO' ? t.no : t.yes),
+                if (stance != null && slug != null) const SizedBox(width: 8),
+                if (slug != null)
+                  _linkChip('Market', Icons.open_in_new_rounded, accent,
+                      () => launchUrl(Uri.parse('$appUrl/m/$slug'),
+                          mode: LaunchMode.externalApplication)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tradeCard(Map<String, dynamic> tr, PulsThemeColors t) {
+    final q = _prettyMarket(
+        (tr['question'] as String?) ?? (tr['slug'] as String?) ?? 'Market');
+    final side =
+        ((tr['side'] as String?) ?? 'YES').toUpperCase() == 'NO' ? 'NO' : 'YES';
+    final amt = (tr['usdcAmount'] as num?)?.toDouble() ?? 0;
+    final slug = tr['slug'] as String?;
+    final txHash = tr['txHash'] as String?;
+    final accent = side == 'NO' ? t.no : t.yes;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      constraints: const BoxConstraints(maxWidth: 340),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bolt_rounded, size: 14, color: accent),
+              const SizedBox(width: 6),
+              Text('TRADE EXECUTED',
+                  style: TextStyle(
+                      color: accent,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0)),
+              const Spacer(),
+              _pill('$side · \$${amt.toStringAsFixed(amt >= 1 ? 0 : 2)}', accent),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(q,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: t.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (slug != null)
+                _linkChip('Open market', Icons.open_in_new_rounded, accent,
+                    () => launchUrl(Uri.parse('$appUrl/m/$slug'),
+                        mode: LaunchMode.externalApplication)),
+              if (slug != null) const SizedBox(width: 8),
+              if (txHash != null)
+                _linkChip('Arcscan', Icons.verified_rounded, t.brand,
+                    () => launchUrl(
+                        Uri.parse('https://testnet.arcscan.app/tx/$txHash'),
+                        mode: LaunchMode.externalApplication))
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: t.textSubtle)),
+                    const SizedBox(width: 6),
+                    Text('confirming…',
+                        style: TextStyle(color: t.textSubtle, fontSize: 11)),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(String label, Color c) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6)),
+        child: Text(label,
+            style:
+                TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.w800)),
+      );
+
+  String _prettyMarket(String q) {
+    if (q.contains(' ')) return q; // already a human-readable question
+    final s = q.replaceAll(RegExp(r'-\d{6,}$'), '').replaceAll('-', ' ').trim();
+    return s.isEmpty ? q : s[0].toUpperCase() + s.substring(1);
+  }
+
+  Widget _linkChip(String label, IconData icon, Color c, VoidCallback onTap) =>
+      Tactile(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: c.withValues(alpha: 0.30)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 11, color: c),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                      color: c, fontSize: 10.5, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
 
   Widget _composer(PulsThemeColors t) {
     return Container(
