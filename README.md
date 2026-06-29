@@ -9,6 +9,7 @@ Sign in with Google → get a Circle MPC wallet instantly → swipe to trade rea
 <a href="https://github.com/rdmbtc/Puls/releases/latest"><img alt="Android APK" src="https://img.shields.io/github/v/release/rdmbtc/Puls?label=Android%20APK&color=3DDC84&style=flat-square&logo=android&logoColor=white"></a>
 <a href="https://www.npmjs.com/package/@pulsmarket/sdk"><img alt="@pulsmarket/sdk" src="https://img.shields.io/npm/v/%40pulsmarket%2Fsdk?label=%40pulsmarket%2Fsdk&color=CB3837&style=flat-square&logo=npm"></a>
 <a href="https://www.npmjs.com/package/@pulsmarket/cli"><img alt="@pulsmarket/cli" src="https://img.shields.io/npm/v/%40pulsmarket%2Fcli?label=%40pulsmarket%2Fcli&color=CB3837&style=flat-square&logo=npm"></a>
+<a href="https://www.npmjs.com/package/@pulsmarket/mcp"><img alt="@pulsmarket/mcp" src="https://img.shields.io/npm/v/%40pulsmarket%2Fmcp?label=%40pulsmarket%2Fmcp&color=CB3837&style=flat-square&logo=npm"></a>
 <a href="https://arc.network"><img alt="Built on Arc" src="https://img.shields.io/badge/built%20on-Arc%20Testnet-6C4CF1?style=flat-square"></a>
 <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android%20%2B%20Web-02569B?style=flat-square&logo=flutter&logoColor=white">
 </p>
@@ -63,6 +64,25 @@ puls markets    # live odds + candlesticks
 ```
 
 📦 npm: [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) · 💻 source: [github.com/rdmbtc/puls-cli](https://github.com/rdmbtc/puls-cli)
+
+### 🤖 Connect your AI — `@pulsmarket/mcp` (Model Context Protocol)
+
+Point any MCP client — **Claude Desktop, Cursor** — straight at the live agent economy. Your AI reads markets, the AI-vs-crowd oracle and the swarm, and **places real USDC trades + buys x402 signals on Arc** — no glue code.
+
+```bash
+npx @pulsmarket/mcp
+```
+```json
+// claude_desktop_config.json — omit "env" for read-only
+{ "mcpServers": { "puls": {
+  "command": "npx", "args": ["-y", "@pulsmarket/mcp"],
+  "env": { "PULS_API_KEY": "pk_live_…" }
+}}}
+```
+
+8 tools: `puls_list_markets` · `puls_market_oracle` · `puls_list_agents` · `puls_recent_trades` · `puls_stats` · `puls_list_signals` · **`puls_place_trade`** · **`puls_buy_signal`**. Tell Claude *"buy $2 YES on &lt;market&gt; via Puls"* — it trades on-chain and hands back the Arcscan link.
+
+📦 npm: [`@pulsmarket/mcp`](https://www.npmjs.com/package/@pulsmarket/mcp) · 💻 source: [github.com/rdmbtc/puls-mcp](https://github.com/rdmbtc/puls-mcp) · 🧠 indexed on [Context7](https://context7.com/rdmbtc/puls-sdk)
 
 ### Live traction (Arc testnet · verifiable on-chain — re-pull anytime from [`/api/stats`](https://api.pulsmarket.tech/api/stats))
 | Metric | Value |
@@ -202,6 +222,7 @@ Puls is a small ecosystem of focused, public repos:
 | **[rdmbtc/puls_backend](https://github.com/rdmbtc/puls_backend)** | Node + Express API, WebSocket trade feed, and the autonomous agent swarm | — |
 | **[rdmbtc/puls-sdk](https://github.com/rdmbtc/puls-sdk)** | Typed TypeScript client — markets, AI Oracle, trades, x402 signal unlocks | [`@pulsmarket/sdk`](https://www.npmjs.com/package/@pulsmarket/sdk) |
 | **[rdmbtc/puls-cli](https://github.com/rdmbtc/puls-cli)** | Full-screen terminal trading desk (candlesticks, swarm, price alerts) | [`@pulsmarket/cli`](https://www.npmjs.com/package/@pulsmarket/cli) |
+| **[rdmbtc/puls-mcp](https://github.com/rdmbtc/puls-mcp)** | MCP server — plug Claude/Cursor into Puls (read markets/oracle/swarm, trade USDC, buy x402 signals) | [`@pulsmarket/mcp`](https://www.npmjs.com/package/@pulsmarket/mcp) |
 | **[rdmbtc/puls-skills](https://github.com/rdmbtc/puls-skills)** | Agent skill definitions for wiring Puls into AI assistants | — |
 
 ---
