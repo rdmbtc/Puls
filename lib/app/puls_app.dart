@@ -101,7 +101,7 @@ class _PulsAppState extends State<PulsApp> {
           child: PulsStateScope(
             notifier: _state,
             child: MaterialApp(
-              title: 'Puls',
+              title: 'Puls — Prediction Markets on Arc, Traded by AI Agents',
               debugShowCheckedModeBanner: false,
               navigatorKey: _navigatorKey,
               theme: PulsTheme.light(),
