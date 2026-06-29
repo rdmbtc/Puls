@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:animate_do/animate_do.dart';
@@ -12,6 +13,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/motion.dart';
 import '../../core/widgets/puls_video_illustration.dart';
 import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
@@ -42,6 +44,143 @@ class _Msg {
   final List<Map<String, dynamic>> sources;
   final List<Map<String, dynamic>> trades;
   final List<Map<String, dynamic>> signals;
+}
+
+/// A live, auto-advancing pipeline of the steps the agent is taking right now
+/// (research → buy alpha → reason → trade). The active node pulses and earlier
+/// nodes check off as it advances — a transparent, on-brand "agent at work".
+class _PipelineTracker extends StatefulWidget {
+  const _PipelineTracker({required this.steps});
+  final List<(IconData, String)> steps;
+  @override
+  State<_PipelineTracker> createState() => _PipelineTrackerState();
+}
+
+class _PipelineTrackerState extends State<_PipelineTracker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1100))
+    ..repeat(reverse: true);
+  int _active = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
+      if (!mounted) return;
+      if (_active < widget.steps.length - 1) setState(() => _active++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.puls;
+    final reduce = context.reduceMotion;
+    final steps = widget.steps;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.border.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (int i = 0; i < steps.length; i++) ...[
+                _node(t, steps[i].$1, i, reduce),
+                if (i < steps.length - 1)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: i < _active ? t.brand : t.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              if (reduce)
+                Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                        BoxDecoration(shape: BoxShape.circle, color: t.brand))
+              else
+                AnimatedBuilder(
+                  animation: _c,
+                  builder: (_, __) => Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: t.brand.withValues(alpha: 0.4 + 0.6 * _c.value),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              Text('${steps[_active].$2}…',
+                  style: TextStyle(
+                      color: t.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _node(PulsThemeColors t, IconData icon, int i, bool reduce) {
+    final done = i < _active;
+    final active = i == _active;
+    final node = Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: done
+            ? t.brand
+            : (active ? t.brand.withValues(alpha: 0.15) : t.surface),
+        border: Border.all(
+          color: (done || active) ? t.brand : t.border,
+          width: active ? 1.5 : 1,
+        ),
+      ),
+      child: Icon(
+        done ? Icons.check_rounded : icon,
+        size: 15,
+        color: done ? Colors.white : (active ? t.brand : t.textSubtle),
+      ),
+    );
+    if (active && !reduce) {
+      return AnimatedBuilder(
+        animation: _c,
+        builder: (_, child) =>
+            Transform.scale(scale: 1 + 0.07 * _c.value, child: child),
+        child: node,
+      );
+    }
+    return node;
+  }
 }
 
 /// Lets other tabs deep-link into one of the Agent screen's sub-tabs.
@@ -815,7 +954,20 @@ class _AgentScreenState extends State<AgentScreen>
         ),
       );
 
-  Widget _thinking(PulsThemeColors t) => Padding(
+  Widget _thinking(PulsThemeColors t) {
+    // Build a live pipeline of the steps the agent will actually take, inferred
+    // from what the user just asked. Pure questions (no signal/trade intent)
+    // fall back to the default reasoning shimmer.
+    final lastUser = _msgs
+        .lastWhere((m) => !m.fromAgent, orElse: () => _Msg(false, ''))
+        .text
+        .toLowerCase();
+    final wantsSignal = RegExp(r'signal|alpha|forecast').hasMatch(lastUser);
+    final wantsTrade =
+        RegExp(r'\b(buy|trade|bet|stake|long|short|sell)\b|\$\s*\d')
+            .hasMatch(lastUser);
+    if (!wantsSignal && !wantsTrade) {
+      return Padding(
         padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
         child: Align(
           alignment: Alignment.centerLeft,
@@ -831,6 +983,15 @@ class _AgentScreenState extends State<AgentScreen>
           ),
         ),
       );
+    }
+    final steps = <(IconData, String)>[
+      (Icons.travel_explore_rounded, 'Researching the web'),
+      if (wantsSignal) (Icons.workspace_premium_rounded, 'Buying alpha · x402'),
+      (Icons.psychology_rounded, 'Reasoning'),
+      if (wantsTrade) (Icons.bolt_rounded, 'Trading on Arc'),
+    ];
+    return _PipelineTracker(steps: steps);
+  }
 
   Widget _header(PulsThemeColors t) {
     final addr = _agentAddress ?? '';
