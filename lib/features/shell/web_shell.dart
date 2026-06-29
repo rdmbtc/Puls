@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:picons/picons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
+import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/lazy_indexed_stack.dart';
 import '../../core/widgets/puls_footer.dart';
@@ -269,7 +271,7 @@ class _Brand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
@@ -296,6 +298,16 @@ class _Brand extends StatelessWidget {
           ),
         ],
       ],
+    );
+    // The brand links back to the marketing landing (pulsmarket.tech).
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () =>
+            launchUrl(Uri.parse(appBaseUrl), webOnlyWindowName: '_self'),
+        child: Tooltip(message: 'pulsmarket.tech', child: row),
+      ),
     );
   }
 }

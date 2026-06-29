@@ -84,10 +84,17 @@ class _PulsAppState extends State<PulsApp> {
       builder: (context, _) {
         // On the app subdomain (app.pulsmarket.tech) boot straight into the
         // product; pulsmarket.tech / www keep showing the marketing landing.
-        final shellVisible =
-            _state.onboardingComplete ||
-            _walletService.state.userId != null ||
-            _pendingDeepLinkSlug != null; // cold /m/<slug> visitors land in-app
+        final isLandingHost = kIsWeb &&
+            (Uri.base.host == 'pulsmarket.tech' ||
+                Uri.base.host == 'www.pulsmarket.tech');
+        // pulsmarket.tech / www = the marketing landing, ALWAYS. A persisted
+        // session on that origin must NOT surface the in-app shell there — the
+        // product lives on app.pulsmarket.tech. Only a shared market deep-link
+        // (/m/<slug>) may open in-app on any host.
+        final shellVisible = _pendingDeepLinkSlug != null ||
+            (!isLandingHost &&
+                (_state.onboardingComplete ||
+                    _walletService.state.userId != null));
         _maybeOpenDeepLink(shellVisible);
         return WalletServiceScope(
           service: _walletService,

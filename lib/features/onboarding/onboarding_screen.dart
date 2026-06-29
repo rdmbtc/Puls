@@ -57,8 +57,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final t = context.puls;
     final isLast = _index == _slides.length - 1;
 
-    final onAppHost = kIsWeb && Uri.base.host == 'app.pulsmarket.tech';
-    if (kIsWeb && !onAppHost && !appState.webLandingDismissed) {
+    final host = kIsWeb ? Uri.base.host : '';
+    final isLandingHost =
+        host == 'pulsmarket.tech' || host == 'www.pulsmarket.tech';
+    final onAppHost = host == 'app.pulsmarket.tech';
+    // pulsmarket.tech is ALWAYS the landing; on local/preview hosts show it
+    // until dismissed; the app subdomain (app.pulsmarket.tech) never shows it.
+    if (kIsWeb &&
+        (isLandingHost || (!onAppHost && !appState.webLandingDismissed))) {
       return const OverrideReduceMotion(child: WebLandingPage());
     }
 
