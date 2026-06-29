@@ -6,6 +6,7 @@ import 'package:haptic_kit/haptic_kit.dart';
 import 'package:picons/picons.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/tactile.dart';
 import '../../core/widgets/market_hero.dart';
@@ -333,7 +334,7 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                                           .withValues(alpha: 0.14),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text('🤖 Agent',
+                                    child: const PulsEmojiText('🤖 Agent',
                                         style: TextStyle(
                                             color: Color(0xFF8B5CF6),
                                             fontSize: 11,

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import 'colony_feed.dart';
@@ -571,7 +572,7 @@ class _AgentDetailSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: t.brand.withValues(alpha: 0.35)),
                 ),
-                child: Text('📝 on-chain memo',
+                child: PulsEmojiText('📝 on-chain memo',
                     style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w800)),
               ),
             if (txHash != null && txHash.startsWith('0x'))

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import '../../core/widgets/puls_snack.dart';
+import '../../core/widgets/puls_emoji_text.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -306,7 +307,7 @@ class _X402PaymentsState extends State<X402Payments> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: t.brandSubtle, borderRadius: BorderRadius.circular(5)),
-                    child: Text('📝 memo', style: TextStyle(color: t.brand, fontSize: 9, fontWeight: FontWeight.w800)),
+                    child: PulsEmojiText('📝 memo', style: TextStyle(color: t.brand, fontSize: 9, fontWeight: FontWeight.w800)),
                   ),
                 ]),
                 const SizedBox(height: 3),

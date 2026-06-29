@@ -320,7 +320,7 @@ class _MemoBadge extends StatelessWidget {
           border: Border.all(color: t.brand.withValues(alpha: 0.35)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Text('📝', style: TextStyle(fontSize: 10)),
+          const PulsEmojiText('📝', emojiSize: 11),
           const SizedBox(width: 3),
           Text('on-chain memo',
               style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w800)),

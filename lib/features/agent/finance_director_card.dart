@@ -267,8 +267,18 @@ class _FinanceDirectorCardState extends State<FinanceDirectorCard> {
       for (final pick in picks) _pickTile(t, pick as Map<String, dynamic>),
       const SizedBox(height: 6),
       if (p['riskNote'] != null)
-        Text('⚠ ${p['riskNote']}',
-            style: TextStyle(color: t.textMuted, fontSize: 11.5, height: 1.3)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 13, color: t.textMuted),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('${p['riskNote']}',
+                  style:
+                      TextStyle(color: t.textMuted, fontSize: 11.5, height: 1.3)),
+            ),
+          ],
+        ),
       const SizedBox(height: 4),
       if (p['disclaimer'] != null)
         Text('${p['disclaimer']}',
