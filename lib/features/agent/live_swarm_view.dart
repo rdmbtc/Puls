@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/tactile.dart';
+import 'humans_vs_agents_card.dart';
 import 'swarm_view.dart';
 import 'pulse_feed.dart';
 
@@ -26,6 +27,13 @@ class _LiveSwarmViewState extends State<LiveSwarmView> {
     final t = context.puls;
     return Column(
       children: [
+        // Surface the core "Humans vs Agents" scoreboard right on the agent
+        // home — the same shared widget used on the landing/Home (no code dup).
+        // It hides itself until there's live data.
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: HumansVsAgentsCard(),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
           child: AgentSegToggle(

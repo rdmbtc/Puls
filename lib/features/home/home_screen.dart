@@ -16,6 +16,7 @@ import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
 import '../wallet/wallet_service.dart';
 import '../agent/agent_screen.dart' show agentSubTabRequest;
+import '../agent/humans_vs_agents_card.dart';
 import 'promo_carousel.dart';
 import '../rewards/points_quests_card.dart';
 import '../rewards/season_leaderboard_card.dart';
@@ -162,7 +163,7 @@ class _WebHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _HumansVsAgentsCard(),
+              const HumansVsAgentsCard(),
               const SizedBox(height: 16),
               const SeasonLeaderboardCard(),
               _WebWalletBox(ws: ws, wallet: wallet, t: t),
@@ -201,7 +202,7 @@ class _WebHomeScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     const BlogSection(limit: 4),
                     const SizedBox(height: 20),
-                    const _HumansVsAgentsCard(),
+                    const HumansVsAgentsCard(),
                     const SizedBox(height: 16),
                     const SeasonLeaderboardCard(),
                     const SizedBox(height: 16),
@@ -837,180 +838,6 @@ class _TradingPillButton extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Compact "Humans vs Agents" scoreboard for the Home right rail. Aggregates
-/// live win-rates from /api/leaderboard so judges immediately see the core
-/// narrative — autonomous AI agents trading alongside (and out-performing)
-/// humans on Arc. Renders nothing until data with at least one agent loads.
-class _HumansVsAgentsCard extends StatefulWidget {
-  const _HumansVsAgentsCard();
-
-  @override
-  State<_HumansVsAgentsCard> createState() => _HumansVsAgentsCardState();
-}
-
-class _HumansVsAgentsCardState extends State<_HumansVsAgentsCard> {
-  bool _loaded = false;
-  double _agentWin = 0, _humanWin = 0;
-  int _agentCount = 0, _humanCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-  }
-
-  Future<void> _load() async {
-    try {
-      final list = await WalletServiceScope.of(context)
-          .getLeaderboard(limit: 200, type: 'all');
-      double aSum = 0, hSum = 0;
-      int aN = 0, hN = 0;
-      for (final row in list) {
-        if (row is! Map) continue;
-        final trades = (row['tradesCount'] as num?)?.toInt() ??
-            (row['trades'] as num?)?.toInt() ??
-            0;
-        if (trades <= 0) continue;
-        final win = double.tryParse(row['winRate']?.toString() ??
-                row['win_rate']?.toString() ??
-                '') ??
-            0;
-        if (row['isAgent'] == true) {
-          aSum += win;
-          aN++;
-        } else {
-          hSum += win;
-          hN++;
-        }
-      }
-      if (mounted) {
-        setState(() {
-          _agentCount = aN;
-          _humanCount = hN;
-          _agentWin = aN > 0 ? aSum / aN : 0;
-          _humanWin = hN > 0 ? hSum / hN : 0;
-          _loaded = true;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    // Need at least one of each side to make the comparison meaningful.
-    if (!_loaded || _agentCount == 0) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: t.brand.withValues(alpha: 0.3)),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [t.brand.withValues(alpha: 0.12), t.surface],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.bolt_rounded, color: t.brand, size: 18),
-              const SizedBox(width: 6),
-              Text('Humans vs Agents',
-                  style: TextStyle(
-                      color: t.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text('Live win rate · Arc Testnet',
-              style: TextStyle(color: t.textMuted, fontSize: 11)),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ScorePill(
-                  emoji: '🤖',
-                  label: 'Agents',
-                  value: '${_agentWin.toStringAsFixed(1)}%',
-                  sub: '$_agentCount on-chain',
-                  color: t.brand,
-                  bg: t.brandSubtle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ScorePill(
-                  emoji: '🧑',
-                  label: 'Humans',
-                  value: _humanCount > 0
-                      ? '${_humanWin.toStringAsFixed(1)}%'
-                      : '—',
-                  sub: '$_humanCount traders',
-                  color: t.text,
-                  bg: t.surfaceRaised,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScorePill extends StatelessWidget {
-  const _ScorePill({
-    required this.emoji,
-    required this.label,
-    required this.value,
-    required this.sub,
-    required this.color,
-    required this.bg,
-  });
-
-  final String emoji;
-  final String label;
-  final String value;
-  final String sub;
-  final Color color;
-  final Color bg;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PulsEmojiText('$emoji $label',
-              style: TextStyle(
-                  color: t.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
-                  color: color, fontSize: 22, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 2),
-          Text(sub, style: TextStyle(color: t.textSubtle, fontSize: 10)),
-        ],
       ),
     );
   }
