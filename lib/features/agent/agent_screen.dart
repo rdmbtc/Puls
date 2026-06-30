@@ -582,12 +582,29 @@ class _AgentScreenState extends State<AgentScreen>
           children: [
             ZoomIn(
               duration: const Duration(milliseconds: 500),
-              child: PulsVideoIllustration(
-                asset: 'assets/illustrations/ai-agent-avatar.mp4',
+              child: Container(
                 width: 140,
                 height: 140,
-                fallback: PulsEmoji.icon('🤖', size: 100),
-              ),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: t.brand.withValues(alpha: 0.1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: t.brand.withValues(alpha: 0.2),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    )
+                  ],
+                  border: Border.all(
+                    color: t.brand.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: PulsEmoji.icon('🤖', size: 80),
+              ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+               .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.4))
+               .scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut),
             ),
             const SizedBox(height: 20),
             FadeInUp(

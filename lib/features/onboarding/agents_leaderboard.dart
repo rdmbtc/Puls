@@ -89,7 +89,7 @@ class _AgentsLeaderboardSectionState extends State<AgentsLeaderboardSection> {
       }
       if (!mounted) return;
       setState(() {
-        _rows = rows.take(8).toList();
+        _rows = rows.toList();
         _agentCount = aN;
         _humanCount = hN;
         _agentWin = aN > 0 ? aSum / aN : 0;
