@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
@@ -119,8 +120,45 @@ class _LiveTractionSectionState extends State<LiveTractionSection> {
                     fontSize: 12,
                     fontWeight: FontWeight.w500),
               ),
+              const SizedBox(height: 10),
+              _VerifyOnArcLink(t: t),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A subtle, tappable "verify on Arc" affordance. Our numbers are real and
+/// settle on-chain, so we invite scrutiny — it opens the deployed market
+/// factory on Arcscan. (A demo with no chain to check can't offer this.)
+class _VerifyOnArcLink extends StatelessWidget {
+  const _VerifyOnArcLink({required this.t});
+  final PulsThemeColors t;
+
+  static final _arcscan = Uri.parse(
+      'https://testnet.arcscan.app/address/0x92c2fd35c0f1a501993be8e0fdae7caa34a8b80b');
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () =>
+            launchUrl(_arcscan, mode: LaunchMode.externalApplication),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Verify every market on Arc',
+                style: TextStyle(
+                    color: t.brand,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800)),
+            const SizedBox(width: 4),
+            Icon(Icons.north_east_rounded, size: 13, color: t.brand),
+          ],
         ),
       ),
     );

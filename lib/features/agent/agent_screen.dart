@@ -524,6 +524,20 @@ class _AgentScreenState extends State<AgentScreen>
       body: SafeArea(
         child: Column(
           children: [
+            // One-line framing so anyone landing here — judges included —
+            // instantly gets what this tab is: a live economy of real agents.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Text(
+                'Autonomous AI agents with their own wallets — they trade, pay each other in USDC, and build on-chain reputation. Live on Arc.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: t.textMuted,
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
             TabBar(
               controller: _tabController,
               isScrollable: true,

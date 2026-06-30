@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/lazy_indexed_stack.dart';
 import '../../core/widgets/puls_sheet.dart';
@@ -61,6 +60,12 @@ class _PulsShellState extends State<_MobileShell> {
     HomeScreen(),
   ];
   static const _browseLabels = ['Feed', 'Discover', 'Home'];
+  // One-line clarifier per browse surface so the three are never confused.
+  static const _browseDescs = [
+    'Swipe to trade live markets',
+    'Browse & search by category',
+    'Vertical video feed',
+  ];
 
   // The four fixed destinations after Browse.
   static const _fixedPages = [
@@ -115,6 +120,7 @@ class _PulsShellState extends State<_MobileShell> {
               _BrowseOption(
                 icon: PulsBottomNav.browseIcons[i],
                 label: _browseLabels[i],
+                desc: _browseDescs[i],
                 selected: _browse == i,
                 t: t,
                 onTap: () => Navigator.of(context).pop(i),
@@ -181,6 +187,7 @@ class _BrowseOption extends StatelessWidget {
   const _BrowseOption({
     required this.icon,
     required this.label,
+    required this.desc,
     required this.selected,
     required this.t,
     required this.onTap,
@@ -188,6 +195,7 @@ class _BrowseOption extends StatelessWidget {
 
   final IconData icon;
   final String label;
+  final String desc;
   final bool selected;
   final PulsThemeColors t;
   final VoidCallback onTap;
@@ -208,8 +216,17 @@ class _BrowseOption extends StatelessWidget {
         child: Row(children: [
           Icon(icon, size: 20, color: selected ? t.brand : t.textMuted),
           const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: selected ? t.brand : t.text, fontSize: 15, fontWeight: FontWeight.w700)),
-          const Spacer(),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: TextStyle(color: selected ? t.brand : t.text, fontSize: 15, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(desc, style: TextStyle(color: t.textMuted, fontSize: 12, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
           if (selected) Icon(Icons.check_rounded, size: 18, color: t.brand),
         ]),
       ),
