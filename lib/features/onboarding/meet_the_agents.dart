@@ -91,7 +91,7 @@ class _MeetTheAgentsSectionState extends State<MeetTheAgentsSection> {
         ));
       }
       // Cap the showcase to the 4 strongest — too many agents dilutes the focus.
-      setState(() => _agents = agents.take(4).toList());
+      setState(() => _agents = agents.toList());
     } catch (_) {
       // Section simply doesn't render — landing must never break.
     }
