@@ -86,7 +86,42 @@
     footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
     a.inline { color: var(--brand); text-decoration: none; font-weight: 600; }
     a.inline:hover { text-decoration: underline; }
-  </style>
+  
+    /* --- Puls Premium Upgrades --- */
+    .wrap {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .idcard, .stat, .feed-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      background: rgba(var(--surface-rgb, 255, 255, 255), 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    @media (prefers-color-scheme: dark) {
+      .idcard, .stat, .feed-card {
+        background: rgba(18, 24, 41, 0.65);
+      }
+    }
+    .idcard:hover, .stat:hover, .feed-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px var(--shadow);
+      border-color: var(--brand);
+    }
+    a.addr {
+      transition: all 0.15s ease;
+    }
+    a.addr:hover {
+      background: var(--brand);
+      color: #fff;
+      transform: scale(1.02);
+      text-decoration: none;
+    }
+    /* ----------------------------- */
+</style>
   <!-- Vercel Web Analytics + Speed Insights (enable both in the Vercel project dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -203,3 +238,4 @@ curl -X POST https://pulsmarket.tech/api/agent/start \
   <script defer src="/nav.js"></script>
 </body>
 </html>
+
