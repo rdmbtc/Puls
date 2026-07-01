@@ -1618,26 +1618,25 @@ class _AlphaFeedTeaserState extends State<_AlphaFeedTeaser> {
 
 // Emoji for the web category panel (mirrors Discover's mapping).
 String _feedCategoryEmoji(String? category) {
-  switch ((category ?? 'all').toLowerCase()) {
-    case 'all':
-      return '🌍';
-    case 'politics':
-      return '🗳️';
-    case 'crypto':
-      return '🪙';
-    case 'sports':
-      return '⚽';
-    case 'pop culture':
-      return '🎬';
-    case 'science':
-      return '🧪';
-    case 'tech':
-      return '💻';
-    case 'finance':
-      return '💼';
-    default:
-      return '🔮';
-  }
+  final cat = (category ?? 'all').toLowerCase();
+  
+  if (cat.contains('world cup') || cat.contains('fifa')) return '🏆';
+  if (cat.contains('baseball') || cat.contains('mlb')) return '⚾';
+  if (cat.contains('combat sports') || cat.contains('ufc') || cat.contains('mma') || cat.contains('boxing')) return '🥊';
+  if (cat.contains('football') || cat.contains('nfl')) return '🏈';
+  if (cat.contains('soccer') || cat.contains('premier league')) return '⚽';
+  if (cat.contains('basketball') || cat.contains('nba')) return '🏀';
+  if (cat.contains('sports')) return '🏅';
+  if (cat.contains('politics') || cat.contains('election')) return '🗳️';
+  if (cat.contains('crypto') || cat.contains('bitcoin')) return '🪙';
+  if (cat.contains('finance') || cat.contains('stock')) return '💼';
+  if (cat.contains('ai agents') || cat.contains('ai') || cat.contains('tech')) return '🤖';
+  if (cat.contains('science')) return '🧪';
+  if (cat.contains('pop culture') || cat.contains('entertainment')) return '🎬';
+  if (cat.contains('general')) return '📰';
+  if (cat == 'all') return '🌍';
+
+  return '🔮';
 }
 
 /// Avatar for a live-feed row — a gradient "bot" disc (with the agent's emoji)
