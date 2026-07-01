@@ -792,35 +792,50 @@ class _Tag extends StatelessWidget {
 String _getTopicImage(String category, String id) {
   final cat = category.toLowerCase();
   if (cat.contains('world cup') || cat.contains('fifa')) {
-    return 'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/soccer,worldcup?lock=1';
+  }
+  if (cat.contains('baseball') || cat.contains('mlb')) {
+    return 'https://loremflickr.com/600/400/baseball?lock=2';
+  }
+  if (cat.contains('combat sports') || cat.contains('mma') || cat.contains('ufc') || cat.contains('boxing')) {
+    return 'https://loremflickr.com/600/400/boxing,mma?lock=3';
+  }
+  if (cat.contains('football') || cat.contains('nfl')) {
+    return 'https://loremflickr.com/600/400/football,nfl?lock=4';
+  }
+  if (cat.contains('soccer') || cat.contains('premier league') || cat.contains('champions league')) {
+    return 'https://loremflickr.com/600/400/soccer?lock=5';
   }
   if (cat.contains('politics') || cat.contains('election') || cat.contains('vote')) {
-    return 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/politics?lock=6';
   }
   if (cat.contains('crypto') || cat.contains('bitcoin') || cat.contains('ethereum') || cat.contains('solana')) {
-    return 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/crypto,blockchain?lock=7';
   }
   if (cat.contains('finance') || cat.contains('macro') || cat.contains('fed') || cat.contains('rate') || cat.contains('stock')) {
-    return 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/finance,stockmarket?lock=8';
   }
-  if (cat.contains('tech') || cat.contains('ai') || cat.contains('openai') || cat.contains('gpt')) {
-    return 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=600&auto=format&fit=crop&q=60';
+  if (cat.contains('tech') || cat.contains('ai') || cat.contains('openai') || cat.contains('gpt') || cat.contains('agents')) {
+    return 'https://loremflickr.com/600/400/technology,ai?lock=9';
   }
-  if (cat.contains('sports') || cat.contains('football') || cat.contains('basketball') || cat.contains('soccer')) {
-    return 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=600&auto=format&fit=crop&q=60';
+  if (cat.contains('sports') || cat.contains('basketball')) {
+    return 'https://loremflickr.com/600/400/sports?lock=10';
   }
   if (cat.contains('entertainment') || cat.contains('culture') || cat.contains('movie') || cat.contains('film') || cat.contains('show')) {
-    return 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/entertainment,movie?lock=11';
   }
   if (cat.contains('science') || cat.contains('climate') || cat.contains('weather')) {
-    return 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=60';
+    return 'https://loremflickr.com/600/400/science,laboratory?lock=12';
+  }
+  if (cat.contains('general')) {
+    return 'https://loremflickr.com/600/400/news,general?lock=13';
   }
   final idx = id.hashCode.abs() % 4;
   final fallbacks = [
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=60',
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=60',
-    'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=600&auto=format&fit=crop&q=60',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop&q=60',
+    'https://loremflickr.com/600/400/news,world?lock=101',
+    'https://loremflickr.com/600/400/news,world?lock=102',
+    'https://loremflickr.com/600/400/news,world?lock=103',
+    'https://loremflickr.com/600/400/news,world?lock=104',
   ];
   return fallbacks[idx];
 }
