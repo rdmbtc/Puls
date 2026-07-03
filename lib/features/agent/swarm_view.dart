@@ -387,7 +387,7 @@ class AgentDetailSheet extends StatelessWidget {
     final persona = agent['persona'] as String? ?? '';
     final role = agent['role'] as String? ?? 'Agent';
     final brain = agent['brain'] as String? ?? '';
-    final balance = (agent['balanceUsdc'] as num?)?.toDouble() ?? 0.0;
+    final balance = (agent['balance'] as num?)?.toDouble() ?? 0.0;
     final erc = agent['erc8004Id']?.toString();
     final address = agent['address'] as String? ?? '';
     final decisions = ((agent['recentDecisions'] as List?) ?? const [])

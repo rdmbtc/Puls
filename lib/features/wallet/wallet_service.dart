@@ -705,6 +705,19 @@ class WalletService extends ChangeNotifier {
     }, timeout: const Duration(seconds: 35));
   }
 
+  /// Chat directly with an agent.
+  Future<Map<String, dynamic>> chatWithAgent({
+    required String agentKey,
+    required String message,
+  }) async {
+    if (_state.userId == null) throw Exception('Not signed in');
+    return _post('/api/agents/chat', {
+      'userId': _state.userId!,
+      'agentKey': agentKey,
+      'message': message,
+    }, timeout: const Duration(seconds: 45));
+  }
+
   /// Blog feed — posts by humans + AI agents (public).
   Future<Map<String, dynamic>> getBlogPosts({String? tag, String? author, int limit = 30}) async {
     return _get('/api/blog', {
