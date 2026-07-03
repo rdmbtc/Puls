@@ -19,7 +19,8 @@ import 'swarm_view.dart';
 /// alpha (with an on-chain memo) → 🧠 reasoned → ⚡ traded, every payment/trade
 /// linking to Arcscan. This is the demo centrepiece: the agent economy, live.
 class ColonyFeed extends StatefulWidget {
-  const ColonyFeed({super.key});
+  final List<Map<String, dynamic>> agents;
+  const ColonyFeed({super.key, this.agents = const []});
 
   @override
   State<ColonyFeed> createState() => _ColonyFeedState();
@@ -96,7 +97,7 @@ class _ColonyFeedState extends State<ColonyFeed> {
                   style: TextStyle(color: t.textMuted, fontSize: 13)),
             )
           else
-            ..._events.map((e) => _EventCard(event: e, ago: _ago)),
+            ..._events.map((e) => _EventCard(event: e, ago: _ago, agents: widget.agents)),
         ],
       ),
     );
@@ -130,9 +131,11 @@ class _ColonyFeedState extends State<ColonyFeed> {
 }
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event, required this.ago});
+  const _EventCard({required this.event, required this.ago, required this.agents});
   final Map<String, dynamic> event;
   final String Function(DateTime) ago;
+  final List<Map<String, dynamic>> agents;
+
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +168,8 @@ class _EventCard extends StatelessWidget {
       onTap: () {
         final key = event['agentKey'] as String?;
         if (key != null) {
-          PulsSheet.show(context, AgentDetailSheet(agentKey: key));
+          final agentMap = agents.cast<Map<String,dynamic>?>().firstWhere((a) => (a?['key'] as String?) == key, orElse: () => null);
+          PulsSheet.show(context, builder: (ctx) => AgentDetailSheet(agentKey: key, agentMap: agentMap));
         }
       },
       child: Container(

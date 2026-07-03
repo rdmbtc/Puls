@@ -96,7 +96,7 @@ class _SwarmViewState extends State<SwarmView> {
         ),
         Expanded(
           child: _seg == 0
-              ? const ColonyFeed()
+              ? ColonyFeed(agents: _agents)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
@@ -356,9 +356,11 @@ class _AgentCard extends StatelessWidget {
   }
 }
 
-class _AgentDetailSheet extends StatelessWidget {
-  const _AgentDetailSheet({required this.agent});
-  final Map<String, dynamic> agent;
+class AgentDetailSheet extends StatelessWidget {
+  final String? agentKey;
+  final Map<String, dynamic>? agentMap;
+  const AgentDetailSheet({super.key, this.agentKey, this.agentMap});
+
 
   String _ago(DateTime t) {
     final d = DateTime.now().difference(t.toLocal());
@@ -370,20 +372,16 @@ class _AgentDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-class AgentDetailSheet extends StatelessWidget {
-  final String agentKey;
-  const AgentDetailSheet({super.key, required this.agentKey});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = PulsTheme.of(context);
-    final swarm = context.watch<AgentSwarmData?>();
-    if (swarm == null) return const SizedBox();
-
-    final agent = (swarm.roster ?? const []).firstWhere(
-        (a) => (a['key'] as String?) == agentKey,
-        orElse: () => <String, dynamic>{});
-    if (agent.isEmpty) return const SizedBox();
+    final t = context.puls;
+    final agent = agentMap ?? {};
+    if (agent.isEmpty) {
+      return Container(
+        color: t.background,
+        height: 300,
+        alignment: Alignment.center,
+        child: const PulsLoader(),
+      );
+    }
 
     final name = agent['name'] as String? ?? 'Agent';
     final persona = agent['persona'] as String? ?? '';
@@ -513,6 +511,25 @@ class AgentDetailSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _chip(PulsThemeColors t, IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: t.brand.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: t.brand.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: t.brand),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
