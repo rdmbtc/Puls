@@ -81,7 +81,7 @@ class _X402PaymentsState extends State<X402Payments> {
   Future<void> _load() async {
     try {
       final res = await http
-          .get(Uri.parse('$backendUrl/api/x402/payments?limit=50'))
+          .get(Uri.parse('$backendUrl/api/x402/payments?limit=300'))
           .timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) throw Exception('bad status');
       final body = jsonDecode(res.body) as Map<String, dynamic>;

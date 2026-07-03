@@ -11,6 +11,8 @@ import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/widgets/puls_sheet.dart';
+import 'swarm_view.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
 /// actions. Each event reads like a story: 🔍 researched → 💸 paid a peer for
@@ -159,17 +161,24 @@ class _EventCard extends StatelessWidget {
     final sources = (event['sources'] as List?) ?? const [];
     final at = DateTime.tryParse(event['at'] as String? ?? '') ?? DateTime.now();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return GestureDetector(
+      onTap: () {
+        final key = event['agentKey'] as String?;
+        if (key != null) {
+          PulsSheet.show(context, AgentDetailSheet(agentKey: key));
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Agent + time + verdict
           Row(children: [
             Container(
@@ -270,7 +279,7 @@ class _EventCard extends StatelessWidget {
           ]),
         ],
       ),
-    );
+    ));
   }
 
   String _shortName(dynamic creator) {

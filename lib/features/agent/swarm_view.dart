@@ -11,6 +11,7 @@ import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/gradient_text.dart';
 import 'colony_feed.dart';
 
 /// "Swarm" — the in-app home of the autonomous AI agent colony.
@@ -369,18 +370,36 @@ class _AgentDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.puls;
+class AgentDetailSheet extends StatelessWidget {
+  final String agentKey;
+  const AgentDetailSheet({super.key, required this.agentKey});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = PulsTheme.of(context);
+    final swarm = context.watch<AgentSwarmData?>();
+    if (swarm == null) return const SizedBox();
+
+    final agent = (swarm.roster ?? const []).firstWhere(
+        (a) => (a['key'] as String?) == agentKey,
+        orElse: () => <String, dynamic>{});
+    if (agent.isEmpty) return const SizedBox();
+
     final name = agent['name'] as String? ?? 'Agent';
-    final role = agent['role'] as String? ?? 'trader';
-    final brain = agent['brain'] as String? ?? '';
     final persona = agent['persona'] as String? ?? '';
-    final balance = (agent['balance'] as num?)?.toDouble() ?? 0;
+    final role = agent['role'] as String? ?? 'Agent';
+    final brain = agent['brain'] as String? ?? '';
+    final balance = (agent['balanceUsdc'] as num?)?.toDouble() ?? 0.0;
     final erc = agent['erc8004Id']?.toString();
     final address = agent['address'] as String? ?? '';
     final decisions = ((agent['recentDecisions'] as List?) ?? const [])
         .map((e) => e as Map<String, dynamic>)
         .toList();
     final maxH = MediaQuery.sizeOf(context).height * 0.85;
+
+    final currentThought = decisions.isNotEmpty 
+        ? 'Evaluating: ${decisions.first['question'] ?? 'Market alpha'}' 
+        : 'Scanning markets and parsing news streams...';
 
     return SafeArea(
       child: Container(
@@ -447,6 +466,30 @@ class _AgentDetailSheet extends StatelessWidget {
                     if (erc != null && erc.isNotEmpty)
                       _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc'),
                   ]),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: t.bg.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.bolt_rounded, size: 14, color: t.brand),
+                            const SizedBox(width: 4),
+                            Text('LIVE THOUGHTS', style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        AnimatedGradientText(currentThought, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -454,7 +497,7 @@ class _AgentDetailSheet extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                 children: [
-                  Text('Thought stream',
+                  Text('Full Recap (Last 24h)',
                       style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
                   Text('Every decision below was made autonomously by this agent.',
@@ -525,7 +568,6 @@ class _AgentDetailSheet extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w700)),
           ],
-          // Peer-signal review (agent reviewing another agent's alpha)
           if (review != null) ...[
             const SizedBox(height: 8),
             Container(
@@ -599,20 +641,17 @@ class _AgentDetailSheet extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(99),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: t.surface,
+          color: t.surfaceRaised,
           borderRadius: BorderRadius.circular(99),
           border: Border.all(color: t.border),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: t.brand),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(color: t.text, fontSize: 11.5, fontWeight: FontWeight.w700)),
-          if (onTap != null) ...[
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: t.textSubtle),
             const SizedBox(width: 4),
-            Icon(Icons.open_in_new_rounded, size: 10, color: t.textSubtle),
-          ],
         ]),
       ),
     );

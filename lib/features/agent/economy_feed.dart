@@ -78,7 +78,7 @@ class _EconomyFeedState extends State<EconomyFeed> {
   Future<void> _load() async {
     try {
       final res = await http
-          .get(Uri.parse('$backendUrl/api/economy/feed?limit=40'))
+          .get(Uri.parse('$backendUrl/api/economy/feed?limit=200'))
           .timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) throw Exception('bad status');
       final body = jsonDecode(res.body) as Map<String, dynamic>;
