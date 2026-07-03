@@ -169,7 +169,7 @@ class _SwarmViewState extends State<SwarmView> {
   void _openDetail(Map<String, dynamic> agent) {
     PulsSheet.show<void>(
       context,
-      builder: (_) => _AgentDetailSheet(agent: agent),
+      builder: (_) => AgentDetailSheet(agentMap: agent, agentKey: agent['key'] as String?),
     );
   }
 
@@ -376,7 +376,7 @@ class AgentDetailSheet extends StatelessWidget {
     final agent = agentMap ?? {};
     if (agent.isEmpty) {
       return Container(
-        color: t.background,
+        color: t.surface,
         height: 300,
         alignment: Alignment.center,
         child: const PulsLoader(),
@@ -511,25 +511,6 @@ class AgentDetailSheet extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _chip(PulsThemeColors t, IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: t.brand.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: t.brand.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: t.brand),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }
