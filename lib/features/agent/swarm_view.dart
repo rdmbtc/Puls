@@ -439,10 +439,13 @@ class _AgentDetailSheet extends StatelessWidget {
                     if (brain.isNotEmpty) _chip(t, Icons.memory_rounded, 'AI engine'),
                     _chip(t, Icons.workspace_premium_rounded, role),
                     _chip(t, Icons.attach_money_rounded, '${balance.toStringAsFixed(2)} USDC'),
-                    if (erc != null && erc.isNotEmpty)
-                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc',
-                          onTap: address.isEmpty ? null : () => launchUrl(
+                    if (address.isNotEmpty)
+                      _chip(t, Icons.account_balance_wallet_rounded,
+                          'Circle Wallet ${address.length > 12 ? '${address.substring(0, 6)}...${address.substring(address.length - 4)}' : address}',
+                          onTap: () => launchUrl(
                               Uri.parse('https://testnet.arcscan.app/address/$address'))),
+                    if (erc != null && erc.isNotEmpty)
+                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc'),
                   ]),
                 ],
               ),
