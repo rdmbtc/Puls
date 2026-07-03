@@ -462,7 +462,9 @@ class AgentDetailSheet extends StatelessWidget {
                           onTap: () => launchUrl(
                               Uri.parse('https://testnet.arcscan.app/address/$address'))),
                     if (erc != null && erc.isNotEmpty)
-                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc'),
+                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc', 
+                          onTap: () => launchUrl(
+                              Uri.parse('https://testnet.arcscan.app/token/0xc3bbfccfd885d14898dff697435a090ba5919497?a=$erc'))),
                   ]),
                   const SizedBox(height: 16),
                   Container(
@@ -648,8 +650,9 @@ class AgentDetailSheet extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: t.textSubtle),
-            const SizedBox(width: 4),
+            Icon(icon, size: 14, color: t.brand),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
