@@ -223,8 +223,8 @@
     nav a.l.active::after{transform:scaleX(1);background:var(--mint);transform-origin:left;}
 
     /* Premium glow hover for bento features */
-    .fc{position:relative;background:var(--bg2);padding:26px 24px;border-radius:14px;overflow:hidden;transition:transform .3s cubic-bezier(0.2, 0.8, 0.2, 1), background .2s, box-shadow .3s !important;}
-    .fc::before{content:"";position:absolute;inset:0;border-radius:14px;padding:1px;background:linear-gradient(100deg,#EC4899 0%,#F472B6 30%,#8B5CF6 55%,#38BDF8 78%,#2DD4BF 100%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s ease;pointer-events:none;z-index:2;}
+    .fc{position:relative;background:var(--bg2);padding:26px 24px;border-radius:16px;background-clip:padding-box;overflow:hidden;transition:transform .3s cubic-bezier(0.2, 0.8, 0.2, 1), background .2s, box-shadow .3s !important;}
+    .fc::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(100deg,#EC4899 0%,#F472B6 30%,#8B5CF6 55%,#38BDF8 78%,#2DD4BF 100%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s ease;pointer-events:none;z-index:2;}
     .fc:hover::before{opacity:0.85;}
     .fc:hover{transform:translateY(-3px);box-shadow:0 16px 40px -12px rgba(0,0,0,0.6);background:var(--surface) !important;}
 
