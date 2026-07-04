@@ -10,6 +10,7 @@ import '../../core/widgets/puls_loader.dart';
 import '../../data/models/creator_signal.dart';
 import '../market/researched_sources.dart';
 import '../market/signal_extras.dart';
+import '../market/signal_thesis_sheet.dart';
 import '../market/view_prediction_link.dart';
 
 /// The "Signals" segment of a creator profile.
@@ -287,11 +288,37 @@ class _SignalCard extends StatelessWidget {
             ],
           ),
 
-          // Body: thesis (if unlocked/owner) or teaser
+          // Body: thesis reader button (if unlocked/owner) or teaser
           const SizedBox(height: 12),
-          if (signal.hasThesis)
-            Text(signal.thesis!, style: TextStyle(color: t.text, fontSize: 13, height: 1.45))
-          else ...[
+          if (signal.hasThesis) ...[
+            // Long-form thesis lives in the bottom-sheet reader, not inline.
+            InkWell(
+              onTap: () => SignalThesisSheet.show(
+                context,
+                signal: signal,
+                authorName: signal.creatorUserId,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.menu_book_rounded, size: 16, color: t.brand),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Read full thesis',
+                        style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.w800)),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: t.brand.withValues(alpha: 0.7)),
+                ]),
+              ),
+            ),
+          ] else ...[
             Text(signal.teaser ?? 'Premium analysis — unlock to read the full thesis.',
                 style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
             const SizedBox(height: 6),

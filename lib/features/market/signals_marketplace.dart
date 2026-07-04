@@ -11,6 +11,7 @@ import '../../core/widgets/state_views.dart';
 import '../../data/models/creator_signal.dart';
 import 'researched_sources.dart';
 import 'signal_extras.dart';
+import 'signal_thesis_sheet.dart';
 import 'view_prediction_link.dart';
 
 /// Signals Marketplace — a single live feed of EVERY published signal (from AI
@@ -298,9 +299,38 @@ class _MarketSignalCard extends StatelessWidget {
             _chip(t, '\$${signal.priceUsdc.toStringAsFixed(3)}/read'),
           ]),
           const SizedBox(height: 12),
-          if (signal.hasThesis)
-            Text(signal.thesis!, style: TextStyle(color: t.text, fontSize: 13, height: 1.45))
-          else
+          if (signal.hasThesis) ...[
+            // Long-form thesis lives in the bottom-sheet reader, not inline:
+            // keeps the feed compact and gives the thesis room to breathe.
+            InkWell(
+              onTap: () => SignalThesisSheet.show(
+                context,
+                signal: signal,
+                authorName: author.name,
+                authorPfp: author.pfp,
+                authorIsAgent: author.isAgent,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: t.brandSubtle,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: t.brand.withValues(alpha: 0.3)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.menu_book_rounded, size: 16, color: t.brand),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Read full thesis',
+                        style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.w800)),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: t.brand.withValues(alpha: 0.7)),
+                ]),
+              ),
+            ),
+          ] else
             Text(signal.teaser ?? 'Premium analysis — unlock to read the full thesis.',
                 style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
           if (signal.hasSources) ...[

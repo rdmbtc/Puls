@@ -5,6 +5,7 @@ import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/puls_sheet.dart';
+import '../../core/widgets/signal_markdown.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../payments/payment_receipt.dart';
@@ -345,7 +346,7 @@ class _AlphaCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (unlocked && thesis != null)
-            _MarkdownLite(text: thesis!, t: t)
+            SignalMarkdown(data: thesis!, maxWidth: double.infinity)
           else
             Text(
               signal['teaser']?.toString() ?? '',
@@ -404,94 +405,9 @@ class _AlphaCard extends StatelessWidget {
 /// Minimal markdown renderer for unlocked alpha theses — no extra dependency.
 /// Handles headings (#/##/###), full-line bold labels (**...**), bullet lists
 /// (- ...) and inline **bold** spans. Anything else renders as a paragraph.
-class _MarkdownLite extends StatelessWidget {
-  const _MarkdownLite({required this.text, required this.t});
-
-  final String text;
-  final PulsThemeColors t;
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = text.replaceAll('\r\n', '\n').split('\n');
-    final widgets = <Widget>[];
-    for (final raw in lines) {
-      final trimmed = raw.trim();
-      if (trimmed.isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-      final heading = RegExp(r'^(#{1,3})\s+(.*)$').firstMatch(trimmed);
-      if (heading != null) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 4),
-          child: Text(heading.group(2)!.replaceAll('**', ''),
-              style: TextStyle(color: t.text, fontSize: 14, fontWeight: FontWeight.w900)),
-        ));
-        continue;
-      }
-      final fullBold = RegExp(r'^\*\*(.+?)\*\*:?$').firstMatch(trimmed);
-      if (fullBold != null) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 2),
-          child: Text(fullBold.group(1)!.replaceAll('**', ''),
-              style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w800)),
-        ));
-        continue;
-      }
-      final bullet = RegExp(r'^[-*]\s+(.*)$').firstMatch(trimmed);
-      if (bullet != null) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Icon(Icons.circle, size: 5, color: t.brand),
-              ),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.45),
-                    children: _inlineSpans(bullet.group(1)!),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ));
-        continue;
-      }
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: RichText(
-          text: TextSpan(
-            style: TextStyle(color: t.textSubtle, fontSize: 13, height: 1.5),
-            children: _inlineSpans(trimmed),
-          ),
-        ),
-      ));
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
-  }
-
-  List<TextSpan> _inlineSpans(String line) {
-    final spans = <TextSpan>[];
-    final re = RegExp(r'\*\*(.+?)\*\*');
-    var index = 0;
-    for (final m in re.allMatches(line)) {
-      if (m.start > index) spans.add(TextSpan(text: line.substring(index, m.start)));
-      spans.add(TextSpan(
-        text: m.group(1),
-        style: TextStyle(color: t.text, fontWeight: FontWeight.w800),
-      ));
-      index = m.end;
-    }
-    if (index < line.length) spans.add(TextSpan(text: line.substring(index)));
-    if (spans.isEmpty) spans.add(TextSpan(text: line));
-    return spans;
-  }
-}
+// NOTE: _MarkdownLite was removed in favor of [SignalMarkdown] (flutter_markdown
+// based, full GFM, serif styling). If you ever need the dependency-free fallback,
+// restore from git history at the point before this commit.
 
 class _ShimmerUnlockButton extends StatefulWidget {
   const _ShimmerUnlockButton({

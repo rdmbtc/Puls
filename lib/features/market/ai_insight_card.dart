@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/signal_markdown.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../core/widgets/shimmer_text.dart';
 import '../../data/models/market.dart';
@@ -143,10 +144,9 @@ class _AiInsightCardState extends State<AiInsightCard> {
             const SizedBox(height: 7),
             const Skeleton(height: 11, width: 240),
           ] else ...[
-            Text(
-              (_insight?['thesis'] as String?) ?? '',
-              style: TextStyle(
-                  color: t.text, fontSize: 13.5, height: 1.55),
+            SignalMarkdown(
+              data: (_insight?['thesis'] as String?) ?? '',
+              maxWidth: double.infinity,
             ),
             if (factors.isNotEmpty) ...[
               const SizedBox(height: 12),
