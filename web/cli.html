@@ -235,6 +235,15 @@
       -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
     }
 
+  
+    
+
+  
+    /* --- Bento Grid Corner Fix --- */
+    .feat { overflow: hidden; border-radius: 16px; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .feat .fc { border-radius: 0 !important; border: none !important; }
+    .feat .fc::before { border-radius: 0 !important; }
+
   </style>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>

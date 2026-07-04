@@ -241,6 +241,12 @@
         border-color:transparent !important;
     }
 
+  
+    /* --- Bento Grid Corner Fix --- */
+    .feat { overflow: hidden; border-radius: 16px; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .feat .fc { border-radius: 0 !important; border: none !important; }
+    .feat .fc::before { border-radius: 0 !important; }
+
   </style>
   <!-- Vercel Web Analytics + Speed Insights (enable both in the Vercel project dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
