@@ -184,12 +184,53 @@
       text-decoration: none;
     }
     /* ----------------------------- */
-</style>
+
+    /* --- Premium Polish --- */
+    .noise{position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22/%3E%3C/svg%3E');opacity:0.04;mix-blend-mode:overlay;}
+
+    /* Premium Button interactions */
+    .btn, .btn2, .cta, .ghost { transition:transform .15s cubic-bezier(0.2,0.8,0.2,1), box-shadow .2s, border-color .15s, background .15s !important; }
+    .btn:active, .btn2:active, .cta:active, .ghost:active { transform:scale(0.96) !important; }
+    
+    .pill{transition:transform .2s ease, box-shadow .2s ease;}
+    .pill:hover{transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(45,212,191,0.3);}
+
+    /* Nav Links */
+    nav a.l{position:relative;}
+    nav a.l::after{content:'';position:absolute;bottom:-4px;left:0;width:100%;height:2px;background:var(--pink-soft, rgba(236,72,153,0.3));transform:scaleX(0);transform-origin:right;transition:transform .3s cubic-bezier(0.2,0.8,0.2,1);}
+    nav a.l:hover::after{transform:scaleX(1);transform-origin:left;background:var(--pink, #EC4899);}
+    nav a.l.active::after{transform:scaleX(1);background:var(--mint, #2DD4BF);transform-origin:left;}
+
+    /* Premium glow hover for bento features and cards */
+    .fc, .card, .stat, .idcard, .feed-card, .market, .store {
+        position:relative;
+        transition:transform .4s cubic-bezier(0.2, 0.8, 0.2, 1), background .2s, box-shadow .4s, border-color .2s !important;
+    }
+    
+    .fc::before, .card::before, .stat::before, .idcard::before, .feed-card::before, .market::before, .store::before {
+        content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+        background:linear-gradient(100deg,#EC4899 0%,#F472B6 30%,#8B5CF6 55%,#38BDF8 78%,#2DD4BF 100%);
+        -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+        -webkit-mask-composite:xor;mask-composite:exclude;
+        opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:2;
+    }
+    
+    .fc:hover::before, .card:hover::before, .stat:hover::before, .idcard:hover::before, .feed-card:hover::before, .market:hover::before, .store:hover::before {
+        opacity:0.85;
+    }
+    .fc:hover, .card:hover, .stat:hover, .idcard:hover, .feed-card:hover, .market:hover, .store:hover {
+        transform:translateY(-3px);
+        box-shadow:0 16px 40px -12px rgba(0,0,0,0.6);
+        border-color:transparent !important;
+    }
+
+  </style>
   <!-- Vercel Web Analytics + Speed Insights (enable both in the Vercel project dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
+  <div class="noise"></div>
   <nav style="position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(10px);background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--border);">
     <div style="max-width:760px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13.5px;font-weight:700;">
       <a href="/" style="color:var(--brand);text-decoration:none;letter-spacing:-.4px;font-weight:800;font-size:15px;margin-right:6px;">Puls</a>
