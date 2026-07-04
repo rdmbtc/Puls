@@ -31,13 +31,20 @@
       --radius:10px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    html{scroll-behavior:smooth;background:var(--bg)}
-    body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    html{scroll-behavior:smooth;background:transparent}
+    body{background:transparent;color:var(--text);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
     a{color:inherit;text-decoration:none}
     ::selection{background:var(--pink);color:#08060B}
 
-    33%{transform:translate(6vw,4vw) scale(1.1)}66%{transform:translate(-5vw,3vw) scale(.95)}}
     
+    /* animated mesh background */
+    .mesh{position:fixed;inset:0;z-index:-2;overflow:hidden;background:var(--bg)}
+    .mesh::before,.mesh::after{content:"";position:absolute;width:60vw;height:60vw;border-radius:50%;filter:blur(130px);opacity:.35;animation:drift 24s ease-in-out infinite}
+    .mesh::before{background:radial-gradient(circle,#EC4899,transparent 60%);top:-15vw;left:-10vw}
+    .mesh::after{background:radial-gradient(circle,#2DD4BF,transparent 60%);bottom:-20vw;right:-10vw;animation-delay:-12s}
+    .mesh i{position:absolute;width:45vw;height:45vw;border-radius:50%;filter:blur(130px);opacity:.25;background:radial-gradient(circle,#8B5CF6,transparent 60%);top:20vw;left:40vw;animation:drift 28s ease-in-out infinite reverse}
+    @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(6vw,4vw) scale(1.1)}66%{transform:translate(-5vw,3vw) scale(.95)}}
+    .grid-ov{position:fixed;inset:0;z-index:-1;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 30%,transparent 75%)}
 
     .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 
@@ -168,6 +175,32 @@
   
     
     /* --- Premium Polish --- */
+
+    /* Premium text shimmer for hero title */
+    .hero h1 {
+      background: linear-gradient(90deg, var(--text) 40%, #ffffff 50%, var(--text) 60%);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: textShine 4s linear infinite;
+    }
+    .hero h1 .accent {
+      background: linear-gradient(90deg, var(--pink) 40%, #FDE8F3 50%, var(--pink) 60%);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: textShine 4s linear infinite;
+    }
+    @keyframes textShine { to { background-position: 200% center; } }
+
+
+    /* Bento grid perfect corners fix */
+    .features, .feat { overflow:hidden; border-radius:16px; gap:1px; background:var(--border); }
+    .card, .fc { border-radius:0 !important; border:none !important; margin:0 !important; }
+    .card::before, .fc::before { border-radius:0 !important; }
+
     .noise{position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22/%3E%3C/svg%3E');opacity:0.04;mix-blend-mode:overlay;}
 
     /* Premium Button interactions */
@@ -213,52 +246,13 @@
         background:var(--surface2) !important;
     }
 
-  
-    /* --- Puls Premium Animated Background --- */
-    .mesh { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: var(--bg); pointer-events: none; }
-    .mesh-blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.6; animation: drift 20s ease-in-out infinite; }
-    .mesh-blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(236,72,153,0.4), transparent 65%); animation-duration: 25s; }
-    .mesh-blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(45,212,191,0.35), transparent 60%); animation-duration: 22s; animation-direction: reverse; }
-    .mesh-blob-3 { top: 20%; left: 30%; width: 45vw; height: 45vw; background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 65%); animation-duration: 28s; animation-delay: -5s; }
-    @keyframes drift {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(5vw, 4vh) scale(1.05); }
-      66% { transform: translate(-3vw, 2vh) scale(0.95); }
-    }
-    @media (prefers-reduced-motion: reduce) { .mesh-blob { animation: none !important; } }
-    
-    .grid-ov {
-      position: fixed; inset: 0; z-index: -1; pointer-events: none;
-      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
-      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
-    }
-
-  
-    
-
-  
-    /* --- Bento Grid Corner Fix --- */
-    .feat { overflow: hidden; border-radius: 16px; gap: 1px; background: var(--border); border: 1px solid var(--border); }
-    .feat .fc { border-radius: 0 !important; border: none !important; }
-    .feat .fc::before { border-radius: 0 !important; }
-
   </style>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
   <div class="noise"></div>
-
-  <div class="mesh" aria-hidden="true">
-    <div class="mesh-blob mesh-blob-1"></div>
-    <div class="mesh-blob mesh-blob-2"></div>
-    <div class="mesh-blob mesh-blob-3"></div>
-  </div>
-  <div class="grid-ov" aria-hidden="true"></div>
-
-  
-  
+  <div class="mesh"><i></i></div>
+  <div class="grid-ov"></div>
 
   <nav aria-label="Main">
     <div class="navin">
