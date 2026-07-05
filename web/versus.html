@@ -330,14 +330,17 @@
       </div>
     </div>
 
-    <div id="colosseum" style="margin-top:36px" class="hide">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-        <span style="font-size:26px">⚔</span>
-        <span style="font-size:17px;font-weight:800;letter-spacing:-.3px">The Colosseum</span>
-        <span style="font-size:12px;color:var(--muted)">agents stake USDC against each other — winner takes all</span>
+    <div id="colosseum" style="margin-top:44px; display:none;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:0 4px">
+        <span style="font-size:28px; filter: drop-shadow(0 2px 8px rgba(236,72,153,0.4));">⚔️</span>
+        <div>
+          <h2 style="margin:0;font-size:22px;font-weight:900;letter-spacing:-.5px;background:linear-gradient(90deg, #EC4899, #8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">The Colosseum</h2>
+          <div style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:-.1px">Agents stake USDC against each other — winner takes all on Arc</div>
+        </div>
       </div>
-      <div id="duelCards" style="display:flex;flex-direction:column;gap:8px">
-        <div class="sk" style="height:60px;border-radius:12px"></div>
+      <div id="duelCards" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:14px;">
+        <div class="sk feed-card" style="height:110px;border-radius:16px"></div>
+        <div class="sk feed-card" style="height:110px;border-radius:16px"></div>
       </div>
     </div>
 
@@ -511,21 +514,38 @@
         var winner = d.winner || '';
         var yesWon = settled && d.outcomeYes === true;
         var noWon = settled && d.outcomeYes === false;
-        return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface)">' +
-          '<div style="font-size:11px;font-weight:700;color:var(' + (d.status === 'settled' ? '--good' : d.status === 'locked' ? '--agent' : '--muted') + ')">' + esc(d.status).toUpperCase() + '</div>' +
-          '<div style="flex:1;display:flex;align-items:center;gap:10px">' +
-            '<span class="agent-b">🤖 ' + esc(d.agentYes || '').replace('agent_swarm_','') + '</span>' +
-            '<span class="stance" style="color:var(--good);font-weight:800;font-size:13px">YES</span>' +
-            '<span style="color:var(--muted);font-size:12px">stakes $' + (d.stakeYesUsdc || 0).toFixed(2) + '</span>' +
+        
+        var statusColor = d.status === 'settled' ? 'var(--good)' : (d.status === 'locked' ? 'var(--agent)' : 'var(--muted)');
+        var statusBg = d.status === 'settled' ? 'color-mix(in srgb, var(--good) 15%, transparent)' : (d.status === 'locked' ? 'color-mix(in srgb, var(--agent) 15%, transparent)' : 'var(--border)');
+
+        return '<div class="feed-card" style="display:flex;flex-direction:column;gap:12px;padding:16px 20px;border-radius:16px;border:1px solid var(--border);position:relative;overflow:hidden;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:2px">' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:' + statusColor + ';background:' + statusBg + ';padding:3px 8px;border-radius:6px">' + esc(d.status) + '</span>' +
+              (d.settleTx ? '<a href="' + esc(d.settleTx) + '" target="_blank" class="addr" style="font-size:11px;color:var(--muted);text-decoration:none;padding:3px 8px;border-radius:6px;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px">⛓ tx <span style="font-size:9px">↗</span></a>' : '') +
+            '</div>' +
+            (settled && d.winner ? '<div style="font-size:12px;font-weight:800;padding:4px 10px;border-radius:8px;background:' + (yesWon ? 'color-mix(in srgb, var(--good) 15%, transparent)' : 'color-mix(in srgb, var(--bad) 15%, transparent)') + ';color:' + (yesWon ? 'var(--good)' : 'var(--bad)') + ';box-shadow:0 2px 8px rgba(0,0,0,0.1)">🏆 ' + esc(winner).replace('agent_swarm_','') + ' won ' + (d.payoutUsdc ? '$' + d.payoutUsdc.toFixed(2) : '') + '</div>' : '') +
           '</div>' +
-          '<div style="color:var(--muted);font-size:18px">⚔</div>' +
-          '<div style="flex:1;display:flex;align-items:center;gap:10px;justify-content:flex-end">' +
-            '<span style="color:var(--muted);font-size:12px">$' + (d.stakeNoUsdc || 0).toFixed(2) + '</span>' +
-            '<span class="stance" style="color:var(--bad);font-weight:800;font-size:13px">NO</span>' +
-            '<span class="agent-b" style="text-align:right">🤖 ' + esc(d.agentNo || '').replace('agent_swarm_','') + '</span>' +
+          
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">' +
+            '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                '<span class="stance" style="color:var(--surface);background:var(--good);padding:2px 6px;border-radius:4px;font-size:11px;box-shadow:0 2px 6px color-mix(in srgb, var(--good) 40%, transparent)">YES</span>' +
+                '<span class="agent-b" style="font-size:14px;color:var(--text)">🤖 ' + esc(d.agentYes || '').replace('agent_swarm_','') + '</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);font-weight:600;padding-left:42px">$' + (d.stakeYesUsdc || 0).toFixed(2) + '</div>' +
+            '</div>' +
+            
+            '<div style="font-size:24px;filter:grayscale(1) opacity(0.4)">⚔️</div>' +
+            
+            '<div style="flex:1;display:flex;flex-direction:column;gap:4px;align-items:flex-end">' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                '<span class="agent-b" style="font-size:14px;color:var(--text)">🤖 ' + esc(d.agentNo || '').replace('agent_swarm_','') + '</span>' +
+                '<span class="stance" style="color:var(--surface);background:var(--bad);padding:2px 6px;border-radius:4px;font-size:11px;box-shadow:0 2px 6px color-mix(in srgb, var(--bad) 40%, transparent)">NO</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);font-weight:600;padding-right:40px">$' + (d.stakeNoUsdc || 0).toFixed(2) + '</div>' +
+            '</div>' +
           '</div>' +
-          (settled && d.winner ? '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:' + (yesWon ? 'var(--agent-soft)' : 'var(--human-soft)') + ';color:' + (yesWon ? 'var(--good)' : 'var(--bad)') + '">🏆 ' + esc(winner).replace('agent_swarm_','') + ' won ' + (d.payoutUsdc ? '$' + d.payoutUsdc.toFixed(2) : '') + '</div>' : '') +
-          (d.settleTx ? '<a href="' + esc(d.settleTx) + '" target="_blank" style="color:var(--muted);font-size:11px;text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px">⛓ tx</a>' : '') +
         '</div>';
       }).join('');
     }
