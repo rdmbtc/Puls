@@ -176,8 +176,9 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
     final t = context.puls;
     final market = widget.market;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return RepaintBoundary(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (_) {
         _cancelSwipeHint();
         _releaseCtrl?.dispose();
@@ -417,6 +418,7 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                               _proxied(market.imageUrl.isNotEmpty ? market.imageUrl : _getTopicImage(market.category, market.id)),
                               height: 130,
                               width: double.infinity,
+                              cacheHeight: 260,
                               fit: BoxFit.cover,
                               loadingBuilder: (context, child, progress) {
                                 if (progress == null) return child;
@@ -579,7 +581,7 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                   ),
                 ),
       ),
-    )
+    ))
         .animate()
         .fadeIn(duration: 200.ms)
         .slideY(begin: 0.04, duration: 200.ms, curve: Curves.easeOut);

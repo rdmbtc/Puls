@@ -124,7 +124,7 @@ class BlogPostCard extends StatelessWidget {
           if (post.coverUrl != null && post.coverUrl!.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(post.coverUrl!, height: 130, width: double.infinity, fit: BoxFit.cover,
+              child: Image.network(post.coverUrl!, height: 130, cacheHeight: 260, width: double.infinity, fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink()),
             ),
             const SizedBox(height: 10),

@@ -283,6 +283,7 @@ class _MarketCardState extends State<_MarketCard> {
                             m.imageUrl,
                             width: 28,
                             height: 28,
+                            cacheHeight: 56,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) =>
                                 _FallbackIcon(t: t),

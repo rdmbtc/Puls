@@ -419,7 +419,8 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
     final yesPct = (widget.market.yesPrice * 100).round();
     final noPct = 100 - yesPct;
 
-    return MouseRegion(
+    return RepaintBoundary(
+      child: MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -488,6 +489,7 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
                           widget.market.imageUrl,
                           width: 40,
                           height: 40,
+                          cacheHeight: 80,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             width: 40,
@@ -527,7 +529,7 @@ class _WebTrendingCardState extends State<_WebTrendingCard> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

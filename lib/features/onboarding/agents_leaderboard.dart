@@ -351,7 +351,7 @@ class _Avatar extends StatelessWidget {
         final pfp = agentPfpAsset(name);
         if (pfp != null) return Image.asset(pfp, fit: BoxFit.cover);
         if (url.isNotEmpty) {
-          return Image.network(url, fit: BoxFit.cover,
+          return Image.network(url, cacheHeight: 68, fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Icon(
                   isAgent ? Icons.smart_toy_rounded : Icons.person_rounded,
                   size: 18,

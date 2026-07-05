@@ -2911,6 +2911,7 @@ class _StatsSection extends StatelessWidget {
                   imageUrl,
                   width: isMobile ? 32 : 48,
                   height: isMobile ? 32 : 48,
+                  cacheHeight: 96,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                 ),

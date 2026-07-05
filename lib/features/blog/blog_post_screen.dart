@@ -124,7 +124,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                 if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.network(post.coverUrl!, height: 180, width: double.infinity, fit: BoxFit.cover,
+                    child: Image.network(post.coverUrl!, height: 180, cacheHeight: 360, width: double.infinity, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                   ),
                 const SizedBox(height: 14),

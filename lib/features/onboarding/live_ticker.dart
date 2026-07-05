@@ -245,6 +245,7 @@ class _TickerChip extends StatelessWidget {
                         item.imageUrl,
                         width: 34,
                         height: 34,
+                        cacheHeight: 68,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
                             _fallbackIcon(t),

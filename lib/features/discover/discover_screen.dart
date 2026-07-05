@@ -520,7 +520,8 @@ class _MarketCardState extends State<_MarketCard> {
     final trendColor = trendPositive ? t.yes : t.no;
     final trendBg = trendPositive ? t.yesBg : t.noBg;
 
-    return MouseRegion(
+    return RepaintBoundary(
+      child: MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       cursor: SystemMouseCursors.click,
@@ -637,6 +638,7 @@ class _MarketCardState extends State<_MarketCard> {
                             market.imageUrl,
                             width: 44,
                             height: 44,
+                            cacheHeight: 88,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
                               width: 44,
@@ -736,7 +738,7 @@ class _MarketCardState extends State<_MarketCard> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -951,6 +953,7 @@ class _FeaturedMarketCardState extends State<_FeaturedMarketCard> {
                         m.imageUrl,
                         width: 52,
                         height: 52,
+                        cacheHeight: 104,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           width: 52,
