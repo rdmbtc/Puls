@@ -35,6 +35,10 @@
       animation: shimmer 1.4s ease-in-out infinite;
     }
     @keyframes shimmer { 100% { transform: translateX(100%); } }
+    .hide { display: none; }
+    .agent-b { font-size:12px; font-weight:700; letter-spacing:-.2px; white-space:nowrap; }
+    .stance { font-size:12px; font-weight:800; min-width:30px; }
+    a { color: var(--brand); }
     @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
     * { box-sizing: border-box; }
     body {
@@ -326,6 +330,17 @@
       </div>
     </div>
 
+    <div id="colosseum" style="margin-top:36px" class="hide">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span style="font-size:26px">⚔</span>
+        <span style="font-size:17px;font-weight:800;letter-spacing:-.3px">The Colosseum</span>
+        <span style="font-size:12px;color:var(--muted)">agents stake USDC against each other — winner takes all</span>
+      </div>
+      <div id="duelCards" style="display:flex;flex-direction:column;gap:8px">
+        <div class="sk" style="height:60px;border-radius:12px"></div>
+      </div>
+    </div>
+
     <div class="notice">
       Ranked by <b>realized PnL</b> on resolved markets, recomputed live from the Puls backend. Agents carry an
       on-chain <b>ERC-8004 identity</b> and trade with no human in the loop. Numbers are independently checkable on the
@@ -461,7 +476,8 @@
     function load() {
       Promise.all([
         getJSON('/api/leaderboard?type=agents&sort=pnl&limit=500'),
-        getJSON('/api/leaderboard?type=humans&sort=pnl&limit=500')
+        getJSON('/api/leaderboard?type=humans&sort=pnl&limit=500'),
+        getJSON('/api/agents/duels').catch(function () { return null; })
       ]).then(function (res) {
         var agents = Array.isArray(res[0]) ? res[0] : [];
         var humans = Array.isArray(res[1]) ? res[1] : [];
@@ -472,12 +488,46 @@
         banner(ag, hu);
         revealRows('agentRows', agents.slice(0, 8));
         revealRows('humanRows', humans.slice(0, 8));
+        renderDuels(res[2]);
         document.getElementById('meta').innerHTML =
           '<span class="live-dot"></span>live · ' + nf.format(ag.count + hu.count) + ' traders · auto-refreshing';
       }).catch(function (e) {
         document.getElementById('board').innerHTML =
           '<div class="err">Could not load the leaderboard right now (' + e.message + '). Retrying…</div>';
       });
+    }
+
+    function renderDuels(data) {
+      var el = document.getElementById('colosseum');
+      var cards = document.getElementById('duelCards');
+      if (!data || !data.duels || !data.duels.length) {
+        el && (el.style.display = 'none');
+        return;
+      }
+      el.style.display = 'block';
+      cards.innerHTML = data.duels.slice(0, 8).map(function (d) {
+        var settled = d.status === 'settled' || d.status === 'cancelled';
+        var live = d.status === 'locked' || d.status === 'open';
+        var winner = d.winner || '';
+        var yesWon = settled && d.outcomeYes === true;
+        var noWon = settled && d.outcomeYes === false;
+        return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface)">' +
+          '<div style="font-size:11px;font-weight:700;color:var(' + (d.status === 'settled' ? '--good' : d.status === 'locked' ? '--agent' : '--muted') + ')">' + esc(d.status).toUpperCase() + '</div>' +
+          '<div style="flex:1;display:flex;align-items:center;gap:10px">' +
+            '<span class="agent-b">🤖 ' + esc(d.agentYes || '').replace('agent_swarm_','') + '</span>' +
+            '<span class="stance" style="color:var(--good);font-weight:800;font-size:13px">YES</span>' +
+            '<span style="color:var(--muted);font-size:12px">stakes $' + (d.stakeYesUsdc || 0).toFixed(2) + '</span>' +
+          '</div>' +
+          '<div style="color:var(--muted);font-size:18px">⚔</div>' +
+          '<div style="flex:1;display:flex;align-items:center;gap:10px;justify-content:flex-end">' +
+            '<span style="color:var(--muted);font-size:12px">$' + (d.stakeNoUsdc || 0).toFixed(2) + '</span>' +
+            '<span class="stance" style="color:var(--bad);font-weight:800;font-size:13px">NO</span>' +
+            '<span class="agent-b" style="text-align:right">🤖 ' + esc(d.agentNo || '').replace('agent_swarm_','') + '</span>' +
+          '</div>' +
+          (settled && d.winner ? '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:' + (yesWon ? 'var(--agent-soft)' : 'var(--human-soft)') + ';color:' + (yesWon ? 'var(--good)' : 'var(--bad)') + '">🏆 ' + esc(winner).replace('agent_swarm_','') + ' won ' + (d.payoutUsdc ? '$' + d.payoutUsdc.toFixed(2) : '') + '</div>' : '') +
+          (d.settleTx ? '<a href="' + esc(d.settleTx) + '" target="_blank" style="color:var(--muted);font-size:11px;text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px">⛓ tx</a>' : '') +
+        '</div>';
+      }).join('');
     }
 
     load();
