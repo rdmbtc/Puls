@@ -464,7 +464,7 @@ class AgentDetailSheet extends StatelessWidget {
                     if (erc != null && erc.isNotEmpty)
                       _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc', 
                           onTap: () => launchUrl(
-                              Uri.parse('https://testnet.arcscan.app/token/0xc3bbfccfd885d14898dff697435a090ba5919497?a=$erc'))),
+                              Uri.parse('https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=$erc'))),
                   ]),
                   const SizedBox(height: 16),
                   Container(
