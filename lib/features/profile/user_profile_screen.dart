@@ -13,6 +13,7 @@ import '../../core/widgets/puls_avatar.dart';
 import '../shell/web_layout.dart';
 import '../comments/comment_thread.dart';
 import '../alpha/alpha_actions.dart';
+import '../chat/user_chat_screen.dart';
 import '../payments/payment_receipt.dart';
 import '../payments/payment_receipt_sheet.dart';
 import 'creator_earnings_card.dart';
@@ -194,20 +195,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: _scrollToCopy,
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: t.border),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                icon: Icon(Icons.content_copy_rounded, size: 17, color: t.text),
-                label: Text('Copy',
-                    style: TextStyle(color: t.text, fontWeight: FontWeight.w800)),
+                child: Text('Copy', style: TextStyle(color: t.text, fontWeight: FontWeight.w800)),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => UserChatScreen(targetUserId: widget.userId, targetUserName: name)));
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: t.border),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Chat', style: TextStyle(color: t.text, fontWeight: FontWeight.w800)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
               child: FilledButton.icon(
                 onPressed: () => _tipCreator(tipHandle),
                 style: FilledButton.styleFrom(
@@ -216,8 +230,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.volunteer_activism_rounded, size: 17, color: Colors.white),
-                label: const Text('Tip \$0.05',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                label: const Text('Tip \$0.05', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
               ),
             ),
           ],

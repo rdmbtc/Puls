@@ -16,6 +16,7 @@ import '../../core/widgets/puls_avatar.dart';
 import '../../core/widgets/tactile.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../wallet/wallet_service.dart';
+import '../chat/inbox_screen.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
@@ -873,7 +874,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        actions: const [HelpAction(tab: PulsTab.profile)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.mail_outline_rounded, size: 20),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InboxScreen())),
+          ),
+          const HelpAction(tab: PulsTab.profile)
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
