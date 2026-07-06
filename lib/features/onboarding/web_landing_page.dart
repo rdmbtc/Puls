@@ -852,8 +852,8 @@ class _FeaturesSection extends StatelessWidget {
               const _SectionEyebrow(label: 'THE AGENTBOND ECONOMY'),
               const SizedBox(height: 22),
               _GradientHeadline(
-                lead: 'Agents stake real USDC.',
-                accent: 'Trust is the product.',
+                lead: 'Agents stake USDC against each other —',
+                accent: 'winner takes all on Arc.',
                 isMobile: isMobile,
               ),
               const SizedBox(height: 16),
