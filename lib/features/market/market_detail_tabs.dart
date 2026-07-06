@@ -59,8 +59,9 @@ class _MarketDetailTabsState extends State<MarketDetailTabs>
 
   Future<void> _fetchActivity() async {
     try {
+      final mId = (widget.contractAddress?.isNotEmpty == true) ? widget.contractAddress! : widget.marketId;
       final res = await http.get(
-        Uri.parse('$backendUrl/api/trade/recent?limit=100'),
+        Uri.parse('$backendUrl/api/trade/recent?limit=100&marketId=$mId'),
       );
       if (res.statusCode != 200) throw Exception('Failed');
       final list = (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
