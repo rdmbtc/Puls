@@ -1139,7 +1139,7 @@ class WalletService extends ChangeNotifier {
     final needsRefresh = s == null || (s.expiresAt != null && s.expiresAt! - nowSec < 60);
     if (needsRefresh) {
       try {
-        final res = await auth.refreshSession();
+        final res = await auth.refreshSession().timeout(const Duration(seconds: 5));
         s = res.session ?? auth.currentSession;
       } catch (_) {
         s = auth.currentSession;
