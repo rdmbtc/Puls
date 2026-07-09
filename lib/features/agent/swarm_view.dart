@@ -508,7 +508,7 @@ class AgentDetailSheet extends StatelessWidget {
                     Text('No decisions yet — this agent is warming up.',
                         style: TextStyle(color: t.textMuted, fontSize: 13))
                   else
-                    ...decisions.map((d) => _thoughtCard(t, d)),
+                    ...decisions.map((d) => _thoughtCard(context, t, d)),
                 ],
               ),
             ),
@@ -518,7 +518,7 @@ class AgentDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _thoughtCard(PulsThemeColors t, Map<String, dynamic> d) {
+  Widget _thoughtCard(BuildContext context, PulsThemeColors t, Map<String, dynamic> d) {
     final action = d['action'] as String? ?? '';
     final isGo = action == 'go';
     final side = d['side'] as String?;
