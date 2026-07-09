@@ -36,14 +36,32 @@ class MarketDetailScreen extends StatefulWidget {
 class _MarketDetailScreenState extends State<MarketDetailScreen> {
   List<double> _history = [];
   bool _historyLoading = true;
+  bool _marketLoading = false;
+  bool _marketNotFound = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final market = PulsStateScope.of(context).marketById(widget.marketId);
-    PriceHistoryService.fetchForMarket(market).then((h) {
-      if (mounted) setState(() { _history = h; _historyLoading = false; });
-    });
+    final appState = PulsStateScope.of(context);
+    final market = appState.marketById(widget.marketId);
+    if (market != null) {
+      PriceHistoryService.fetchForMarket(market).then((h) {
+        if (mounted) setState(() { _history = h; _historyLoading = false; });
+      });
+    } else if (!_marketLoading && !_marketNotFound) {
+      _marketLoading = true;
+      appState.ensureMarketBySlug(widget.marketId).then((m) {
+        if (!mounted) return;
+        if (m != null) {
+          PriceHistoryService.fetchForMarket(m).then((h) {
+            if (mounted) setState(() { _history = h; _historyLoading = false; });
+          });
+          setState(() => _marketLoading = false);
+        } else {
+          setState(() { _marketLoading = false; _marketNotFound = true; });
+        }
+      });
+    }
   }
 
   @override
@@ -51,6 +69,18 @@ class _MarketDetailScreenState extends State<MarketDetailScreen> {
     final appState = PulsStateScope.of(context);
     final market = appState.marketById(widget.marketId);
     final t = context.puls;
+
+    if (market == null) {
+      return Scaffold(
+        backgroundColor: t.bg,
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
+          leading: BackButton(color: t.text)),
+        body: Center(child: _marketNotFound
+            ? Text('Market not found', style: TextStyle(color: t.textMuted, fontSize: 14))
+            : const PulsLoader()),
+      );
+    }
+
     final trendPositive = market.trendIsPositive;
     final trendColor = trendPositive ? t.yes : t.no;
 

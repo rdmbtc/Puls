@@ -108,8 +108,12 @@ class PulsAppState extends ChangeNotifier {
   List<Market> get watchlistMarkets =>
       _markets.where((m) => _watchlistIds.contains(m.id)).toList();
 
-  Market marketById(String id) =>
-      _markets.firstWhere((m) => m.id == id);
+  Market? marketById(String id) {
+    for (final m in _markets) {
+      if (m.id == id || m.slug == id) return m;
+    }
+    return null;
+  }
 
   /// Resolves a market by slug for share deep links (/m/<slug>). Checks the
   /// loaded feed first; otherwise fetches the single market and adds it to the
