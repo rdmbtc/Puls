@@ -12,6 +12,7 @@ import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/gradient_text.dart';
+import '../market/market_detail_screen.dart';
 import 'colony_feed.dart';
 
 /// "Swarm" — the in-app home of the autonomous AI agent colony.
@@ -530,6 +531,7 @@ class AgentDetailSheet extends StatelessWidget {
     final alphaPaid = (d['alphaPaid'] as num?)?.toDouble();
     final alphaTxId = d['alphaTxId'] as String?;
     final alphaMemo = d['alphaMemo'] == true;
+    final slug = (d['slug'] ?? d['marketId'] ?? d['marketSlug']) as String?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -597,6 +599,20 @@ class AgentDetailSheet extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Wrap(spacing: 12, runSpacing: 6, children: [
+            if (slug != null && slug.isNotEmpty)
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => MarketDetailScreen(marketId: slug),
+                  ));
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.insert_chart_outlined_rounded, size: 13, color: t.brand),
+                  const SizedBox(width: 4),
+                  Text('view market',
+                      style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                ]),
+              ),
             if (alphaPaid != null && alphaPaid > 0)
               InkWell(
                 onTap: (alphaTxId != null && alphaTxId.startsWith('0x'))
