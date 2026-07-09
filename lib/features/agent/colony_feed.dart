@@ -12,6 +12,7 @@ import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/puls_sheet.dart';
+import '../market/market_detail_screen.dart';
 import 'swarm_view.dart';
 
 /// "AI Colony" — one live, reverse-chronological stream of the WHOLE swarm's
@@ -148,6 +149,7 @@ class _EventCard extends StatelessWidget {
     final side = event['side'] as String?;
     final amount = (event['amount'] as num?)?.toDouble();
     final question = event['question'] as String? ?? '';
+    final slug = (event['slug'] ?? event['marketId'] ?? event['marketSlug']) as String?;
     final reasoning = event['reasoning'] as String? ?? '';
     final brain = event['brain'] as String?;
     final shift = event['sentimentShift'] as Map<String, dynamic>?;
@@ -270,6 +272,20 @@ class _EventCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Wrap(spacing: 10, runSpacing: 6, alignment: WrapAlignment.end, children: [
+                if (slug != null && slug.isNotEmpty)
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => MarketDetailScreen(marketId: slug),
+                      ));
+                    },
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.insert_chart_outlined_rounded, size: 13, color: t.brand),
+                      const SizedBox(width: 4),
+                      Text('view market',
+                          style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
                 if (alphaMemo)
                   _MemoBadge(txId: (alphaTxId != null && alphaTxId.startsWith('0x')) ? alphaTxId : null),
                 if (alphaTxId != null && alphaTxId.startsWith('0x'))
