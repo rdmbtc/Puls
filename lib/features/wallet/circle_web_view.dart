@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 // webview_flutter is not supported on web — conditionally import
-import 'circle_web_view_native.dart' if (dart.library.html) 'circle_web_view_stub.dart';
+import 'circle_web_view_native.dart' if (dart.library.js_interop) 'circle_web_view_stub.dart';
 import '../../core/widgets/puls_sheet.dart';
 
 /// Opens Circle's hosted challenge UI in a bottom sheet WebView.
