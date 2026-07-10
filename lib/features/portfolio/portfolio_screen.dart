@@ -26,6 +26,7 @@ import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/puls_video_illustration.dart';
 import '../../core/widgets/puls_svg_illustration.dart';
+import '../../core/utils/formatters.dart';
 
 import '../../core/config.dart' show backendUrl;
 
@@ -1406,7 +1407,7 @@ class _PositionCardState extends State<_PositionCard> {
             Row(
               children: [
                 if (timestamp != null)
-                  Text(_formatTime(timestamp),
+                  Text(formatShortDateTime(timestamp),
                       style: TextStyle(color: t.textSubtle, fontSize: 11)),
                 const Spacer(),
                 if (txHash != null)
@@ -1534,14 +1535,6 @@ class _PositionCardState extends State<_PositionCard> {
     );
   }
 
-  String _formatTime(String iso) {
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
 }
 
 class _StatBox extends StatelessWidget {
@@ -1745,7 +1738,7 @@ class _LimitOrderCard extends StatelessWidget {
           Row(
             children: [
               if (createdAt != null)
-                Text(_formatTime(createdAt),
+                Text(formatShortDateTime(createdAt),
                     style: TextStyle(color: t.textSubtle, fontSize: 11)),
               const Spacer(),
               if (status == 'PENDING')
@@ -1792,12 +1785,4 @@ class _LimitOrderCard extends StatelessWidget {
     );
   }
 
-  String _formatTime(String iso) {
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
 }

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/confetti_burst.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../onboarding/onboarding_flags.dart';
 import 'wallet_service.dart';
@@ -146,17 +147,8 @@ class _TxStatusSheetState extends State<TxStatusSheet> {
     await launchUrl(intent, mode: LaunchMode.externalApplication);
   }
 
-  String _formatShares(double shares) {
-    String str = shares.toStringAsFixed(4);
-    while (str.contains('.') && (str.endsWith('0') || str.endsWith('.'))) {
-      if (str.endsWith('.')) {
-        str = str.substring(0, str.length - 1);
-        break;
-      }
-      str = str.substring(0, str.length - 1);
-    }
-    return str;
-  }
+  String _formatShares(double shares) =>
+      trimTrailingZeros(shares.toStringAsFixed(4));
 
   @override
   Widget build(BuildContext context) {

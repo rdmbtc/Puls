@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/config.dart' show backendUrl;
+import '../../core/utils/formatters.dart';
 import '../models/market.dart';
 
 class PolymarketRepository {
@@ -178,8 +179,8 @@ class PolymarketRepository {
         context: j['description'] as String? ?? '',
         yesPrice: yesPrice.clamp(0.01, 0.99),
         noPrice: noPrice.clamp(0.01, 0.99),
-        volume: _fmt(volNum),
-        liquidity: _fmt(liqNum),
+        volume: compactUsd(volNum),
+        liquidity: compactUsd(liqNum),
         deadline: deadline,
         trend: trend,
         isFeatured: j['featured'] == true || j['new'] == true,
@@ -285,12 +286,6 @@ class PolymarketRepository {
     if (text.contains('climate') || text.contains('weather') || text.contains('hurricane') ||
         text.contains('earthquake') || text.contains('science')) { return 'Science'; }
     return 'General';
-  }
-
-  String _fmt(double v) {
-    if (v >= 1e6) return '\$${(v / 1e6).toStringAsFixed(1)}M';
-    if (v >= 1e3) return '\$${(v / 1e3).toStringAsFixed(0)}K';
-    return '\$${v.toStringAsFixed(0)}';
   }
 
   String _firstClobToken(dynamic raw) {

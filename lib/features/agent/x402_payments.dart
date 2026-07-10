@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 
@@ -119,14 +120,6 @@ class _X402PaymentsState extends State<X402Payments> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t.toLocal());
-    if (d.inSeconds < 60) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
   }
 
   void _copy(String value, String label) {
@@ -432,7 +425,7 @@ class _X402PaymentsState extends State<X402Payments> {
             children: [
               Icon(Icons.schedule_rounded, size: 12, color: t.textSubtle),
               const SizedBox(width: 4),
-              Text(_ago(r.at),
+              Text(timeAgo(r.at),
                   style: TextStyle(color: t.textSubtle, fontSize: 11.5)),
               const Spacer(),
               Icon(Icons.verified_rounded, size: 13, color: t.yes),

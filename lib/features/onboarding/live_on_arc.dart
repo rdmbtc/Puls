@@ -11,6 +11,7 @@ import '../../core/config.dart';
 import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/count_up_text.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/pulse_dot.dart';
 import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
@@ -285,17 +286,6 @@ class _StatTile extends StatelessWidget {
   final _StatTileData data;
   final bool isMobile;
 
-  static String _fmt(double v) {
-    final n = v.round();
-    final s = n.toString();
-    final b = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
-      b.write(s[i]);
-    }
-    return b.toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
@@ -333,7 +323,7 @@ class _StatTile extends StatelessWidget {
           CountUpText(
             data.value,
             builder: (context, v) => Text(
-              data.money ? '\$${_fmt(v)}' : _fmt(v),
+              data.money ? '\$${withThousands(v.round())}' : withThousands(v.round()),
               style: TextStyle(
                 fontFamily: PulsColors.fontDisplay,
                 color: t.text,
@@ -357,14 +347,6 @@ class _PulseNowCard extends StatelessWidget {
   const _PulseNowCard({required this.decision, required this.agent});
   final _Decision decision;
   final Map<String, dynamic>? agent;
-
-  String _ago(DateTime at) {
-    final d = DateTime.now().difference(at);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -409,7 +391,7 @@ class _PulseNowCard extends StatelessWidget {
                       children: [
                         const PulseDot(size: 5, color: Color(0xFF22C55E)),
                         const SizedBox(width: 3),
-                        Text('ACTING AUTONOMOUSLY · ${_ago(d.at)}',
+                        Text('ACTING AUTONOMOUSLY · ${timeAgo(d.at)}',
                             style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
                       ],
                     ),

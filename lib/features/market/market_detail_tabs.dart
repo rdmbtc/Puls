@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../comments/comment_thread.dart';
 
@@ -141,11 +142,7 @@ class _ActivityTab extends StatelessWidget {
   String _ago(String? iso) {
     if (iso == null) return '';
     final dt = DateTime.tryParse(iso) ?? DateTime.now();
-    final d = DateTime.now().difference(dt);
-    if (d.inSeconds < 60) return '${d.inSeconds}s';
-    if (d.inMinutes < 60) return '${d.inMinutes}m';
-    if (d.inHours < 24) return '${d.inHours}h';
-    return '${d.inDays}d';
+    return timeAgoShort(dt, includeSeconds: true);
   }
 
   @override

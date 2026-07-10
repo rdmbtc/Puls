@@ -11,6 +11,7 @@ import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../market/market_detail_screen.dart';
 import 'swarm_view.dart';
@@ -65,14 +66,6 @@ class _ColonyFeedState extends State<ColonyFeed> {
     }
   }
 
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t.toLocal());
-    if (d.inSeconds < 60) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
@@ -98,7 +91,7 @@ class _ColonyFeedState extends State<ColonyFeed> {
                   style: TextStyle(color: t.textMuted, fontSize: 13)),
             )
           else
-            ..._events.map((e) => _EventCard(event: e, ago: _ago, agents: widget.agents)),
+            ..._events.map((e) => _EventCard(event: e, ago: timeAgo, agents: widget.agents)),
         ],
       ),
     );

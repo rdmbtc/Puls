@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 
 /// "Live from the chain" — real recent trades with Arcscan proof links and
 /// real protocol stats. Renders nothing if the backend is unreachable.
@@ -78,23 +79,8 @@ class _LiveActivitySectionState extends State<LiveActivitySection> {
     }
   }
 
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
   String _fmtInt(num? n) {
-    final v = (n ?? 0).toInt();
-    final s = v.toString();
-    final b = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
-      b.write(s[i]);
-    }
-    return b.toString();
+    return withThousands((n ?? 0).toInt());
   }
 
   @override
@@ -146,7 +132,7 @@ class _LiveActivitySectionState extends State<LiveActivitySection> {
                         Divider(height: 1, thickness: 1, color: t.border),
                       _TradeRow(
                           trade: _trades[i],
-                          ago: _ago(_trades[i].at),
+                          ago: timeAgo(_trades[i].at),
                           isMobile: isMobile,
                           t: t),
                     ],

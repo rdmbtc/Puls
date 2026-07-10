@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:puls/core/theme/app_theme.dart';
+import 'package:puls/core/utils/formatters.dart';
 import 'package:puls/core/widgets/gradient_text.dart';
 import 'package:puls/core/widgets/state_views.dart';
 import 'package:puls/core/widgets/puls_loader.dart';
@@ -246,12 +247,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String _timeAgo(String? iso) {
     if (iso == null) return '';
     try {
-      final dt = DateTime.parse(iso).toLocal();
-      final diff = DateTime.now().difference(dt);
-      if (diff.inDays > 0) return '${diff.inDays}d ago';
-      if (diff.inHours > 0) return '${diff.inHours}h ago';
-      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-      return 'just now';
+      return timeAgo(DateTime.parse(iso));
     } catch (_) {
       return '';
     }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../app/puls_app.dart';
 import 'user_chat_screen.dart';
 
@@ -10,15 +11,6 @@ class InboxScreen extends StatefulWidget {
 
   @override
   State<InboxScreen> createState() => _InboxScreenState();
-}
-
-String _formatTimeAgo(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inDays > 365) return '${diff.inDays ~/ 365}y';
-  if (diff.inDays > 0) return '${diff.inDays}d';
-  if (diff.inHours > 0) return '${diff.inHours}h';
-  if (diff.inMinutes > 0) return '${diff.inMinutes}m';
-  return 'now';
 }
 
 class _InboxScreenState extends State<InboxScreen> {
@@ -100,7 +92,7 @@ class _InboxScreenState extends State<InboxScreen> {
                               ),
                             ],
                           ),
-                          trailing: Text(_formatTimeAgo(dt), style: TextStyle(color: t.textSubtle, fontSize: 12)),
+                          trailing: Text(timeAgoShort(dt, includeYears: true), style: TextStyle(color: t.textSubtle, fontSize: 12)),
                           onTap: () {
                             Navigator.push(
                               context,

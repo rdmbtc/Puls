@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../wallet/tx_status_sheet.dart';
@@ -69,15 +70,7 @@ class _TradePreviewSheetState extends State<TradePreviewSheet> {
   String _formatShares(double shares) {
     final microShares = (shares * 1000000).floor();
     final value = microShares / 1000000;
-    String str = value.toStringAsFixed(6);
-    while (str.contains('.') && (str.endsWith('0') || str.endsWith('.'))) {
-      if (str.endsWith('.')) {
-        str = str.substring(0, str.length - 1);
-        break;
-      }
-      str = str.substring(0, str.length - 1);
-    }
-    return str;
+    return trimTrailingZeros(value.toStringAsFixed(6));
   }
   bool _isLimit = false;
   double _limitPrice = 0.5;
