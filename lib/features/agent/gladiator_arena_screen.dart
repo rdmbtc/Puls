@@ -169,26 +169,21 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
             _rnd.nextDouble() * 0.4 -
             0.2;
       }
-        agent.equity += delta;
-        agent.lastDelta = delta;
-        agent.trades++;
-        agent.justTraded = true;
-
-        final tps = ['BTC', 'ETH', 'SOL', 'WIF', 'JUP', 'LINK'];
-        final tp = tps[_rnd.nextInt(tps.length)];
-        final action = isWin ? 'closed profit' : 'stopped out';
-        _feed.insert(0, _FeedEvent(agent, '$action on $tp', true));
-        if (_feed.length > 50) _feed.removeLast();
-      });
-
-      Future<void>.delayed(const Duration(milliseconds: 1400)).then((_) {
-        if (mounted) setState(() => agent.justTraded = false);
-      });
+      final isTrade = _rnd.nextDouble() > 0.35;
+      _feed.insert(
+        0,
+        _FeedEvent(
+          agent,
+          isTrade
+              ? '${agent.name} ${_tradeVerbs[_rnd.nextInt(_tradeVerbs.length)]}'
+              : '${agent.name} ${_trashTalk[_rnd.nextInt(_trashTalk.length)]}',
+          isTrade,
+        ),
+      );
+      if (_feed.length > 12) _feed.removeLast();
     });
-
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _remaining -= const Duration(seconds: 1));
+    Future<void>.delayed(const Duration(milliseconds: 700)).then((_) {
+      if (mounted) setState(() => agent.justTraded = false);
     });
   }
 
