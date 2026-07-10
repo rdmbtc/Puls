@@ -370,7 +370,7 @@ class _Island extends StatelessWidget {
             isDark: isDark,
             onTap: () => onTap(i),
           );
-          if (items[i].tab == PulsTab.agent) {
+          if (items[i].label == 'Agent') {
             return KeyedSubtree(key: tourSwarmKey, child: pill);
           }
           return pill;
