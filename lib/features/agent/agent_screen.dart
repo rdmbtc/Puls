@@ -24,6 +24,9 @@ import '../../core/widgets/puls_page_route.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
+import 'agent_sponsorship_screen.dart';
+import 'flash_arbitrage_screen.dart';
+import 'gladiator_arena_screen.dart';
 import 'live_swarm_view.dart';
 import 'proof_view.dart';
 import '../market/signals_marketplace.dart';
@@ -511,6 +514,28 @@ class _AgentScreenState extends State<AgentScreen>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Agent Sponsorship — stake USDC into an agent',
+            icon: Icon(Icons.savings_rounded, color: t.brand),
+            onPressed: () => Navigator.of(context).push(
+              pulsRoute(context,
+                  builder: (_) => const AgentSponsorshipScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Gladiator Arena — 24h AI trading tournament',
+            icon: Icon(Icons.sports_mma_rounded, color: t.brand),
+            onPressed: () => Navigator.of(context).push(
+              pulsRoute(context, builder: (_) => const GladiatorArenaScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Flash Arbitrage — approve agent-found arbs',
+            icon: Icon(Icons.radar_rounded, color: t.brand),
+            onPressed: () => Navigator.of(context).push(
+              pulsRoute(context, builder: (_) => const FlashArbitrageScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Puls Streams — pay-per-second',
             icon: Icon(Icons.bolt_rounded, color: t.brand),
