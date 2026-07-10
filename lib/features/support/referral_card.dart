@@ -97,7 +97,13 @@ class _ReferralCardState extends State<ReferralCard> {
               duration: const Duration(seconds: 2));
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] referral claim failed: $e');
+      if (mounted) {
+        PulsSnack.error(context, 'Couldn\'t apply code. Check your connection.',
+            duration: const Duration(seconds: 2));
+      }
+    }
     if (mounted) setState(() => _claiming = false);
   }
 

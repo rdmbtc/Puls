@@ -278,7 +278,9 @@ class _AgentScreenState extends State<AgentScreen>
             final sr = jsonDecode(stratRes.body) as Map<String, dynamic>;
             strategy = sr['strategy'] as String? ?? 'NONE';
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Puls] agent strategy fetch failed: $e');
+        }
         setState(() {
           _started = true;
           _agentAddress = r['agentAddress'] as String?;
@@ -292,7 +294,9 @@ class _AgentScreenState extends State<AgentScreen>
               'Welcome back. Your agent is live with \$${bal.toStringAsFixed(2)} USDC available. Ask me to trade, or withdraw the funds back to your wallet anytime.'));
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] agent status load failed: $e');
+    }
   }
 
   @override

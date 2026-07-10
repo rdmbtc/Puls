@@ -45,7 +45,9 @@ class _ResolutionPanelState extends State<ResolutionPanel> {
         });
         return;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] resolution status load failed for ${widget.market.slug}: $e');
+    }
     if (mounted) setState(() => _loading = false);
   }
 

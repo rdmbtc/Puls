@@ -38,11 +38,15 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
     try {
       final o = await wallet.getOracle(widget.slug);
       if (mounted) setState(() { _oracle = o; });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] oracle load failed for ${widget.slug}: $e');
+    }
     try {
       final c = await wallet.getOracleCorrelations(widget.slug);
       if (mounted) setState(() { _correlations = (c['correlations'] as List?) ?? const []; });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] oracle correlations load failed for ${widget.slug}: $e');
+    }
     if (mounted) setState(() => _loading = false);
   }
 

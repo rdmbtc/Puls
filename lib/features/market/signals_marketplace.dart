@@ -72,7 +72,9 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
           final m = a as Map<String, dynamic>;
           _authors['agent_swarm_${m['key']}'] = _Author(m['name'] as String? ?? 'Agent', true);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Puls] signals: agent roster load failed: $e');
+      }
       // Known house creators.
       _authors.putIfAbsent('agent_sage', () => const _Author('Sage 🔮', true, pfp: 'assets/sage-pfp.png'));
       _authors.putIfAbsent('house_pulse', () => const _Author('Pulse 🤖', true, pfp: 'assets/puls-pfp.png'));
