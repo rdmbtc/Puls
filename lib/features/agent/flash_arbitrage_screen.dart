@@ -282,6 +282,16 @@ class _FlashArbitrageScreenState extends State<FlashArbitrageScreen>
           child: _queue.isEmpty ? _emptyState(t) : _cardStack(t),
         ),
         if (_queue.isNotEmpty) _actionBar(t),
+        const SizedBox(height: 12),
+        Text(
+          '(Currently not working, coming soon)',
+          style: TextStyle(
+            color: t.textSubtle,
+            fontSize: 11.5,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

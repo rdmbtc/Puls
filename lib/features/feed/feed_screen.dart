@@ -21,7 +21,9 @@ import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
+import '../market/swipe_discovery_screen.dart';
 import '../market/trade_preview_sheet.dart';
+import '../onboarding/puls_tour_overlay.dart';
 import '../profile/notifications_screen.dart';
 import '../profile/user_profile_screen.dart';
 import '../shell/shell_nav.dart';
@@ -312,6 +314,42 @@ class _FeedHeader extends StatelessWidget {
           ),
           const Spacer(),
           const HelpButton(tab: PulsTab.feed),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: () {
+              buildPulsTour(
+                swarmKey: GlobalKey(), // We might need keys for tour, but in Feed we can just launch the tour as is, or use the feed keys
+                usdcKey: GlobalKey(),
+                marketKey: GlobalKey(),
+              ).start(context);
+            },
+            icon: Icon(Icons.help_outline_rounded, size: 16, color: t.brand),
+            label: Text('Take Tour',
+                style: TextStyle(
+                    color: t.brand,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: () {
+              final appState = PulsStateScope.of(context);
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SwipeDiscoveryScreen(
+                        markets: appState.markets,
+                        onSwipeYes: (m) => showTradePreviewSheet(
+                            context, m, MarketSide.yes),
+                        onSwipeNo: (m) => showTradePreviewSheet(
+                            context, m, MarketSide.no),
+                      )));
+            },
+            icon: Icon(Icons.swipe_rounded, size: 16, color: t.brand),
+            label: Text('Swipe Mode',
+                style: TextStyle(
+                    color: t.brand,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: () {

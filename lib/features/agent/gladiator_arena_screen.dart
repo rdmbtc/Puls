@@ -169,21 +169,26 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
             _rnd.nextDouble() * 0.4 -
             0.2;
       }
-      final isTrade = _rnd.nextDouble() > 0.35;
-      _feed.insert(
-        0,
-        _FeedEvent(
-          agent,
-          isTrade
-              ? '${agent.name} ${_tradeVerbs[_rnd.nextInt(_tradeVerbs.length)]}'
-              : '${agent.name} ${_trashTalk[_rnd.nextInt(_trashTalk.length)]}',
-          isTrade,
-        ),
-      );
-      if (_feed.length > 12) _feed.removeLast();
+        agent.equity += delta;
+        agent.lastDelta = delta;
+        agent.trades++;
+        agent.justTraded = true;
+
+        final tps = ['BTC', 'ETH', 'SOL', 'WIF', 'JUP', 'LINK'];
+        final tp = tps[_rnd.nextInt(tps.length)];
+        final action = isWin ? 'closed profit' : 'stopped out';
+        _feed.insert(0, _FeedEvent(agent, '$action on $tp', true));
+        if (_feed.length > 50) _feed.removeLast();
+      });
+
+      Future<void>.delayed(const Duration(milliseconds: 1400)).then((_) {
+        if (mounted) setState(() => agent.justTraded = false);
+      });
     });
-    Future<void>.delayed(const Duration(milliseconds: 700)).then((_) {
-      if (mounted) setState(() => agent.justTraded = false);
+
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _remaining -= const Duration(seconds: 1));
     });
   }
 
@@ -274,6 +279,17 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
                       _tournamentHeader(t),
                       const SizedBox(height: 16),
                       _leaderboardTrack(t),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          '(Currently not working, coming soon)',
+                          style: TextStyle(
+                            color: t.textSubtle,
+                            fontSize: 11.5,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

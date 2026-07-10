@@ -130,36 +130,6 @@ class _WebHomeScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge),
                   const Spacer(),
                   const HelpButton(tab: PulsTab.home),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      buildPulsTour(
-                        swarmKey: tourSwarmKey,
-                        usdcKey: tourUsdcKey,
-                        marketKey: tourMarketKey,
-                      ).start(context);
-                    },
-                    icon: Icon(Icons.help_outline_rounded, size: 16, color: t.brand),
-                    label: Text('Take Tour',
-                        style: TextStyle(
-                            color: t.brand,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => SwipeDiscoveryScreen(markets: appState.markets)));
-                    },
-                    icon: Icon(Icons.swipe_rounded, size: 16, color: t.brand),
-                    label: Text('Swipe Mode',
-                        style: TextStyle(
-                            color: t.brand,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () => PulsStateScope.of(context).refresh(),
                     icon: Icon(Icons.refresh_rounded, size: 16, color: t.brand),

@@ -430,14 +430,11 @@ class _MarketCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Background image (or category fallback).
-          if (market.imageUrl.isNotEmpty)
-            Image.network(
-              market.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _fallbackBg(t),
-            )
-          else
-            _fallbackBg(t),
+          Image.network(
+            market.imageUrl.isNotEmpty ? market.imageUrl : 'https://picsum.photos/seed/${market.id}/600/800',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackBg(t),
+          ),
 
           // Bottom dark gradient for legibility.
           const DecoratedBox(

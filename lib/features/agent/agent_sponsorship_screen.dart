@@ -21,7 +21,7 @@ class AgentSponsorshipScreen extends StatefulWidget {
 class _AgentSponsorshipScreenState extends State<AgentSponsorshipScreen>
     with TickerProviderStateMixin {
   // ── Mock agent data ──
-  static const _agentName = 'MacroMind v4';
+  static const _agentName = 'Pulse Agent House';
   static const _contract = '0x7fA9…c3E1';
   static const _apy = 47.2;
   static const _roi30d = 12.8;
@@ -98,7 +98,9 @@ class _AgentSponsorshipScreenState extends State<AgentSponsorshipScreen>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
         title: const Text('Agent Sponsorship'),
         actions: [
           Padding(
@@ -128,7 +130,8 @@ class _AgentSponsorshipScreenState extends State<AgentSponsorshipScreen>
                 const SizedBox(height: 10),
                 Center(
                   child: Text(
-                    'Non-custodial · funds stay in your delegation vault',
+                    'Non-custodial · funds stay in your delegation vault\n\n(Currently not working, coming soon)',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: t.textSubtle,
                       fontSize: 11.5,
