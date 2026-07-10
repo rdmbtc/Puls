@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app_state.dart';
 import '../../app/puls_app.dart';
 import '../../core/config.dart';
+import '../../core/tour_keys.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/lazy_indexed_stack.dart';
 import '../../core/widgets/puls_footer.dart';
@@ -361,7 +362,7 @@ class _Island extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(items.length, (i) {
-          return _NavPill(
+          final pill = _NavPill(
             item: items[i],
             selected: i == index,
             showLabel: showLabels,
@@ -369,6 +370,10 @@ class _Island extends StatelessWidget {
             isDark: isDark,
             onTap: () => onTap(i),
           );
+          if (items[i].tab == PulsTab.agent) {
+            return KeyedSubtree(key: tourSwarmKey, child: pill);
+          }
+          return pill;
         }),
       ),
     );
@@ -514,6 +519,7 @@ class _WalletChip extends StatelessWidget {
         double.tryParse(ws.usdcBalance)?.toStringAsFixed(2) ?? ws.usdcBalance;
 
     return Container(
+      key: tourUsdcKey,
       padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
       decoration: BoxDecoration(
         color: t.surface,

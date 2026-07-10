@@ -12,6 +12,8 @@ import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/gradient_text.dart';
+import 'agent_brain_visualizer.dart';
+import '../analytics/swarm_analytics_dashboard.dart';
 import '../market/market_detail_screen.dart';
 import 'colony_feed.dart';
 
@@ -153,17 +155,40 @@ class _SwarmViewState extends State<SwarmView> {
         ),
       );
     }
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: t.surfaceRaised,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: t.border),
-      ),
-      child: Row(children: [
-        seg(0, Icons.stream_rounded, 'Live Colony'),
-        seg(1, Icons.grid_view_rounded, 'Agents'),
-      ]),
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: t.surfaceRaised,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: t.border),
+            ),
+            child: Row(children: [
+              seg(0, Icons.stream_rounded, 'Live Colony'),
+              seg(1, Icons.grid_view_rounded, 'Agents'),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 8),
+        InkWell(
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SwarmAnalyticsDashboard()));
+          },
+          borderRadius: BorderRadius.circular(13),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: t.surfaceRaised,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: t.border),
+            ),
+            child: Icon(Icons.analytics_rounded, size: 20, color: t.text),
+          ),
+        ),
+      ],
     );
   }
 
@@ -611,6 +636,32 @@ class AgentDetailSheet extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text('view market',
                       style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            if (reasoning.isNotEmpty)
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      backgroundColor: Colors.black,
+                      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+                      body: AgentBrainVisualizer(
+                        decision: AgentDecision(
+                          question: question.isNotEmpty ? question : (slug ?? 'Market Decision'),
+                          sources: const [],
+                          reasoning: reasoning,
+                          side: side == 'YES' ? DecisionSide.yes : DecisionSide.no,
+                          amountUsdc: amount ?? 0,
+                        ),
+                      ),
+                    ),
+                  ));
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.psychology_alt_rounded, size: 13, color: Colors.purpleAccent),
+                  const SizedBox(width: 4),
+                  Text('visualize brain',
+                      style: TextStyle(color: Colors.purpleAccent, fontSize: 11, fontWeight: FontWeight.w700)),
                 ]),
               ),
             if (alphaPaid != null && alphaPaid > 0)

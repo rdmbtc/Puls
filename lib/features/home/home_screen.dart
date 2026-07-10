@@ -11,9 +11,12 @@ import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../market/market_detail_screen.dart';
 import '../market/trade_preview_sheet.dart';
+import '../market/swipe_discovery_screen.dart';
 import '../shell/web_layout.dart';
 import '../shell/shell_nav.dart';
 import '../onboarding/help_button.dart';
+import '../onboarding/puls_tour_overlay.dart';
+import '../../core/tour_keys.dart';
 import '../wallet/wallet_service.dart';
 import '../agent/agent_screen.dart' show agentSubTabRequest;
 import '../agent/humans_vs_agents_card.dart';
@@ -129,6 +132,35 @@ class _WebHomeScreen extends StatelessWidget {
                   const HelpButton(tab: PulsTab.home),
                   const SizedBox(width: 8),
                   TextButton.icon(
+                    onPressed: () {
+                      buildPulsTour(
+                        swarmKey: tourSwarmKey,
+                        usdcKey: tourUsdcKey,
+                        marketKey: tourMarketKey,
+                      ).start(context);
+                    },
+                    icon: Icon(Icons.help_outline_rounded, size: 16, color: t.brand),
+                    label: Text('Take Tour',
+                        style: TextStyle(
+                            color: t.brand,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => SwipeDiscoveryScreen(markets: appState.markets)));
+                    },
+                    icon: Icon(Icons.swipe_rounded, size: 16, color: t.brand),
+                    label: Text('Swipe Mode',
+                        style: TextStyle(
+                            color: t.brand,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
                     onPressed: () => PulsStateScope.of(context).refresh(),
                     icon: Icon(Icons.refresh_rounded, size: 16, color: t.brand),
                     label: Text('Refresh',
@@ -150,8 +182,13 @@ class _WebHomeScreen extends StatelessWidget {
                   childAspectRatio: 1.45,
                 ),
                 itemCount: trendingMarkets.length,
-                itemBuilder: (context, i) =>
-                    _WebTrendingCard(market: trendingMarkets[i], t: t),
+                itemBuilder: (context, i) {
+                  final card = _WebTrendingCard(market: trendingMarkets[i], t: t);
+                  if (i == 0) {
+                    return KeyedSubtree(key: tourMarketKey, child: card);
+                  }
+                  return card;
+                },
               ),
             ],
           ),
