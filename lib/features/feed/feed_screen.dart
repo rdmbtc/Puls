@@ -338,9 +338,9 @@ class _FeedHeader extends StatelessWidget {
                   builder: (_) => SwipeDiscoveryScreen(
                         markets: appState.markets,
                         onSwipeYes: (m) => showTradePreviewSheet(
-                            context, m, MarketSide.yes),
+                            context: context, market: m, side: MarketSide.yes),
                         onSwipeNo: (m) => showTradePreviewSheet(
-                            context, m, MarketSide.no),
+                            context: context, market: m, side: MarketSide.no),
                       )));
             },
             icon: Icon(Icons.swipe_rounded, size: 16, color: t.brand),
