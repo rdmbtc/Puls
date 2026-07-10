@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/puls_app_state.dart';
 import '../../core/config.dart' show appBaseUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/creator_signal.dart';
 
@@ -14,14 +15,6 @@ class SignalFreshness extends StatelessWidget {
   const SignalFreshness({super.key, required this.publishedAt});
   final DateTime? publishedAt;
 
-  static String relative(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (publishedAt == null) return const SizedBox.shrink();
@@ -29,7 +22,7 @@ class SignalFreshness extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.schedule_rounded, size: 11, color: t.textSubtle),
       const SizedBox(width: 4),
-      Text('researched ${relative(publishedAt!)}',
+      Text('researched ${timeAgo(publishedAt!)}',
           style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600)),
     ]);
   }

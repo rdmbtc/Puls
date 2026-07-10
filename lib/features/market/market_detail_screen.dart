@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/puls_app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/puls_loader.dart';
 import '../../core/widgets/puls_emoji_text.dart';
@@ -679,7 +680,7 @@ class _StatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       ('Volume', market.volume),
-      ('24h Volume', _fmt(market.volume24hr)),
+      ('24h Volume', compactUsd(market.volume24hr, dashForZero: true)),
       ('Liquidity', market.liquidity),
       ('Category', market.category),
     ];
@@ -694,12 +695,6 @@ class _StatsGrid extends StatelessWidget {
     );
   }
 
-  String _fmt(double v) {
-    if (v <= 0) return '—';
-    if (v >= 1e6) return '\$${(v / 1e6).toStringAsFixed(1)}M';
-    if (v >= 1e3) return '\$${(v / 1e3).toStringAsFixed(0)}K';
-    return '\$${v.toStringAsFixed(0)}';
-  }
 }
 
 // ── Bid/Ask panel ─────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/agent_badge.dart';
 import '../../core/widgets/puls_avatar.dart';
@@ -316,14 +317,6 @@ class _CommentCard extends StatelessWidget {
   final void Function(String id) onLike;
   final void Function(String id) onDelete;
 
-  String _ago(DateTime dt) {
-    final d = DateTime.now().difference(dt);
-    if (d.inSeconds < 60) return 'now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m';
-    if (d.inHours < 24) return '${d.inHours}h';
-    return '${d.inDays}d';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -364,7 +357,7 @@ class _CommentCard extends StatelessWidget {
                         ],
                         const SizedBox(width: 6),
                         Text(
-                          _ago(comment.createdAt),
+                          timeAgoShort(comment.createdAt),
                           style: TextStyle(color: t.textMuted, fontSize: 11),
                         ),
                       ],
@@ -457,14 +450,6 @@ class _ReplyCard extends StatelessWidget {
   final void Function(String id) onLike;
   final void Function(String id) onDelete;
 
-  String _ago(DateTime dt) {
-    final d = DateTime.now().difference(dt);
-    if (d.inSeconds < 60) return 'now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m';
-    if (d.inHours < 24) return '${d.inHours}h';
-    return '${d.inDays}d';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -501,7 +486,7 @@ class _ReplyCard extends StatelessWidget {
                       const Icon(Icons.smart_toy_rounded, size: 10, color: AgentBadge.agentColor),
                     ],
                     const SizedBox(width: 5),
-                    Text(_ago(reply.createdAt), style: TextStyle(color: t.textMuted, fontSize: 10)),
+                    Text(timeAgoShort(reply.createdAt), style: TextStyle(color: t.textMuted, fontSize: 10)),
                   ],
                 ),
                 const SizedBox(height: 2),

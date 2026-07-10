@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/puls_loader.dart';
 
@@ -265,14 +266,6 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard> {
     }
   }
 
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inSeconds < 60) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -287,7 +280,7 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         children: [
           if (_ticker.isNotEmpty) ...[
-            _OnChainTicker(items: _ticker, ago: _ago),
+            _OnChainTicker(items: _ticker, ago: timeAgo),
             const SizedBox(height: 16),
           ],
           _header(t),
@@ -716,7 +709,7 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Text(_ago(p.at),
+                      Text(timeAgo(p.at),
                           style:
                               TextStyle(color: t.textSubtle, fontSize: 10.5)),
                     ],

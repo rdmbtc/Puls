@@ -11,6 +11,7 @@ import '../../core/motion.dart';
 import '../../core/widgets/tactile.dart';
 import '../../core/widgets/market_hero.dart';
 import '../../core/widgets/skeleton.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/trade_math.dart';
 import '../../data/models/market.dart';
 import '../../data/polymarket/price_history_service.dart';
@@ -479,7 +480,7 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
                                 if (market.volume24hr > 0)
                                   _Stat(
                                     icon: Picons.chartBar,
-                                    label: _fmtVol(market.volume24hr),
+                                    label: compactUsd(market.volume24hr),
                                     color: t.textMuted,
                                   )
                                 else
@@ -587,11 +588,6 @@ class _PredictionFeedCardState extends State<PredictionFeedCard>
         .slideY(begin: 0.04, duration: 200.ms, curve: Curves.easeOut);
   }
 
-  String _fmtVol(double v) {
-    if (v >= 1e6) return '\$${(v / 1e6).toStringAsFixed(1)}M';
-    if (v >= 1e3) return '\$${(v / 1e3).toStringAsFixed(0)}K';
-    return '\$${v.toStringAsFixed(0)}';
-  }
 }
 
 class _CardSparkline extends StatelessWidget {

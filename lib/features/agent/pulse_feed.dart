@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/puls_loader.dart';
 
 /// Public feed of "Pulse" — the autonomous house AI trader agent.
@@ -93,14 +94,6 @@ class _PulseFeedState extends State<PulseFeed> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t.toLocal());
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
   }
 
   @override
@@ -355,7 +348,7 @@ class _PulseFeedState extends State<PulseFeed> {
                 style: TextStyle(color: t.textSubtle, fontSize: 11.5),
               ),
               const Spacer(),
-              Text(_ago(d.at),
+              Text(timeAgo(d.at),
                   style: TextStyle(color: t.textSubtle, fontSize: 11.5)),
               if (d.txHash != null && d.txHash!.isNotEmpty) ...[
                 const SizedBox(width: 10),

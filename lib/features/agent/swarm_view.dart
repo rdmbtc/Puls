@@ -11,6 +11,7 @@ import '../../core/utils/agent_pfp.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/puls_sheet.dart';
 import '../../core/widgets/puls_loader.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/gradient_text.dart';
 import 'agent_brain_visualizer.dart';
 import '../analytics/swarm_analytics_dashboard.dart';
@@ -425,14 +426,6 @@ class AgentDetailSheet extends StatelessWidget {
   final Map<String, dynamic>? agentMap;
   const AgentDetailSheet({super.key, this.agentKey, this.agentMap});
 
-  String _ago(DateTime t) {
-    final d = DateTime.now().difference(t.toLocal());
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
@@ -648,7 +641,7 @@ class AgentDetailSheet extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            Text(_ago(at),
+            Text(timeAgo(at),
                 style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
           ]),
           if (question.isNotEmpty) ...[

@@ -12,6 +12,7 @@ import '../../core/config.dart' show backendUrl;
 import '../../core/widgets/puls_page_route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/agent_pfp.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/puls_emoji.dart';
 import '../../core/motion.dart';
 import '../../core/widgets/skeleton.dart';
@@ -830,19 +831,6 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     return userId;
   }
 
-  String _formatTimeAgo(DateTime dt) {
-    final diff = DateTime.now().toUtc().difference(dt.toUtc());
-    if (diff.isNegative || diff.inSeconds < 60) {
-      return 'Just now';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m ago';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}h ago';
-    } else {
-      return '${diff.inDays}d ago';
-    }
-  }
-
   Future<void> _fetchRecentTrades() async {
     try {
       final url = Uri.parse('$backendUrl/api/trade/recent');
@@ -992,7 +980,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
         action: isBuy ? 'bought' : 'sold',
         question: question,
         amount: absAmount,
-        time: _formatTimeAgo(createdAt),
+        time: timeAgo(createdAt, justNow: 'Just now'),
         isYes: side.toUpperCase() == 'YES',
         createdAt: createdAt,
       );
@@ -1044,7 +1032,7 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
             action: old.action,
             question: old.question,
             amount: old.amount,
-            time: _formatTimeAgo(old.createdAt),
+            time: timeAgo(old.createdAt, justNow: 'Just now'),
             isYes: old.isYes,
             createdAt: old.createdAt,
           );

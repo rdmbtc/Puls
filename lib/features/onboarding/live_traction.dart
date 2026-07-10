@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config.dart' show backendUrl;
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/count_up_text.dart';
 import 'landing_kit.dart';
 
@@ -172,17 +173,6 @@ class _TractionCard extends StatelessWidget {
   final String label;
   final String sub;
 
-  String _fmt(double v) {
-    final n = v.round();
-    final str = n.toString();
-    final b = StringBuffer();
-    for (var i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) b.write(',');
-      b.write(str[i]);
-    }
-    return b.toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
@@ -201,7 +191,7 @@ class _TractionCard extends StatelessWidget {
             builder: (context, v) => ShaderMask(
               shaderCallback: (r) => PulsColors.pulseGradient.createShader(r),
               child: Text(
-                _fmt(v),
+                withThousands(v.round()),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 38,
