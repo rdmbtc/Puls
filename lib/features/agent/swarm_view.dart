@@ -184,8 +184,7 @@ class _SwarmViewState extends State<SwarmView> {
             PulsSheet.show<void>(
               context,
               builder: (_) => const PulsSheetSurface(
-                scrollable:
-                    false, // The dashboard has its own ListView, so false is better to let the ListView handle scrolling
+                scrollable: true,
                 child: SwarmAnalyticsDashboard(),
               ),
             );

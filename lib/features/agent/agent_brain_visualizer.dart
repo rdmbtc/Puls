@@ -1,13 +1,16 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
 
 enum DecisionSide { yes, no }
 
 class AgentSource {
   const AgentSource({required this.title, required this.url});
+
   final String title;
   final String url;
 }
@@ -28,25 +31,20 @@ class AgentDecision {
   final double amountUsdc;
 }
 
-class _Brain {
-  static const bg = Color(0xFF0D0F12);
-  static const brand = Color(0xFF00FF88);
-  static const no = Color(0xFFFF3B5C);
-  static const dim = Color(0xFF1A1E24);
-  static const text = Color(0xFFE8FFF2);
-  static const mono = 'monospace';
-}
-
 class AgentBrainVisualizer extends StatefulWidget {
   const AgentBrainVisualizer({
-    super.key,
     required this.decision,
     this.autoPlay = true,
+    this.showActions = true,
+    this.onDecision,
     this.onComplete,
+    super.key,
   });
 
   final AgentDecision decision;
   final bool autoPlay;
+  final bool showActions;
+  final ValueChanged<DecisionSide>? onDecision;
   final VoidCallback? onComplete;
 
   @override
@@ -55,118 +53,158 @@ class AgentBrainVisualizer extends StatefulWidget {
 
 class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
     with TickerProviderStateMixin {
-  late final AnimationController _master;
+  static const _background = Color(0xFF030405);
+  static const _surface = Color(0xFF0B0D10);
+  static const _line = Color(0xFF20242B);
+  static const _mint = Color(0xFF31F5B0);
+  static const _red = Color(0xFFFF4968);
+  static const _text = Color(0xFFF2F7F5);
+  static const _muted = Color(0xFF7E8985);
+
+  late final AnimationController _sequence;
   late final AnimationController _pulse;
+  late final Animation<double> _decisionReveal;
+  bool? _reduceMotion;
+
+  Color get _decisionColor =>
+      widget.decision.side == DecisionSide.yes ? _mint : _red;
 
   @override
   void initState() {
     super.initState();
-    _master = AnimationController(
+    _sequence = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5500),
-    );
+      duration: const Duration(milliseconds: 4800),
+    )..addStatusListener(_handleSequenceStatus);
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 1200),
+    );
+    _decisionReveal = CurvedAnimation(
+      parent: _sequence,
+      curve: const Interval(0.72, 1, curve: Curves.easeOutBack),
+    );
+  }
 
-    _master.addStatusListener((status) {
-      if (status == AnimationStatus.completed) widget.onComplete?.call();
-    });
-
-    if (widget.autoPlay) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _master.forward());
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = context.reduceMotion;
+    if (_reduceMotion == reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _sequence.value = 1;
+      _pulse
+        ..stop()
+        ..value = 0.5;
+    } else {
+      _pulse.repeat();
+      if (widget.autoPlay && _sequence.isDismissed) {
+        _sequence.forward();
+      }
     }
   }
 
   @override
-  void didUpdateWidget(AgentBrainVisualizer old) {
-    super.didUpdateWidget(old);
-    if (old.decision != widget.decision) {
-      _master.forward(from: 0);
+  void didUpdateWidget(AgentBrainVisualizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.decision != widget.decision) {
+      if (context.reduceMotion) {
+        _sequence.value = 1;
+      } else if (widget.autoPlay) {
+        _sequence.forward(from: 0);
+      }
+    }
+    if (!oldWidget.autoPlay && widget.autoPlay && _sequence.isDismissed) {
+      _sequence.forward();
+    }
+  }
+
+  void _handleSequenceStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      widget.onComplete?.call();
     }
   }
 
   @override
   void dispose() {
-    _master.dispose();
+    _sequence
+      ..removeStatusListener(_handleSequenceStatus)
+      ..dispose();
     _pulse.dispose();
     super.dispose();
   }
 
-  double get _progress => _master.value;
-  double get _ingestProgress => (_progress / 0.3).clamp(0, 1);
-  double get _processProgress => ((_progress - 0.3) / 0.4).clamp(0, 1);
-  double get _flashProgress => ((_progress - 0.7) / 0.3).clamp(0, 1);
-
-  bool get _isYes => widget.decision.side == DecisionSide.yes;
-  Color get _verdictColor => _isYes ? _Brain.brand : _Brain.no;
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_master, _pulse]),
-      builder: (context, _) {
-        final d = widget.decision;
-        final flash = Curves.easeOutExpo.transform(_flashProgress);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final compact = width < 360;
+        final visualHeight = (width * 0.62).clamp(210.0, 310.0).toDouble();
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+        return RepaintBoundary(
           child: Container(
             width: double.infinity,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: _Brain.bg,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Color.lerp(
-                  _Brain.brand.withValues(alpha: 0.15),
-                  _verdictColor.withValues(alpha: 0.8),
-                  flash,
-                )!,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _verdictColor.withValues(alpha: 0.35 * flash),
-                  blurRadius: 40,
-                  spreadRadius: 2,
-                ),
-              ],
+              color: _background,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: _line),
             ),
-            // The canvas takes the FULL background for an immersive visualizer.
-            child: Stack(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _FullCanvasPainter(
-                      sources: d.sources,
-                      ingestion: _ingestProgress,
-                      pulse: _pulse.value,
-                      processing: _processProgress,
-                      flash: flash,
-                      verdictColor: _verdictColor,
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 18 : 24,
+                    22,
+                    compact ? 18 : 24,
+                    8,
+                  ),
+                  child: _header(),
+                ),
+                SizedBox(
+                  height: visualHeight,
+                  width: double.infinity,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _BrainPainter(
+                        sequence: _sequence,
+                        pulse: _pulse,
+                        sourceCount: widget.decision.sources.length,
+                        decisionSide: widget.decision.side,
+                      ),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 14 : 20,
+                    0,
+                    compact ? 14 : 20,
+                    compact ? 14 : 20,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _header(d),
-                      // Flexible space to allow the background animation to be visible
-                      const SizedBox(height: 220),
-                      _reasoningTerminal(d),
-                      const SizedBox(height: 16),
-                      // Slide up animation without clipping limits
-                      Opacity(
-                        opacity: flash,
-                        child: Transform.translate(
-                          offset: Offset(0, 20 * (1 - flash)),
-                          child: _verdict(d, flash),
+                      _reasoning(),
+                      if (widget.showActions) ...[
+                        const SizedBox(height: 12),
+                        FadeTransition(
+                          opacity: _decisionReveal,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.16),
+                              end: Offset.zero,
+                            ).animate(_decisionReveal),
+                            child: _actions(compact),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -178,83 +216,202 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
     );
   }
 
-  Widget _header(AgentDecision d) {
+  Widget _header() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.psychology, color: _Brain.brand, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'AGENT NEURAL NET',
-              style: TextStyle(
-                fontFamily: _Brain.mono,
-                color: _Brain.brand.withValues(alpha: 0.8),
-                fontSize: 11,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w700,
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: _mint,
+                shape: BoxShape.circle,
               ),
+            ),
+            const SizedBox(width: 9),
+            const Text(
+              'AGENT NEURAL ACTIVITY',
+              style: TextStyle(
+                color: _mint,
+                fontFamily: PulsColors.fontSans,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.8,
+              ),
+            ),
+            const Spacer(),
+            AnimatedBuilder(
+              animation: _sequence,
+              builder: (context, child) {
+                final complete = _sequence.value >= 0.99;
+                return Text(
+                  complete ? 'RESOLVED' : 'THINKING',
+                  style: TextStyle(
+                    color: complete ? _decisionColor : _muted,
+                    fontFamily: PulsColors.fontSans,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                );
+              },
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Text(
-          d.question,
+          widget.decision.question,
           style: const TextStyle(
-            color: _Brain.text,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            height: 1.35,
+            color: _text,
+            fontFamily: PulsColors.fontSans,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            height: 1.3,
+            letterSpacing: -0.25,
           ),
         ),
       ],
     );
   }
 
-  Widget _reasoningTerminal(AgentDecision d) {
-    final chars = (d.reasoning.length * Curves.easeInOut.transform(_processProgress)).floor();
-    final visible = d.reasoning.substring(0, chars.clamp(0, d.reasoning.length));
-    final cursorOn = _processProgress > 0 && _processProgress < 1 && (_pulse.value * 2) % 1 < 0.6;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _Brain.brand.withValues(alpha: 0.2)),
-          ),
-          child: Column(
+  Widget _reasoning() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+      ),
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_sequence, _pulse]),
+        builder: (context, _) {
+          final process = _unit((_sequence.value - 0.26) / 0.48);
+          final count = (widget.decision.reasoning.length *
+                  Curves.easeInOutCubic.transform(process))
+              .floor()
+              .clamp(0, widget.decision.reasoning.length);
+          final cursorVisible =
+              process > 0 && process < 1 && _pulse.value < 0.62;
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.terminal_rounded, color: _Brain.brand.withValues(alpha: 0.7), size: 14),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'reasoning.log',
-                    style: TextStyle(fontFamily: _Brain.mono, color: Colors.white70, fontSize: 11, letterSpacing: 1),
-                  ),
-                ],
+              const Text(
+                'REASONING TRACE',
+                style: TextStyle(
+                  color: _muted,
+                  fontFamily: PulsColors.fontSans,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
               ),
-              const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 60),
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(fontFamily: _Brain.mono, color: _Brain.text, fontSize: 13, height: 1.5),
-                    children: [
-                      TextSpan(text: visible),
-                      TextSpan(
-                        text: cursorOn ? '▊' : ' ',
-                        style: const TextStyle(color: _Brain.brand),
-                      ),
-                    ],
+              const SizedBox(height: 10),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: widget.decision.reasoning.substring(0, count),
+                    ),
+                    TextSpan(
+                      text: cursorVisible ? '  ▌' : '',
+                      style: const TextStyle(color: _mint),
+                    ),
+                  ],
+                ),
+                style: const TextStyle(
+                  color: _text,
+                  fontFamily: PulsColors.fontSans,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.48,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _actions(bool compact) {
+    final yes = _decisionButton(DecisionSide.yes);
+    final no = _decisionButton(DecisionSide.no);
+    if (compact) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          yes,
+          const SizedBox(height: 10),
+          no,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: yes),
+        const SizedBox(width: 10),
+        Expanded(child: no),
+      ],
+    );
+  }
+
+  Widget _decisionButton(DecisionSide side) {
+    final selected = widget.decision.side == side;
+    final color = side == DecisionSide.yes ? _mint : _red;
+    final amount = selected && widget.decision.amountUsdc > 0
+        ? ' · \$${widget.decision.amountUsdc.toStringAsFixed(2)}'
+        : '';
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${side.name.toUpperCase()} decision$amount',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onDecision == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                widget.onDecision?.call(side);
+              },
+        child: AnimatedContainer(
+          duration: context.motionDuration(const Duration(milliseconds: 220)),
+          curve: Curves.easeOutCubic,
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: selected ? color : _surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? color : _line,
+              width: selected ? 0 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                side == DecisionSide.yes
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                size: 18,
+                color: selected ? _background : color,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '${side.name.toUpperCase()}$amount',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? _background : color,
+                    fontFamily: PulsColors.fontSans,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    fontFeatures: PulsColors.tabularFigures,
                   ),
                 ),
               ),
@@ -264,191 +421,234 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
       ),
     );
   }
-
-  Widget _verdict(AgentDecision d, double flash) {
-    final color = _verdictColor;
-    final label = _isYes ? 'YES' : 'NO';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.3 * flash),
-            blurRadius: 30,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _isYes ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-            color: color,
-            size: 26,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'BUY $label',
-            style: TextStyle(
-              fontFamily: _Brain.mono,
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2.5,
-            ),
-          ),
-          const Spacer(),
-          if (d.amountUsdc > 0)
-            Text(
-              '\$${d.amountUsdc.toStringAsFixed(2)} USDC',
-              style: TextStyle(
-                fontFamily: _Brain.mono,
-                color: _Brain.text,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
-class _FullCanvasPainter extends CustomPainter {
-  _FullCanvasPainter({
-    required this.sources,
-    required this.ingestion,
+class _BrainPainter extends CustomPainter {
+  _BrainPainter({
+    required this.sequence,
     required this.pulse,
-    required this.processing,
-    required this.flash,
-    required this.verdictColor,
-  });
+    required this.sourceCount,
+    required this.decisionSide,
+  }) : super(repaint: Listenable.merge([sequence, pulse]));
 
-  final List<AgentSource> sources;
-  final double ingestion;
-  final double pulse;
-  final double processing;
-  final double flash;
-  final Color verdictColor;
+  final Animation<double> sequence;
+  final Animation<double> pulse;
+  final int sourceCount;
+  final DecisionSide decisionSide;
 
-  static const _brand = _Brain.brand;
+  static const _mint = Color(0xFF31F5B0);
+  static const _red = Color(0xFFFF4968);
+  static const _line = Color(0xFF20242B);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // The visualizer is positioned in the center of the free space above the terminal
-    final center = Offset(size.width / 2, size.height * 0.35);
-    final coreColor = Color.lerp(_brand, verdictColor, flash)!;
+    final ingest = _unit(sequence.value / 0.34);
+    final process = _unit((sequence.value - 0.24) / 0.5);
+    final reveal = _unit((sequence.value - 0.72) / 0.28);
+    final decisionColor = decisionSide == DecisionSide.yes ? _mint : _red;
+    final coreColor = Color.lerp(_mint, decisionColor, reveal)!;
+    final center = Offset(size.width * 0.5, size.height * 0.5);
+    final shortest = math.min(size.width, size.height);
+    final orbitRadius = shortest * 0.37;
+    final nodes = sourceCount.clamp(5, 8);
 
-    final n = sources.length.clamp(1, 8);
-    final radius = size.width * 0.35;
+    _drawOrbit(canvas, center, orbitRadius, process);
 
-    // Draw grid background
-    _drawGrid(canvas, size);
+    for (var index = 0; index < nodes; index++) {
+      final delay = index / nodes * 0.28;
+      final entry = _unit((ingest - delay) / (1 - delay));
+      if (entry == 0) continue;
 
-    // Draw Source Nodes and Data Streams
-    for (var i = 0; i < n; i++) {
-      final stagger = i / (n * 1.5);
-      final localIn = ((ingestion - stagger) / (1 - stagger)).clamp(0.0, 1.0);
-      if (localIn <= 0) continue;
-      
-      final easeIn = Curves.easeOutBack.transform(localIn);
-      final angle = (i / n) * math.pi * 2 - math.pi / 2;
-      
-      final target = center + Offset(math.cos(angle), math.sin(angle)) * radius;
-      final start = center + Offset(math.cos(angle), math.sin(angle)) * (radius * 2);
-      final pos = Offset.lerp(start, target, easeIn)!;
+      final angle = -math.pi / 2 + index * math.pi * 2 / nodes;
+      final wobble = math.sin(pulse.value * math.pi * 2 + index) * 4;
+      final node = center +
+          Offset(math.cos(angle), math.sin(angle)) * (orbitRadius + wobble);
+      final tangent = Offset(-math.sin(angle), math.cos(angle));
+      final controlA = Offset.lerp(node, center, 0.34)! + tangent * 24;
+      final controlB = Offset.lerp(node, center, 0.68)! - tangent * 18;
+      final path = Path()
+        ..moveTo(node.dx, node.dy)
+        ..cubicTo(
+          controlA.dx,
+          controlA.dy,
+          controlB.dx,
+          controlB.dy,
+          center.dx,
+          center.dy,
+        );
 
-      // Draw Connection Wire
-      if (localIn > 0.4) {
-        final wireT = Curves.easeInOut.transform(((localIn - 0.4) / 0.6).clamp(0, 1));
-        final end = Offset.lerp(pos, center, wireT)!;
-        
-        final wirePaint = Paint()
+      final connectionProgress =
+          Curves.easeOutCubic.transform(_unit((entry - 0.28) / 0.72));
+      if (connectionProgress > 0) {
+        final segment = connectionProgress >= 0.999
+            ? path
+            : () {
+                final metric = path.computeMetrics().first;
+                return metric.extractPath(
+                  0,
+                  metric.length * connectionProgress,
+                );
+              }();
+        final connectionPaint = Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round
           ..shader = LinearGradient(
-            colors: [_brand.withValues(alpha: 0.6), _brand.withValues(alpha: 0.1)],
-          ).createShader(Rect.fromPoints(pos, center));
-          
-        canvas.drawLine(pos, end, wirePaint);
+            colors: [
+              _mint.withValues(alpha: 0.16),
+              _mint.withValues(alpha: 0.72),
+            ],
+          ).createShader(Rect.fromPoints(node, center));
+        canvas.drawPath(segment, connectionPaint);
 
-        // Draw data pulses along the wire during processing
-        if (processing > 0 && processing < 1) {
-          final pulsePos = (pulse + i * 0.3) % 1.0;
-          final dotPos = Offset.lerp(pos, center, pulsePos)!;
-          
-          canvas.drawCircle(
-            dotPos, 
-            3, 
-            Paint()..color = _brand.withValues(alpha: 0.8)
-                   ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
-          );
+        if (process > 0) {
+          for (var particle = 0; particle < 2; particle++) {
+            final travel = (pulse.value + index * 0.127 + particle * 0.48) % 1;
+            final position = _cubicPoint(
+              node,
+              controlA,
+              controlB,
+              center,
+              travel,
+            );
+            final radius = particle == 0 ? 2.6 : 1.7;
+            canvas.drawCircle(
+              position,
+              radius + pulse.value * 0.5,
+              Paint()..color = _mint.withValues(alpha: 0.9),
+            );
+          }
         }
       }
 
-      // Draw Source Node
-      canvas.drawCircle(
-        pos,
-        6,
-        Paint()
-          ..color = _brand.withValues(alpha: 0.8 * easeIn)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      final scale = Curves.easeOutBack.transform(entry);
+      _drawOrganicNode(
+        canvas,
+        node,
+        6.5 * scale,
+        index + pulse.value,
+        _mint,
       );
-      canvas.drawCircle(pos, 3, Paint()..color = Colors.white);
     }
 
-    // Draw Central Core
-    if (ingestion > 0.8) {
-      final coreSize = 25.0 + 15.0 * pulse + 20.0 * flash;
-      
-      // Outer glow
+    final coreRadius = shortest * 0.085 * (0.92 + pulse.value * 0.13);
+    final glowRect = Rect.fromCircle(center: center, radius: coreRadius * 3.4);
+    canvas.drawCircle(
+      center,
+      coreRadius * 3.4,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            coreColor.withValues(alpha: 0.28 + reveal * 0.12),
+            coreColor.withValues(alpha: 0),
+          ],
+        ).createShader(glowRect),
+    );
+
+    for (var ring = 2; ring >= 0; ring--) {
+      _drawOrganicNode(
+        canvas,
+        center,
+        coreRadius * (1 + ring * 0.38),
+        pulse.value * 2 + ring,
+        Color.lerp(coreColor, Colors.white, ring == 0 ? 0.28 : 0)!,
+        fillAlpha: ring == 0 ? 1 : 0.12,
+        strokeOnly: ring != 0,
+      );
+    }
+
+    if (reveal > 0) {
+      final ringRadius = coreRadius * (1.4 + reveal * 3.2);
       canvas.drawCircle(
         center,
-        coreSize * 1.5,
+        ringRadius,
         Paint()
-          ..color = coreColor.withValues(alpha: 0.2 + 0.3 * flash)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20),
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5 * (1 - reveal)
+          ..color = decisionColor.withValues(alpha: 1 - reveal),
       );
-      
-      // Inner core
-      canvas.drawCircle(
-        center,
-        coreSize * 0.6,
-        Paint()..color = coreColor,
-      );
-      
-      // Data rings exploding outward during flash
-      if (flash > 0) {
-        final ringRadius = coreSize + (80 * flash);
-        canvas.drawCircle(
-          center,
-          ringRadius,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2 * (1 - flash)
-            ..color = coreColor.withValues(alpha: 1 - flash),
-        );
-      }
     }
   }
 
-  void _drawGrid(Canvas canvas, Size size) {
+  void _drawOrbit(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double progress,
+  ) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-      
-    for (double i = 0; i < size.width; i += 30) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+      ..strokeWidth = 1
+      ..color = _line.withValues(alpha: 0.74);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      math.pi * 2 * progress,
+      false,
+      paint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius * 0.68),
+      math.pi / 2,
+      -math.pi * 1.4 * progress,
+      false,
+      paint..color = _line.withValues(alpha: 0.42),
+    );
+  }
+
+  void _drawOrganicNode(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double phase,
+    Color color, {
+    double fillAlpha = 0.9,
+    bool strokeOnly = false,
+  }) {
+    const points = 10;
+    final path = Path();
+    for (var index = 0; index < points; index++) {
+      final angle = index * math.pi * 2 / points;
+      final variance = 1 + math.sin(angle * 3 + phase * math.pi) * 0.09;
+      final point =
+          center + Offset(math.cos(angle), math.sin(angle)) * radius * variance;
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
     }
-    for (double i = 0; i < size.height; i += 30) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
+    path.close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = strokeOnly ? PaintingStyle.stroke : PaintingStyle.fill
+        ..strokeWidth = 1.2
+        ..color = color.withValues(alpha: fillAlpha),
+    );
+  }
+
+  Offset _cubicPoint(
+    Offset start,
+    Offset controlA,
+    Offset controlB,
+    Offset end,
+    double t,
+  ) {
+    final inverse = 1 - t;
+    return start * (inverse * inverse * inverse) +
+        controlA * (3 * inverse * inverse * t) +
+        controlB * (3 * inverse * t * t) +
+        end * (t * t * t);
   }
 
   @override
-  bool shouldRepaint(covariant _FullCanvasPainter old) => true;
+  bool shouldRepaint(covariant _BrainPainter oldDelegate) {
+    return oldDelegate.sourceCount != sourceCount ||
+        oldDelegate.decisionSide != decisionSide ||
+        oldDelegate.sequence != sequence ||
+        oldDelegate.pulse != pulse;
+  }
 }
+
+double _unit(double value) => value.clamp(0.0, 1.0).toDouble();

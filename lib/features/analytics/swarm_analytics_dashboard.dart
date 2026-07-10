@@ -1,978 +1,709 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' show ImageFilter;
+import 'dart:math' as math;
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config.dart';
+import '../../core/motion.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
-import '../../core/widgets/gradient_text.dart';
-import '../../core/widgets/puls_loader.dart';
+import '../../core/widgets/count_up_text.dart';
 
-/// Live Swarm Analytics Dashboard — the "mission control" view of the Puls
-/// agent economy on Arc. Aggregates four live backend feeds into one
-/// scrollable, glassmorphic dashboard:
-///
-///   • GET /api/agents/roster  → TVL + agent count
-///   • GET /api/agents/feed    → 24h activity, hourly line chart, alpha payments
-///   • GET /api/economy/feed   → on-chain USDC ticker
-///   • GET /api/leaderboard    → top AI PnL vs top Human PnL
-///
-/// Built to prove the swarm is real: every number here is backed by live data.
+@immutable
+class SwarmAgentMetric {
+  const SwarmAgentMetric({
+    required this.name,
+    required this.color,
+    required this.confidence,
+    required this.confidenceHistory,
+    this.activity24h = 0,
+    this.pnlUsdc = 0,
+  });
+
+  final String name;
+  final Color color;
+  final double confidence;
+  final List<double> confidenceHistory;
+  final int activity24h;
+  final double pnlUsdc;
+}
+
+@immutable
+class SwarmAnalyticsSnapshot {
+  const SwarmAnalyticsSnapshot({
+    required this.totalValueUsdc,
+    required this.events24h,
+    required this.agents,
+    required this.generatedAt,
+  });
+
+  const SwarmAnalyticsSnapshot.empty()
+      : totalValueUsdc = 0,
+        events24h = 0,
+        agents = const [],
+        generatedAt = null;
+
+  final double totalValueUsdc;
+  final int events24h;
+  final List<SwarmAgentMetric> agents;
+  final DateTime? generatedAt;
+
+  double get averageConfidence {
+    if (agents.isEmpty) return 0;
+    return agents.fold<double>(0, (sum, agent) => sum + agent.confidence) /
+        agents.length;
+  }
+}
+
 class SwarmAnalyticsDashboard extends StatefulWidget {
-  const SwarmAnalyticsDashboard({super.key});
+  const SwarmAnalyticsDashboard({
+    this.snapshot,
+    this.updates,
+    this.fetchLiveData = true,
+    this.refreshInterval = const Duration(seconds: 15),
+    this.padding = const EdgeInsets.all(18),
+    super.key,
+  });
+
+  final SwarmAnalyticsSnapshot? snapshot;
+  final Stream<SwarmAnalyticsSnapshot>? updates;
+  final bool fetchLiveData;
+  final Duration refreshInterval;
+  final EdgeInsetsGeometry padding;
 
   @override
   State<SwarmAnalyticsDashboard> createState() =>
       _SwarmAnalyticsDashboardState();
 }
 
-class _AlphaPayment {
-  const _AlphaPayment({
-    required this.payer,
-    required this.recipient,
-    required this.amount,
-    required this.market,
-    required this.at,
-  });
+class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard>
+    with TickerProviderStateMixin {
+  static const _background = Color(0xFF030405);
+  static const _surface = Color(0xFF0B0D11);
+  static const _line = Color(0xFF20252D);
+  static const _text = Color(0xFFF5F7F6);
+  static const _muted = Color(0xFF828A88);
+  static const _mint = Color(0xFF31F5B0);
+  static const _pink = Color(0xFFFF4FA3);
+  static const _palette = <Color>[
+    Color(0xFF31F5B0),
+    Color(0xFF55A8FF),
+    Color(0xFFFF4FA3),
+    Color(0xFFFFC857),
+    Color(0xFFB58CFF),
+  ];
 
-  final String payer;
-  final String recipient;
-  final double amount;
-  final String market;
-  final DateTime at;
-}
-
-class _TickerItem {
-  const _TickerItem({
-    required this.action,
-    required this.amount,
-    required this.at,
-  });
-
-  final String action;
-  final double amount;
-  final DateTime at;
-}
-
-class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard> {
+  final http.Client _client = http.Client();
+  late final AnimationController _transition;
+  late final AnimationController _ambient;
+  StreamSubscription<SwarmAnalyticsSnapshot>? _subscription;
+  Timer? _refreshTimer;
+  SwarmAnalyticsSnapshot _from = const SwarmAnalyticsSnapshot.empty();
+  SwarmAnalyticsSnapshot _target = const SwarmAnalyticsSnapshot.empty();
   bool _loading = true;
-  Timer? _refresh;
-
-  // Roster
-  double _tvl = 0;
-  int _agentCount = 0;
-
-  // Feed
-  int _activity24h = 0;
-  List<double> _hourlyActivity = const []; // 24 buckets, oldest → newest
-  List<_AlphaPayment> _alphaPayments = const [];
-
-  // Leaderboard
-  double _topAgentPnl = 0;
-  double _topHumanPnl = 0;
-  String _topAgentName = 'Top agent';
-  String _topHumanName = 'Top human';
-  bool _hasLeaderboard = false;
-
-  // Economy ticker
-  List<_TickerItem> _ticker = const [];
+  bool _loadFailed = false;
+  bool? _reduceMotion;
 
   @override
   void initState() {
     super.initState();
-    _loadAll();
-    _refresh = Timer.periodic(const Duration(seconds: 45), (_) => _loadAll());
+    _transition = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 780),
+    )..value = 1;
+    _ambient = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    );
+    if (widget.snapshot != null) {
+      _target = widget.snapshot!;
+      _loading = false;
+    }
+    _bindUpdates();
+    if (widget.fetchLiveData) {
+      _loadLive();
+      _refreshTimer =
+          Timer.periodic(widget.refreshInterval, (_) => _loadLive());
+    } else if (widget.snapshot == null && widget.updates == null) {
+      _loading = false;
+    }
   }
 
   @override
-  void dispose() {
-    _refresh?.cancel();
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = context.reduceMotion;
+    if (_reduceMotion == reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _ambient
+        ..stop()
+        ..value = 0.5;
+      _transition.value = 1;
+    } else {
+      _ambient.repeat();
+    }
   }
 
-  Future<void> _loadAll() async {
-    await Future.wait([
-      _loadRoster(),
-      _loadFeed(),
-      _loadEconomy(),
-      _loadLeaderboard(),
-    ]);
-    if (mounted) setState(() => _loading = false);
+  @override
+  void didUpdateWidget(SwarmAnalyticsDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot && widget.snapshot != null) {
+      _applySnapshot(widget.snapshot!);
+    }
+    if (oldWidget.updates != widget.updates) {
+      _bindUpdates();
+    }
+    if (oldWidget.fetchLiveData != widget.fetchLiveData ||
+        oldWidget.refreshInterval != widget.refreshInterval) {
+      _refreshTimer?.cancel();
+      if (widget.fetchLiveData) {
+        _loadLive();
+        _refreshTimer =
+            Timer.periodic(widget.refreshInterval, (_) => _loadLive());
+      }
+    }
+  }
+
+  void _bindUpdates() {
+    _subscription?.cancel();
+    _subscription = widget.updates?.listen(_applySnapshot);
   }
 
   Future<Map<String, dynamic>?> _getJson(String path) async {
     try {
-      final res = await http
+      final response = await _client
           .get(Uri.parse('$backendUrl$path'))
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode != 200) return null;
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : {'_list': decoded};
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return <String, dynamic>{'items': decoded};
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> _loadRoster() async {
-    final body = await _getJson('/api/agents/roster');
-    if (body == null || !mounted) return;
-    final agents = ((body['agents'] as List?) ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .toList();
-    double tvl = 0;
-    for (final a in agents) {
-      tvl += (a['balance'] as num?)?.toDouble() ?? 0;
-    }
-    setState(() {
-      _tvl = tvl;
-      _agentCount = agents.length;
-    });
-  }
+  Future<void> _loadLive() async {
+    final responses = await Future.wait([
+      _getJson('/api/agents/roster'),
+      _getJson('/api/agents/feed?limit=240'),
+    ]);
+    if (!mounted) return;
 
-  Future<void> _loadFeed() async {
-    final body = await _getJson('/api/agents/feed?limit=200');
-    if (body == null || !mounted) return;
-    final events = ((body['events'] as List?) ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .toList();
-
-    final now = DateTime.now();
-    final cutoff = now.subtract(const Duration(hours: 24));
-    final buckets = List<double>.filled(24, 0);
-    int count24h = 0;
-    final alpha = <_AlphaPayment>[];
-
-    for (final e in events) {
-      final at =
-          DateTime.tryParse(e['at'] as String? ?? '')?.toLocal() ?? now;
-      if (at.isAfter(cutoff)) {
-        count24h++;
-        final hoursAgo = now.difference(at).inHours.clamp(0, 23);
-        buckets[23 - hoursAgo] += 1;
-      }
-      final paid = (e['alphaPaid'] as num?)?.toDouble();
-      if (paid != null && paid > 0) {
-        alpha.add(_AlphaPayment(
-          payer: e['agentName'] as String? ?? 'Agent',
-          recipient: (e['alphaTo'] ?? e['alphaToName'] ?? 'Sage').toString(),
-          amount: paid,
-          market: e['question'] as String? ?? '',
-          at: at,
-        ));
-      }
-    }
-
-    setState(() {
-      _activity24h = count24h;
-      _hourlyActivity = buckets;
-      _alphaPayments = alpha.take(8).toList();
-    });
-  }
-
-  Future<void> _loadEconomy() async {
-    final body = await _getJson('/api/economy/feed?limit=30');
-    if (body == null || !mounted) return;
-    final items = <_TickerItem>[];
-    for (final raw in ((body['feed'] ?? body['events']) as List? ?? const [])) {
-      if (raw is! Map<String, dynamic>) continue;
-      items.add(_TickerItem(
-        action: raw['action'] as String? ?? 'USDC transfer',
-        amount: (raw['value_usdc'] as num?)?.toDouble() ??
-            (raw['amount'] as num?)?.toDouble() ??
-            0,
-        at: DateTime.tryParse(raw['timestamp'] as String? ?? '')?.toLocal() ??
-            DateTime.now(),
-      ));
-    }
-    setState(() => _ticker = items);
-  }
-
-  Future<void> _loadLeaderboard() async {
-    try {
-      final res = await http
-          .get(Uri.parse(
-              '$backendUrl/api/leaderboard?sort=pnl&limit=100&type=all'))
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode != 200 || !mounted) return;
-      final decoded = jsonDecode(res.body);
-
-      double topAgent = 0, topHuman = 0;
-      String agentName = 'Top agent', humanName = 'Top human';
-      bool hasAgent = false, hasHuman = false;
-
-      double pnlOf(Map row) =>
-          (row['pnlUsdc'] as num?)?.toDouble() ??
-          (row['pnl'] as num?)?.toDouble() ??
-          double.tryParse('${row['pnlUsdc'] ?? row['pnl'] ?? ''}') ??
-          0;
-      String nameOf(Map row) =>
-          (row['name'] ?? row['username'] ?? row['displayName'] ?? 'Trader')
-              .toString();
-
-      if (decoded is Map<String, dynamic>) {
-        // Shape: { roster: [...], human: [...] }
-        for (final row
-            in ((decoded['roster'] as List?) ?? const []).whereType<Map>()) {
-          final p = pnlOf(row);
-          if (!hasAgent || p > topAgent) {
-            topAgent = p;
-            agentName = nameOf(row);
-            hasAgent = true;
-          }
-        }
-        for (final row
-            in ((decoded['human'] as List?) ?? const []).whereType<Map>()) {
-          final p = pnlOf(row);
-          if (!hasHuman || p > topHuman) {
-            topHuman = p;
-            humanName = nameOf(row);
-            hasHuman = true;
-          }
-        }
-      } else if (decoded is List) {
-        // Shape: flat list with isAgent flag (current backend).
-        for (final row in decoded.whereType<Map>()) {
-          final p = pnlOf(row);
-          if (row['isAgent'] == true) {
-            if (!hasAgent || p > topAgent) {
-              topAgent = p;
-              agentName = nameOf(row);
-              hasAgent = true;
-            }
-          } else {
-            if (!hasHuman || p > topHuman) {
-              topHuman = p;
-              humanName = nameOf(row);
-              hasHuman = true;
-            }
-          }
-        }
-      }
-
-      if (!mounted) return;
+    final roster = responses[0];
+    final feed = responses[1];
+    if (roster == null) {
       setState(() {
-        _topAgentPnl = topAgent;
-        _topHumanPnl = topHuman;
-        _topAgentName = agentName;
-        _topHumanName = humanName;
-        _hasLeaderboard = hasAgent || hasHuman;
+        _loading = false;
+        _loadFailed = _target.agents.isEmpty;
       });
-    } catch (_) {
-      // Leaderboard is optional — dashboard still renders without it.
+      return;
     }
-  }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+    final rawAgents = ((roster['agents'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .take(5)
+        .toList();
+    if (rawAgents.isEmpty) {
+      setState(() {
+        _loading = false;
+        _loadFailed = _target.agents.isEmpty;
+      });
+      return;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    if (_loading) return const PulsLoader();
+    final rawEvents =
+        ((feed?['events'] as List?) ?? (feed?['items'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+    final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    final histories = <String, List<double>>{};
+    final activity = <String, int>{};
+    var events24h = 0;
 
-    return RefreshIndicator(
-      color: t.brand,
-      onRefresh: _loadAll,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-        children: [
-          if (_ticker.isNotEmpty) ...[
-            _OnChainTicker(items: _ticker, ago: timeAgo),
-            const SizedBox(height: 16),
-          ],
-          _header(t),
-          const SizedBox(height: 16),
-          _headerCards(t),
-          const SizedBox(height: 16),
-          _GlassCard(
-            title: 'Swarm activity — last 24h',
-            subtitle: 'Agent decisions, trades & payments per hour',
-            icon: Icons.show_chart_rounded,
-            child: SizedBox(height: 200, child: _activityChart(t)),
-          ),
-          const SizedBox(height: 16),
-          if (_hasLeaderboard)
-            _GlassCard(
-              title: 'AI vs Humans',
-              subtitle: 'Top PnL on Arc Testnet — live',
-              icon: Icons.sports_kabaddi_rounded,
-              child: _aiVsHumans(t),
-            ),
-          if (_hasLeaderboard) const SizedBox(height: 16),
-          _GlassCard(
-            title: 'Agent economy flow',
-            subtitle: 'Agents paying agents USDC for alpha — x402 on Arc',
-            icon: Icons.currency_exchange_rounded,
-            child: _alphaFlow(t),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _header(PulsThemeColors t) {
-    return Row(
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            gradient: PulsColors.pulseGradient,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.hub_rounded, color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AnimatedGradientText(
-                'Swarm Analytics',
-                textAlign: TextAlign.left,
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Live telemetry of the autonomous AI economy on Arc',
-                style: TextStyle(color: t.textMuted, fontSize: 12.5),
-              ),
-            ],
-          ),
-        ),
-        _liveDot(t),
-      ],
-    );
-  }
-
-  Widget _liveDot(PulsThemeColors t) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: t.yes.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: t.yes.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: t.yes, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text('LIVE',
-                style: TextStyle(
-                    color: t.yes,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8)),
-          ],
-        ),
-      );
-
-  // ── Header cards ───────────────────────────────────────────────────────────
-
-  Widget _headerCards(PulsThemeColors t) {
-    return LayoutBuilder(builder: (context, c) {
-      final wide = c.maxWidth > 640;
-      final cards = [
-        _StatCard(
-          label: 'Total Swarm TVL',
-          gradientValue: '\$${_tvl.toStringAsFixed(2)}',
-          suffix: 'USDC',
-          icon: Icons.account_balance_wallet_rounded,
-          big: true,
-        ),
-        _StatCard(
-          label: 'Agent activity · 24h',
-          value: '$_activity24h',
-          suffix: 'events',
-          icon: Icons.bolt_rounded,
-        ),
-        _StatCard(
-          label: 'Total agents',
-          value: '$_agentCount',
-          suffix: 'in the swarm',
-          icon: Icons.smart_toy_rounded,
-        ),
-      ];
-      if (wide) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(flex: 3, child: cards[0]),
-            const SizedBox(width: 12),
-            Expanded(flex: 2, child: cards[1]),
-            const SizedBox(width: 12),
-            Expanded(flex: 2, child: cards[2]),
-          ],
-        );
+    for (final event in rawEvents.reversed) {
+      final name = _agentName(event).toLowerCase();
+      final timestamp =
+          DateTime.tryParse('${event['at'] ?? event['timestamp'] ?? ''}')
+              ?.toLocal();
+      if (timestamp != null && timestamp.isAfter(cutoff)) {
+        events24h++;
+        activity[name] = (activity[name] ?? 0) + 1;
       }
-      return Column(children: [
-        cards[0],
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: cards[1]),
-          const SizedBox(width: 12),
-          Expanded(child: cards[2]),
-        ]),
+      final confidence = _readProbability(event);
+      if (confidence != null && name.isNotEmpty) {
+        (histories[name] ??= <double>[]).add(confidence);
+      }
+    }
+
+    var totalValue = 0.0;
+    final agents = <SwarmAgentMetric>[];
+    for (var index = 0; index < rawAgents.length; index++) {
+      final raw = rawAgents[index];
+      final name = _agentName(raw, fallback: 'Agent ${index + 1}');
+      final key = name.toLowerCase();
+      final balance = _readNumber(raw, const [
+        'balance',
+        'balanceUsdc',
+        'tvl',
+        'stake',
       ]);
-    });
-  }
+      totalValue += balance ?? 0;
+      final confidence = _readProbability(raw) ?? 0.5;
+      final previous = _target.agents
+          .where((agent) => agent.name.toLowerCase() == key)
+          .firstOrNull;
+      final history = histories[key] ?? <double>[];
+      final resolvedHistory = history.isNotEmpty
+          ? history
+          : <double>[
+              ...?previous?.confidenceHistory
+                  .skip(math.max(0, previous.confidenceHistory.length - 19)),
+              confidence,
+            ];
 
-  // ── Activity line chart ────────────────────────────────────────────────────
-
-  Widget _activityChart(PulsThemeColors t) {
-    final buckets =
-        _hourlyActivity.isEmpty ? List<double>.filled(24, 0) : _hourlyActivity;
-    final maxY = buckets.fold<double>(0, (m, v) => v > m ? v : m);
-    if (maxY == 0) {
-      return Center(
-        child: Text(
-          'The swarm is quiet right now — activity will chart here.',
-          style: TextStyle(color: t.textMuted, fontSize: 13),
+      agents.add(
+        SwarmAgentMetric(
+          name: name,
+          color: _palette[index % _palette.length],
+          confidence: confidence,
+          confidenceHistory: _normalizeHistory(resolvedHistory, confidence, 20),
+          activity24h: activity[key] ?? 0,
+          pnlUsdc: _readNumber(raw, const [
+                'pnlUsdc',
+                'pnl',
+                'profit',
+                'netPnl',
+              ]) ??
+              0,
         ),
       );
     }
-    final spots = <FlSpot>[
-      for (var i = 0; i < buckets.length; i++)
-        FlSpot(i.toDouble(), buckets[i]),
-    ];
-    return LineChart(
-      LineChartData(
-        minY: 0,
-        maxY: maxY * 1.25,
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 6,
-              reservedSize: 24,
-              getTitlesWidget: (value, meta) {
-                final hoursAgo = 23 - value.toInt();
-                final label = hoursAgo == 0 ? 'now' : '-${hoursAgo}h';
-                return Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(label,
-                      style: TextStyle(color: t.textSubtle, fontSize: 10)),
-                );
-              },
-            ),
-          ),
-        ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => t.surfaceRaised,
-            getTooltipItems: (touched) => touched
-                .map((s) => LineTooltipItem(
-                      '${s.y.toInt()} actions',
-                      TextStyle(
-                          color: t.text,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12),
-                    ))
-                .toList(),
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.35,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            gradient: PulsColors.pulseGradient,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  PulsColors.brandMint.withValues(alpha: 0.28),
-                  PulsColors.brandMint.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
-        ],
+
+    _applySnapshot(
+      SwarmAnalyticsSnapshot(
+        totalValueUsdc: totalValue,
+        events24h: events24h,
+        agents: agents,
+        generatedAt: DateTime.now(),
       ),
     );
   }
 
-  // ── AI vs Humans bar chart ─────────────────────────────────────────────────
-
-  Widget _aiVsHumans(PulsThemeColors t) {
-    final maxAbs = [_topAgentPnl.abs(), _topHumanPnl.abs(), 1.0]
-        .fold<double>(0, (m, v) => v > m ? v : m);
-    return Column(
-      children: [
-        SizedBox(
-          height: 160,
-          child: BarChart(
-            BarChartData(
-              minY: 0,
-              maxY: maxAbs * 1.3,
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              barTouchData: BarTouchData(
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (_) => t.surfaceRaised,
-                  getTooltipItem: (group, _, rod, __) => BarTooltipItem(
-                    '\$${rod.toY.toStringAsFixed(2)} PnL',
-                    TextStyle(
-                        color: t.text,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12),
-                  ),
-                ),
-              ),
-              titlesData: FlTitlesData(
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 28,
-                    getTitlesWidget: (value, meta) => Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        value == 0 ? 'AI · $_topAgentName' : _topHumanName,
-                        style: TextStyle(
-                            color: t.textMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              barGroups: [
-                BarChartGroupData(x: 0, barRods: [
-                  BarChartRodData(
-                    toY: _topAgentPnl.abs(),
-                    width: 42,
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: PulsColors.pulseGradient,
-                  ),
-                ]),
-                BarChartGroupData(x: 1, barRods: [
-                  BarChartRodData(
-                    toY: _topHumanPnl.abs(),
-                    width: 42,
-                    borderRadius: BorderRadius.circular(8),
-                    color: t.textSubtle,
-                  ),
-                ]),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-            child: _pnlPill(t, '🤖 $_topAgentName', _topAgentPnl,
-                highlighted: true),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: _pnlPill(t, '🧑 $_topHumanName', _topHumanPnl)),
-        ]),
-      ],
-    );
-  }
-
-  Widget _pnlPill(PulsThemeColors t, String label, double pnl,
-      {bool highlighted = false}) {
-    final positive = pnl >= 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: highlighted ? t.brandSubtle : t.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: highlighted ? t.brand.withValues(alpha: 0.35) : t.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: t.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(
-            '${positive ? '+' : '−'}\$${pnl.abs().toStringAsFixed(2)}',
-            style: TextStyle(
-                color: positive ? t.yes : t.no,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.4),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Alpha payments flow ────────────────────────────────────────────────────
-
-  Widget _alphaFlow(PulsThemeColors t) {
-    if (_alphaPayments.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          'No alpha payments in the recent feed — agents pay each other USDC '
-          'when they buy signals. New payments land here.',
-          style: TextStyle(color: t.textMuted, fontSize: 13),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        for (final p in _alphaPayments)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: t.surfaceRaised.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: t.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: t.brandSubtle,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.electric_bolt_rounded,
-                      color: t.brand, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        text: TextSpan(
-                          style: TextStyle(
-                              color: t.textMuted,
-                              fontSize: 12.5,
-                              fontFamily: PulsColors.fontSans,
-                              height: 1.4),
-                          children: [
-                            TextSpan(
-                                text: p.payer,
-                                style: TextStyle(
-                                    color: t.text,
-                                    fontWeight: FontWeight.w800)),
-                            const TextSpan(text: ' paid '),
-                            TextSpan(
-                                text: p.recipient,
-                                style: TextStyle(
-                                    color: t.text,
-                                    fontWeight: FontWeight.w800)),
-                            TextSpan(
-                                text:
-                                    ' \$${p.amount.toStringAsFixed(3)} USDC for alpha',
-                                style: TextStyle(
-                                    color: t.brand,
-                                    fontWeight: FontWeight.w800)),
-                            if (p.market.isNotEmpty)
-                              TextSpan(text: ' on "${p.market}"'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(timeAgo(p.at),
-                          style:
-                              TextStyle(color: t.textSubtle, fontSize: 10.5)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.icon,
-    this.value,
-    this.gradientValue,
-    this.suffix,
-    this.big = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final String? value; // plain-text number
-  final String? gradientValue; // rendered with the pulse gradient
-  final String? suffix;
-  final bool big;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: t.surface.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: t.brand.withValues(alpha: 0.22)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(children: [
-                Icon(icon, size: 15, color: t.brand),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: t.textMuted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ]),
-              const SizedBox(height: 10),
-              if (gradientValue != null)
-                AnimatedGradientText(
-                  gradientValue!,
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                      fontSize: big ? 32 : 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1,
-                      fontFeatures: PulsColors.tabularFigures),
-                )
-              else
-                Text(value ?? '—',
-                    style: TextStyle(
-                        color: t.text,
-                        fontSize: big ? 32 : 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1,
-                        fontFeatures: PulsColors.tabularFigures)),
-              if (suffix != null) ...[
-                const SizedBox(height: 2),
-                Text(suffix!,
-                    style: TextStyle(color: t.textSubtle, fontSize: 11)),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Glass section card ────────────────────────────────────────────────────────
-
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.puls;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: t.surface.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: t.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(icon, size: 17, color: t.brand),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(title,
-                      style: TextStyle(
-                          color: t.text,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.3)),
-                ),
-              ]),
-              const SizedBox(height: 2),
-              Padding(
-                padding: const EdgeInsets.only(left: 25),
-                child: Text(subtitle,
-                    style: TextStyle(color: t.textMuted, fontSize: 11.5)),
-              ),
-              const SizedBox(height: 14),
-              child,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── On-chain ticker (marquee) ─────────────────────────────────────────────────
-
-class _OnChainTicker extends StatefulWidget {
-  const _OnChainTicker({required this.items, required this.ago});
-
-  final List<_TickerItem> items;
-  final String Function(DateTime) ago;
-
-  @override
-  State<_OnChainTicker> createState() => _OnChainTickerState();
-}
-
-class _OnChainTickerState extends State<_OnChainTicker> {
-  final _controller = ScrollController();
-  Timer? _tick;
-
-  @override
-  void initState() {
-    super.initState();
-    // Auto-scroll ~30 px/s; jump back when we near the end for an endless feel.
-    _tick = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (!_controller.hasClients) return;
-      final max = _controller.position.maxScrollExtent;
-      if (max <= 0) return;
-      final next = _controller.offset + 1.5;
-      if (next >= max) {
-        _controller.jumpTo(0);
-      } else {
-        _controller.jumpTo(next);
-      }
+  void _applySnapshot(SwarmAnalyticsSnapshot next) {
+    if (!mounted) return;
+    final current = _interpolateSnapshot(_from, _target, _transition.value);
+    setState(() {
+      _from = current;
+      _target = next;
+      _loading = false;
+      _loadFailed = false;
     });
+    if (context.reduceMotion) {
+      _transition.value = 1;
+    } else {
+      _transition.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
-    _tick?.cancel();
-    _controller.dispose();
+    _refreshTimer?.cancel();
+    _subscription?.cancel();
+    _client.close();
+    _transition.dispose();
+    _ambient.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = context.puls;
-    // Repeat the list so the loop point is less jarring.
-    final items = [...widget.items, ...widget.items];
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: t.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: t.brand.withValues(alpha: 0.25)),
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        padding: widget.padding,
+        decoration: BoxDecoration(
+          color: _background,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: _line),
+        ),
+        child: _loading
+            ? const SizedBox(
+                height: 320,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: _mint,
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            : _loadFailed
+                ? _errorState()
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 540;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _header(compact),
+                          const SizedBox(height: 18),
+                          _metrics(compact),
+                          const SizedBox(height: 16),
+                          Container(
+                            height: compact ? 310 : 360,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: _surface,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: _line),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(19),
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: _ConfidencePainter(
+                                    from: _from,
+                                    to: _target,
+                                    transition: _transition,
+                                    ambient: _ambient,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _legend(),
+                        ],
+                      );
+                    },
+                  ),
       ),
-      child: Row(
+    );
+  }
+
+  Widget _header(bool compact) {
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'SWARM ANALYTICS',
+          style: TextStyle(
+            color: _text,
+            fontFamily: PulsColors.fontSans,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.45,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${_target.agents.length} agents · confidence telemetry',
+          style: const TextStyle(
+            color: _muted,
+            fontFamily: PulsColors.fontSans,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+    final live = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: _mint.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: _mint.withValues(alpha: 0.34)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: PulsColors.pulseGradient,
-              borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(11)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.sensors_rounded, color: Colors.white, size: 14),
-                SizedBox(width: 5),
-                Text('ARC',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1)),
-              ],
+          SizedBox(
+            width: 7,
+            height: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: _mint,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              controller: _controller,
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              itemBuilder: (_, i) {
-                final e = items[i];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+          SizedBox(width: 7),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              color: _mint,
+              fontFamily: PulsColors.fontSans,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (compact) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: title),
+          const SizedBox(width: 10),
+          live,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: _mint,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.hub_rounded, color: _background, size: 23),
+        ),
+        const SizedBox(width: 13),
+        Expanded(child: title),
+        live,
+      ],
+    );
+  }
+
+  Widget _metrics(bool compact) {
+    final cards = [
+      _MetricTile(
+        label: 'SWARM TVL',
+        value: _target.totalValueUsdc,
+        prefix: '\$',
+        suffix: ' USDC',
+        decimals: 2,
+        accent: _mint,
+      ),
+      _MetricTile(
+        label: 'CONFIDENCE',
+        value: _target.averageConfidence * 100,
+        suffix: '%',
+        decimals: 1,
+        accent: _pink,
+      ),
+      _MetricTile(
+        label: 'ACTIVITY · 24H',
+        value: _target.events24h.toDouble(),
+        decimals: 0,
+        accent: const Color(0xFF55A8FF),
+      ),
+    ];
+    if (!compact) {
+      return Row(
+        children: [
+          for (var index = 0; index < cards.length; index++) ...[
+            if (index > 0) const SizedBox(width: 10),
+            Expanded(child: cards[index]),
+          ],
+        ],
+      );
+    }
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 10),
+            Expanded(child: cards[1]),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(width: double.infinity, child: cards[2]),
+      ],
+    );
+  }
+
+  Widget _legend() {
+    if (_target.agents.isEmpty) {
+      return const Text(
+        'Waiting for agent confidence signals.',
+        style: TextStyle(color: _muted, fontSize: 12),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = constraints.maxWidth < 500
+            ? (constraints.maxWidth - 8) / 2
+            : (constraints.maxWidth - 16) / 3;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final agent in _target.agents)
+              SizedBox(
+                width: itemWidth,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: _line),
+                  ),
                   child: Row(
                     children: [
                       Container(
-                        width: 5,
-                        height: 5,
+                        width: 8,
+                        height: 24,
                         decoration: BoxDecoration(
-                            color: t.yes, shape: BoxShape.circle),
+                          color: agent.color,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
                       ),
-                      const SizedBox(width: 7),
-                      Text(
-                        '${widget.ago(e.at)} · ${e.action} · '
-                        '${e.amount.toStringAsFixed(e.amount < 1 ? 4 : 2)} USDC on Arc Testnet',
-                        style: TextStyle(
-                            color: t.textMuted,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            fontFeatures: PulsColors.tabularFigures),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              agent.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _text,
+                                fontFamily: PulsColors.fontSans,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              '${agent.activity24h} signals',
+                              style: const TextStyle(
+                                color: _muted,
+                                fontFamily: PulsColors.fontSans,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CountUpText(
+                        agent.confidence * 100,
+                        duration: context.motionDuration(
+                          const Duration(milliseconds: 720),
+                        ),
+                        builder: (context, value) => Text(
+                          '${value.toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            color: agent.color,
+                            fontFamily: PulsColors.fontSans,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            fontFeatures: PulsColors.tabularFigures,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _errorState() {
+    return SizedBox(
+      height: 260,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sensors_off_rounded, color: _muted, size: 28),
+            const SizedBox(height: 12),
+            const Text(
+              'Swarm telemetry is temporarily unavailable.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _text,
+                fontFamily: PulsColors.fontSans,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _loadLive,
+              style: TextButton.styleFrom(foregroundColor: _mint),
+              child: const Text('RETRY'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.accent,
+    this.prefix = '',
+    this.suffix = '',
+    this.decimals = 0,
+  });
+
+  final String label;
+  final double value;
+  final Color accent;
+  final String prefix;
+  final String suffix;
+  final int decimals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 94),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _SwarmAnalyticsDashboardState._surface,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _SwarmAnalyticsDashboardState._line),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: _SwarmAnalyticsDashboardState._muted,
+              fontFamily: PulsColors.fontSans,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          CountUpText(
+            value,
+            duration: context.motionDuration(const Duration(milliseconds: 820)),
+            builder: (context, animatedValue) => FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '$prefix${animatedValue.toStringAsFixed(decimals)}$suffix',
+                maxLines: 1,
+                style: TextStyle(
+                  color: accent,
+                  fontFamily: PulsColors.fontSans,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.6,
+                  fontFeatures: PulsColors.tabularFigures,
+                ),
+              ),
             ),
           ),
         ],
@@ -980,3 +711,265 @@ class _OnChainTickerState extends State<_OnChainTicker> {
     );
   }
 }
+
+class _ConfidencePainter extends CustomPainter {
+  _ConfidencePainter({
+    required this.from,
+    required this.to,
+    required this.transition,
+    required this.ambient,
+  }) : super(repaint: Listenable.merge([transition, ambient]));
+
+  final SwarmAnalyticsSnapshot from;
+  final SwarmAnalyticsSnapshot to;
+  final Animation<double> transition;
+  final Animation<double> ambient;
+  late final TextPainter _labelPainter = TextPainter(
+    text: const TextSpan(
+      text: 'CONFIDENCE LEVEL · LIVE',
+      style: TextStyle(
+        color: _muted,
+        fontFamily: PulsColors.fontSans,
+        fontSize: 9,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.2,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+
+  static const _grid = Color(0xFF242A32);
+  static const _muted = Color(0xFF7F8886);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (to.agents.isEmpty) return;
+    final t = Curves.easeInOutCubic.transform(transition.value);
+    final chart = Rect.fromLTRB(18, 18, size.width - 18, size.height - 88);
+    final barTop = size.height - 62;
+    final barBottom = size.height - 20;
+
+    _drawGrid(canvas, chart);
+
+    for (var index = 0; index < to.agents.length; index++) {
+      final agent = to.agents[index];
+      final oldAgent = _findAgent(from.agents, agent.name) ?? agent;
+      final oldSeries = _normalizeHistory(
+        oldAgent.confidenceHistory,
+        oldAgent.confidence,
+        20,
+      );
+      final newSeries = _normalizeHistory(
+        agent.confidenceHistory,
+        agent.confidence,
+        20,
+      );
+      final points = <Offset>[];
+      for (var point = 0; point < newSeries.length; point++) {
+        final value = _lerp(oldSeries[point], newSeries[point], t);
+        points.add(
+          Offset(
+            chart.left + chart.width * point / (newSeries.length - 1),
+            chart.bottom - chart.height * value,
+          ),
+        );
+      }
+
+      if (index == 0) {
+        final area = _smoothPath(points)
+          ..lineTo(chart.right, chart.bottom)
+          ..lineTo(chart.left, chart.bottom)
+          ..close();
+        canvas.drawPath(
+          area,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                agent.color.withValues(alpha: 0.2),
+                agent.color.withValues(alpha: 0),
+              ],
+            ).createShader(chart),
+        );
+      }
+
+      canvas.drawPath(
+        _smoothPath(points),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = index == 0 ? 2.8 : 1.8
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = agent.color.withValues(alpha: index == 0 ? 1 : 0.74),
+      );
+
+      final last = points.last;
+      canvas.drawCircle(
+        last,
+        3.5 + ambient.value * 1.5,
+        Paint()..color = agent.color.withValues(alpha: 0.24),
+      );
+      canvas.drawCircle(last, 2.5, Paint()..color = agent.color);
+
+      final oldConfidence = oldAgent.confidence;
+      final confidence = _lerp(oldConfidence, agent.confidence, t);
+      final slotWidth = chart.width / to.agents.length;
+      final barWidth = math.min(34.0, slotWidth * 0.48);
+      final left = chart.left + slotWidth * index + (slotWidth - barWidth) / 2;
+      final height = (barBottom - barTop) * confidence;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, barBottom - height, barWidth, height),
+        const Radius.circular(7),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left, barTop, barWidth, barBottom - barTop),
+          const Radius.circular(7),
+        ),
+        Paint()..color = _grid.withValues(alpha: 0.72),
+      );
+      canvas.drawRRect(rect, Paint()..color = agent.color);
+    }
+
+    _labelPainter.paint(canvas, Offset(chart.left, chart.top + 4));
+  }
+
+  void _drawGrid(Canvas canvas, Rect chart) {
+    final paint = Paint()
+      ..color = _grid.withValues(alpha: 0.72)
+      ..strokeWidth = 1;
+    for (var row = 0; row <= 4; row++) {
+      final y = chart.top + chart.height * row / 4;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), paint);
+    }
+    final nowPaint = Paint()
+      ..color = _grid
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(chart.right, chart.top),
+      Offset(chart.right, chart.bottom),
+      nowPaint,
+    );
+  }
+
+  Path _smoothPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var index = 0; index < points.length - 1; index++) {
+      final current = points[index];
+      final next = points[index + 1];
+      final midpoint = Offset(
+        (current.dx + next.dx) / 2,
+        (current.dy + next.dy) / 2,
+      );
+      path.quadraticBezierTo(current.dx, current.dy, midpoint.dx, midpoint.dy);
+    }
+    path.lineTo(points.last.dx, points.last.dy);
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfidencePainter oldDelegate) {
+    return oldDelegate.from != from ||
+        oldDelegate.to != to ||
+        oldDelegate.transition != transition ||
+        oldDelegate.ambient != ambient;
+  }
+}
+
+SwarmAnalyticsSnapshot _interpolateSnapshot(
+  SwarmAnalyticsSnapshot from,
+  SwarmAnalyticsSnapshot to,
+  double progress,
+) {
+  if (to.agents.isEmpty) return to;
+  final t = Curves.easeInOutCubic.transform(progress);
+  return SwarmAnalyticsSnapshot(
+    totalValueUsdc: _lerp(from.totalValueUsdc, to.totalValueUsdc, t),
+    events24h:
+        _lerp(from.events24h.toDouble(), to.events24h.toDouble(), t).round(),
+    generatedAt: to.generatedAt,
+    agents: [
+      for (final agent in to.agents)
+        () {
+          final old = _findAgent(from.agents, agent.name) ?? agent;
+          final oldHistory =
+              _normalizeHistory(old.confidenceHistory, old.confidence, 20);
+          final newHistory =
+              _normalizeHistory(agent.confidenceHistory, agent.confidence, 20);
+          return SwarmAgentMetric(
+            name: agent.name,
+            color: agent.color,
+            confidence: _lerp(old.confidence, agent.confidence, t),
+            confidenceHistory: [
+              for (var index = 0; index < newHistory.length; index++)
+                _lerp(oldHistory[index], newHistory[index], t),
+            ],
+            activity24h: _lerp(
+              old.activity24h.toDouble(),
+              agent.activity24h.toDouble(),
+              t,
+            ).round(),
+            pnlUsdc: _lerp(old.pnlUsdc, agent.pnlUsdc, t),
+          );
+        }(),
+    ],
+  );
+}
+
+SwarmAgentMetric? _findAgent(List<SwarmAgentMetric> agents, String name) {
+  for (final agent in agents) {
+    if (agent.name.toLowerCase() == name.toLowerCase()) return agent;
+  }
+  return null;
+}
+
+List<double> _normalizeHistory(
+  List<double> values,
+  double fallback,
+  int length,
+) {
+  if (values.isEmpty) return List<double>.filled(length, fallback);
+  final normalized = values
+      .map((value) => value.clamp(0.0, 1.0).toDouble())
+      .toList(growable: false);
+  if (normalized.length == length) return normalized;
+  if (normalized.length > length) {
+    return normalized.sublist(normalized.length - length);
+  }
+  return <double>[
+    ...List<double>.filled(length - normalized.length, normalized.first),
+    ...normalized,
+  ];
+}
+
+String _agentName(Map<String, dynamic> value, {String fallback = ''}) {
+  return '${value['name'] ?? value['agentName'] ?? value['agent'] ?? value['key'] ?? fallback}'
+      .trim();
+}
+
+double? _readNumber(Map<String, dynamic> value, List<String> keys) {
+  for (final key in keys) {
+    final raw = value[key];
+    if (raw is num) return raw.toDouble();
+    final parsed = double.tryParse('$raw');
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+double? _readProbability(Map<String, dynamic> value) {
+  final raw = _readNumber(value, const [
+    'confidence',
+    'conviction',
+    'probability',
+    'winRate',
+    'accuracy',
+    'score',
+  ]);
+  if (raw == null) return null;
+  final normalized = raw > 1 ? raw / 100 : raw;
+  return normalized.clamp(0.0, 1.0).toDouble();
+}
+
+double _lerp(double start, double end, double t) => start + (end - start) * t;
