@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -97,6 +99,7 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard>
   final http.Client _client = http.Client();
   late final AnimationController _transition;
   late final AnimationController _ambient;
+  final _renderCache = _ConfidenceRenderCache();
   StreamSubscription<SwarmAnalyticsSnapshot>? _subscription;
   Timer? _refreshTimer;
   SwarmAnalyticsSnapshot _from = const SwarmAnalyticsSnapshot.empty();
@@ -315,6 +318,7 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard>
     _client.close();
     _transition.dispose();
     _ambient.dispose();
+    _renderCache.dispose();
     super.dispose();
   }
 
@@ -344,6 +348,8 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard>
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final compact = constraints.maxWidth < 540;
+                      final chartData =
+                          _ConfidenceTransitionData(_from, _target);
                       return Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,13 +369,31 @@ class _SwarmAnalyticsDashboardState extends State<SwarmAnalyticsDashboard>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(19),
                               child: RepaintBoundary(
-                                child: CustomPaint(
-                                  painter: _ConfidencePainter(
-                                    from: _from,
-                                    to: _target,
-                                    transition: _transition,
-                                    ambient: _ambient,
-                                  ),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    RepaintBoundary(
+                                      child: CustomPaint(
+                                        painter: _ConfidencePainter(
+                                          data: chartData,
+                                          transition: _transition,
+                                          cache: _renderCache,
+                                        ),
+                                      ),
+                                    ),
+                                    IgnorePointer(
+                                      child: RepaintBoundary(
+                                        child: CustomPaint(
+                                          painter: _ConfidencePulsePainter(
+                                            data: chartData,
+                                            transition: _transition,
+                                            ambient: _ambient,
+                                            cache: _renderCache,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -714,17 +738,164 @@ class _MetricTile extends StatelessWidget {
 
 class _ConfidencePainter extends CustomPainter {
   _ConfidencePainter({
-    required this.from,
-    required this.to,
+    required this.data,
+    required this.transition,
+    required this.cache,
+  }) : super(repaint: transition);
+
+  final _ConfidenceTransitionData data;
+  final Animation<double> transition;
+  final _ConfidenceRenderCache cache;
+  final Paint _linePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  final Paint _areaPaint = Paint();
+  final Paint _barPaint = Paint();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.agents.isEmpty) return;
+    cache.ensure(size, data.agents.length, data.pointCount);
+    final t = Curves.easeInOutCubic.transform(transition.value);
+    canvas.drawPicture(cache.gridPicture);
+
+    for (var index = 0; index < data.agents.length; index++) {
+      final agent = data.agents[index];
+      final path = cache.linePaths[index]..reset();
+      final areaPath = index == 0 ? (cache.areaPath..reset()) : null;
+      var previousX = 0.0;
+      var previousY = 0.0;
+      for (var point = 0; point < data.pointCount; point++) {
+        final value = _lerp(agent.fromSeries[point], agent.toSeries[point], t);
+        final x = cache.pointX[point];
+        final y = cache.chart.bottom - cache.chart.height * value;
+        if (point == 0) {
+          path.moveTo(x, y);
+          areaPath?.moveTo(x, y);
+        } else {
+          final midpointX = (previousX + x) * 0.5;
+          final midpointY = (previousY + y) * 0.5;
+          path.quadraticBezierTo(
+            previousX,
+            previousY,
+            midpointX,
+            midpointY,
+          );
+          areaPath?.quadraticBezierTo(
+            previousX,
+            previousY,
+            midpointX,
+            midpointY,
+          );
+          if (point == data.pointCount - 1) {
+            path.lineTo(x, y);
+            areaPath?.lineTo(x, y);
+          }
+        }
+        previousX = x;
+        previousY = y;
+      }
+      if (index == 0) {
+        areaPath!
+          ..lineTo(cache.chart.right, cache.chart.bottom)
+          ..lineTo(cache.chart.left, cache.chart.bottom)
+          ..close();
+        _areaPaint.shader = cache.areaShader(agent.color);
+        canvas.drawPath(areaPath, _areaPaint);
+      }
+
+      _linePaint
+        ..strokeWidth = index == 0 ? 2.8 : 1.8
+        ..color = agent.color.withValues(alpha: index == 0 ? 1 : 0.74);
+      canvas.drawPath(path, _linePaint);
+
+      final confidence = _lerp(agent.fromConfidence, agent.toConfidence, t);
+      final height = cache.barHeight * confidence;
+      _barPaint.color = agent.color;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            cache.barLeft[index],
+            cache.barBottom - height,
+            cache.barWidth,
+            height,
+          ),
+          const Radius.circular(7),
+        ),
+        _barPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfidencePainter oldDelegate) {
+    return oldDelegate.data != data ||
+        oldDelegate.transition != transition ||
+        oldDelegate.cache != cache;
+  }
+}
+
+class _ConfidencePulsePainter extends CustomPainter {
+  _ConfidencePulsePainter({
+    required this.data,
     required this.transition,
     required this.ambient,
+    required this.cache,
   }) : super(repaint: Listenable.merge([transition, ambient]));
 
-  final SwarmAnalyticsSnapshot from;
-  final SwarmAnalyticsSnapshot to;
+  final _ConfidenceTransitionData data;
   final Animation<double> transition;
   final Animation<double> ambient;
-  late final TextPainter _labelPainter = TextPainter(
+  final _ConfidenceRenderCache cache;
+  final Paint _haloPaint = Paint();
+  final Paint _dotPaint = Paint();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.agents.isEmpty) return;
+    cache.ensure(size, data.agents.length, data.pointCount);
+    final t = Curves.easeInOutCubic.transform(transition.value);
+    final x = cache.chart.right;
+    for (final agent in data.agents) {
+      final value = _lerp(
+        agent.fromSeries[data.pointCount - 1],
+        agent.toSeries[data.pointCount - 1],
+        t,
+      );
+      final center = Offset(
+        x,
+        cache.chart.bottom - cache.chart.height * value,
+      );
+      _haloPaint.color = agent.color.withValues(alpha: 0.24);
+      _dotPaint.color = agent.color;
+      canvas
+        ..drawCircle(center, 3.5 + ambient.value * 1.5, _haloPaint)
+        ..drawCircle(center, 2.5, _dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfidencePulsePainter oldDelegate) {
+    return oldDelegate.data != data ||
+        oldDelegate.transition != transition ||
+        oldDelegate.ambient != ambient ||
+        oldDelegate.cache != cache;
+  }
+}
+
+class _ConfidenceRenderCache {
+  static const _grid = Color(0xFF242A32);
+  static const _muted = Color(0xFF7F8886);
+
+  final Paint _gridPaint = Paint()
+    ..color = _grid.withValues(alpha: 0.72)
+    ..strokeWidth = 1;
+  final Paint _nowPaint = Paint()
+    ..color = _grid
+    ..strokeWidth = 1;
+  final Paint _barTrackPaint = Paint()..color = _grid.withValues(alpha: 0.72);
+  final TextPainter _labelPainter = TextPainter(
     text: const TextSpan(
       text: 'CONFIDENCE LEVEL · LIVE',
       style: TextStyle(
@@ -738,143 +909,159 @@ class _ConfidencePainter extends CustomPainter {
     textDirection: TextDirection.ltr,
   )..layout();
 
-  static const _grid = Color(0xFF242A32);
-  static const _muted = Color(0xFF7F8886);
+  Size _size = Size.zero;
+  int _agentCount = 0;
+  int _pointCount = 0;
+  ui.Picture? _gridPicture;
+  Color? _areaColor;
+  Shader? _areaShader;
+  Rect chart = Rect.zero;
+  double barBottom = 0;
+  double barHeight = 0;
+  double barWidth = 0;
+  Float32List pointX = Float32List(0);
+  Float32List barLeft = Float32List(0);
+  List<Path> linePaths = const [];
+  final Path areaPath = Path();
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (to.agents.isEmpty) return;
-    final t = Curves.easeInOutCubic.transform(transition.value);
-    final chart = Rect.fromLTRB(18, 18, size.width - 18, size.height - 88);
-    final barTop = size.height - 62;
-    final barBottom = size.height - 20;
+  ui.Picture get gridPicture => _gridPicture!;
 
-    _drawGrid(canvas, chart);
-
-    for (var index = 0; index < to.agents.length; index++) {
-      final agent = to.agents[index];
-      final oldAgent = _findAgent(from.agents, agent.name) ?? agent;
-      final oldSeries = _normalizeHistory(
-        oldAgent.confidenceHistory,
-        oldAgent.confidence,
-        20,
-      );
-      final newSeries = _normalizeHistory(
-        agent.confidenceHistory,
-        agent.confidence,
-        20,
-      );
-      final points = <Offset>[];
-      for (var point = 0; point < newSeries.length; point++) {
-        final value = _lerp(oldSeries[point], newSeries[point], t);
-        points.add(
-          Offset(
-            chart.left + chart.width * point / (newSeries.length - 1),
-            chart.bottom - chart.height * value,
-          ),
-        );
-      }
-
-      if (index == 0) {
-        final area = _smoothPath(points)
-          ..lineTo(chart.right, chart.bottom)
-          ..lineTo(chart.left, chart.bottom)
-          ..close();
-        canvas.drawPath(
-          area,
-          Paint()
-            ..shader = LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                agent.color.withValues(alpha: 0.2),
-                agent.color.withValues(alpha: 0),
-              ],
-            ).createShader(chart),
-        );
-      }
-
-      canvas.drawPath(
-        _smoothPath(points),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = index == 0 ? 2.8 : 1.8
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..color = agent.color.withValues(alpha: index == 0 ? 1 : 0.74),
-      );
-
-      final last = points.last;
-      canvas.drawCircle(
-        last,
-        3.5 + ambient.value * 1.5,
-        Paint()..color = agent.color.withValues(alpha: 0.24),
-      );
-      canvas.drawCircle(last, 2.5, Paint()..color = agent.color);
-
-      final oldConfidence = oldAgent.confidence;
-      final confidence = _lerp(oldConfidence, agent.confidence, t);
-      final slotWidth = chart.width / to.agents.length;
-      final barWidth = math.min(34.0, slotWidth * 0.48);
-      final left = chart.left + slotWidth * index + (slotWidth - barWidth) / 2;
-      final height = (barBottom - barTop) * confidence;
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, barBottom - height, barWidth, height),
-        const Radius.circular(7),
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, barTop, barWidth, barBottom - barTop),
-          const Radius.circular(7),
-        ),
-        Paint()..color = _grid.withValues(alpha: 0.72),
-      );
-      canvas.drawRRect(rect, Paint()..color = agent.color);
+  void ensure(Size size, int agentCount, int pointCount) {
+    if (_size == size &&
+        _agentCount == agentCount &&
+        _pointCount == pointCount) {
+      return;
     }
-
-    _labelPainter.paint(canvas, Offset(chart.left, chart.top + 4));
+    _size = size;
+    _agentCount = agentCount;
+    _pointCount = pointCount;
+    chart = Rect.fromLTRB(18, 18, size.width - 18, size.height - 88);
+    final barTop = size.height - 62;
+    barBottom = size.height - 20;
+    barHeight = barBottom - barTop;
+    final slotWidth = chart.width / agentCount;
+    barWidth = math.min(34.0, slotWidth * 0.48);
+    pointX = Float32List(pointCount);
+    barLeft = Float32List(agentCount);
+    linePaths = List<Path>.generate(
+      agentCount,
+      (_) => Path(),
+      growable: false,
+    );
+    for (var point = 0; point < pointCount; point++) {
+      pointX[point] = chart.left + chart.width * point / (pointCount - 1);
+    }
+    for (var index = 0; index < agentCount; index++) {
+      barLeft[index] =
+          chart.left + slotWidth * index + (slotWidth - barWidth) * 0.5;
+    }
+    _areaColor = null;
+    _recordGrid(barTop);
   }
 
-  void _drawGrid(Canvas canvas, Rect chart) {
-    final paint = Paint()
-      ..color = _grid.withValues(alpha: 0.72)
-      ..strokeWidth = 1;
+  Shader areaShader(Color color) {
+    if (_areaColor != color) {
+      _areaColor = color;
+      _areaShader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: 0.2),
+          color.withValues(alpha: 0),
+        ],
+      ).createShader(chart);
+    }
+    return _areaShader!;
+  }
+
+  void _recordGrid(double barTop) {
+    _gridPicture?.dispose();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
     for (var row = 0; row <= 4; row++) {
       final y = chart.top + chart.height * row / 4;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), paint);
+      canvas.drawLine(
+        Offset(chart.left, y),
+        Offset(chart.right, y),
+        _gridPaint,
+      );
     }
-    final nowPaint = Paint()
-      ..color = _grid
-      ..strokeWidth = 1;
     canvas.drawLine(
       Offset(chart.right, chart.top),
       Offset(chart.right, chart.bottom),
-      nowPaint,
+      _nowPaint,
     );
-  }
-
-  Path _smoothPath(List<Offset> points) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var index = 0; index < points.length - 1; index++) {
-      final current = points[index];
-      final next = points[index + 1];
-      final midpoint = Offset(
-        (current.dx + next.dx) / 2,
-        (current.dy + next.dy) / 2,
+    for (var index = 0; index < _agentCount; index++) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            barLeft[index],
+            barTop,
+            barWidth,
+            barBottom - barTop,
+          ),
+          const Radius.circular(7),
+        ),
+        _barTrackPaint,
       );
-      path.quadraticBezierTo(current.dx, current.dy, midpoint.dx, midpoint.dy);
     }
-    path.lineTo(points.last.dx, points.last.dy);
-    return path;
+    _labelPainter.paint(canvas, Offset(chart.left, chart.top + 4));
+    _gridPicture = recorder.endRecording();
   }
 
-  @override
-  bool shouldRepaint(covariant _ConfidencePainter oldDelegate) {
-    return oldDelegate.from != from ||
-        oldDelegate.to != to ||
-        oldDelegate.transition != transition ||
-        oldDelegate.ambient != ambient;
+  void dispose() {
+    _gridPicture?.dispose();
   }
+}
+
+class _ConfidenceTransitionData {
+  _ConfidenceTransitionData(
+    SwarmAnalyticsSnapshot from,
+    SwarmAnalyticsSnapshot to,
+  ) : agents = [
+          for (final agent in to.agents)
+            () {
+              final oldAgent = _findAgent(from.agents, agent.name) ?? agent;
+              return _ConfidenceAgentTransition(
+                color: agent.color,
+                fromConfidence: oldAgent.confidence,
+                toConfidence: agent.confidence,
+                fromSeries: Float64List.fromList(
+                  _normalizeHistory(
+                    oldAgent.confidenceHistory,
+                    oldAgent.confidence,
+                    20,
+                  ),
+                ),
+                toSeries: Float64List.fromList(
+                  _normalizeHistory(
+                    agent.confidenceHistory,
+                    agent.confidence,
+                    20,
+                  ),
+                ),
+              );
+            }(),
+        ];
+
+  final List<_ConfidenceAgentTransition> agents;
+  int get pointCount => agents.isEmpty ? 0 : agents.first.toSeries.length;
+}
+
+class _ConfidenceAgentTransition {
+  const _ConfidenceAgentTransition({
+    required this.color,
+    required this.fromConfidence,
+    required this.toConfidence,
+    required this.fromSeries,
+    required this.toSeries,
+  });
+
+  final Color color;
+  final double fromConfidence;
+  final double toConfidence;
+  final Float64List fromSeries;
+  final Float64List toSeries;
 }
 
 SwarmAnalyticsSnapshot _interpolateSnapshot(

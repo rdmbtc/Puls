@@ -1,8 +1,11 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import '../../core/motion.dart';
+import '../../core/rendering/fast_trig.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/count_up_text.dart';
 
@@ -38,6 +41,7 @@ class _LiquidWealthTerrainState extends State<LiquidWealthTerrain>
   static const _muted = Color(0xFF7F8986);
 
   final _interaction = _TerrainInteraction();
+  final _renderCache = _TerrainRenderCache();
   final _clock = Stopwatch()..start();
   late final AnimationController _time;
   late final AnimationController _pnlTransition;
@@ -163,6 +167,7 @@ class _LiquidWealthTerrainState extends State<LiquidWealthTerrain>
       ..removeListener(_applyInertia)
       ..dispose();
     _interaction.dispose();
+    _renderCache.dispose();
     super.dispose();
   }
 
@@ -211,6 +216,7 @@ class _LiquidWealthTerrainState extends State<LiquidWealthTerrain>
                             history: widget.portfolioHistory,
                             positiveColor: widget.positiveColor,
                             negativeColor: widget.negativeColor,
+                            cache: _renderCache,
                           ),
                         ),
                       ),
@@ -342,6 +348,7 @@ class _TerrainPainter extends CustomPainter {
     required this.history,
     required this.positiveColor,
     required this.negativeColor,
+    required this.cache,
   }) : super(
           repaint: Listenable.merge([
             time,
@@ -367,13 +374,13 @@ class _TerrainPainter extends CustomPainter {
   final List<double> history;
   final Color positiveColor;
   final Color negativeColor;
-  late final double _historyMagnitude =
-      history.fold<double>(0, (max, value) => math.max(max, value.abs()));
-  final List<Offset> _points =
-      List<Offset>.filled(_columns * _rows, Offset.zero);
+  final _TerrainRenderCache cache;
 
   @override
   void paint(Canvas canvas, Size size) {
+    cache
+      ..ensureGeometry(size)
+      ..updateHistory(history);
     final transition = Curves.easeInOutCubic.transform(pnlTransition.value);
     final pnl = _lerp(fromPnl, targetPnl, transition);
     final normalizedPnl =
@@ -382,190 +389,134 @@ class _TerrainPainter extends CustomPainter {
     final accent = normalizedPnl >= 0
         ? Color.lerp(_neutral, positiveColor, magnitude)!
         : Color.lerp(_neutral, negativeColor, magnitude)!;
-    final phase = time.value * math.pi * 2;
     final now = clock.elapsedMicroseconds / Duration.microsecondsPerSecond;
 
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(0.2, -0.1),
-          radius: 1.2,
-          colors: [
-            accent.withValues(alpha: 0.13),
-            const Color(0xFF030405),
-          ],
-        ).createShader(Offset.zero & size),
-    );
+    canvas
+      ..drawPicture(cache.staticBackground)
+      ..drawRect(Offset.zero & size, cache.accentPaint(accent));
 
-    final cosYaw = math.cos(interaction.yaw);
-    final sinYaw = math.sin(interaction.yaw);
-    final cosPitch = math.cos(interaction.pitch);
-    final sinPitch = math.sin(interaction.pitch);
+    final phaseSin = FastTrig.sinTurns(time.value);
+    final phaseCos = FastTrig.cosTurns(time.value);
+    final secondaryPhaseSin = FastTrig.sinTurns(time.value * 0.72);
+    final secondaryPhaseCos = FastTrig.cosTurns(time.value * 0.72);
+    final cosYaw = FastTrig.cosRadians(interaction.yaw);
+    final sinYaw = FastTrig.sinRadians(interaction.yaw);
+    final cosPitch = FastTrig.cosRadians(interaction.pitch);
+    final sinPitch = FastTrig.sinRadians(interaction.pitch);
+    final amplitude = 0.07 + magnitude * 0.065;
+    final activeRipples = cache.prepareRipples(interaction.ripples, now);
 
-    for (var row = 0; row < _rows; row++) {
-      final z = -1 + row * 2 / (_rows - 1);
-      for (var column = 0; column < _columns; column++) {
-        final x = -1 + column * 2 / (_columns - 1);
-        final height = _heightAt(
-          x,
-          z,
-          phase,
-          normalizedPnl,
-          now,
-        );
-        _points[row * _columns + column] = _project(
-          x,
-          height,
-          z,
-          size,
-          cosYaw,
-          sinYaw,
-          cosPitch,
-          sinPitch,
-        );
+    for (var index = 0; index < _TerrainRenderCache.pointCount; index++) {
+      final x = cache.x[index];
+      final z = cache.z[index];
+      final primary = (cache.primarySin[index] * phaseCos +
+              cache.primaryCos[index] * phaseSin) *
+          amplitude;
+      final secondary = (cache.secondaryCos[index] * secondaryPhaseCos +
+              cache.secondarySin[index] * secondaryPhaseSin) *
+          amplitude *
+          0.58;
+      var rippleHeight = 0.0;
+      for (var rippleIndex = 0; rippleIndex < activeRipples; rippleIndex++) {
+        final ripple = cache.activeRipple[rippleIndex]!;
+        rippleHeight += FastTrig.sinRadians(
+              ripple.radialPhase[index] - cache.rippleAge[rippleIndex] * 10,
+            ) *
+            ripple.spatialDecay[index] *
+            cache.rippleDecay[rippleIndex] *
+            0.13;
       }
+      final height = primary +
+          secondary +
+          cache.historyLift[index] +
+          normalizedPnl * 0.16 +
+          rippleHeight;
+      final rotatedX = x * cosYaw - z * sinYaw;
+      final yawDepth = x * sinYaw + z * cosYaw;
+      final rotatedY = height * cosPitch - yawDepth * sinPitch;
+      final depth = height * sinPitch + yawDepth * cosPitch;
+      final perspective = 1.28 / (3.25 + depth);
+      cache.projectedX[index] =
+          size.width * 0.5 + rotatedX * size.width * 0.94 * perspective;
+      cache.projectedY[index] =
+          size.height * 0.58 - rotatedY * size.height * 1.42 * perspective;
     }
 
     for (var row = 0; row < _rows - 1; row++) {
-      final strip = Path()
-        ..moveTo(
-          _points[row * _columns].dx,
-          _points[row * _columns].dy,
-        );
+      final strip = cache.stripPaths[row]..reset();
+      var pointIndex = row * _columns;
+      strip.moveTo(
+        cache.projectedX[pointIndex],
+        cache.projectedY[pointIndex],
+      );
       for (var column = 1; column < _columns; column++) {
-        final point = _points[row * _columns + column];
-        strip.lineTo(point.dx, point.dy);
+        pointIndex = row * _columns + column;
+        strip.lineTo(
+          cache.projectedX[pointIndex],
+          cache.projectedY[pointIndex],
+        );
       }
       for (var column = _columns - 1; column >= 0; column--) {
-        final point = _points[(row + 1) * _columns + column];
-        strip.lineTo(point.dx, point.dy);
+        pointIndex = (row + 1) * _columns + column;
+        strip.lineTo(
+          cache.projectedX[pointIndex],
+          cache.projectedY[pointIndex],
+        );
       }
       strip.close();
-      canvas.drawPath(
-        strip,
-        Paint()
-          ..color = accent.withValues(
-            alpha: 0.018 + row / _rows * 0.055,
-          ),
+      cache.stripPaint.color = accent.withValues(
+        alpha: 0.018 + row / _rows * 0.055,
       );
+      canvas.drawPath(strip, cache.stripPaint);
     }
 
-    final horizontalPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = accent.withValues(alpha: 0.38);
+    cache.horizontalPaint.color = accent.withValues(alpha: 0.38);
     for (var row = 0; row < _rows; row++) {
-      final path = Path();
+      final path = cache.horizontalPaths[row]..reset();
       for (var column = 0; column < _columns; column++) {
-        final point = _points[row * _columns + column];
+        final pointIndex = row * _columns + column;
+        final dx = cache.projectedX[pointIndex];
+        final dy = cache.projectedY[pointIndex];
         if (column == 0) {
-          path.moveTo(point.dx, point.dy);
+          path.moveTo(dx, dy);
         } else {
-          path.lineTo(point.dx, point.dy);
+          path.lineTo(dx, dy);
         }
       }
-      canvas.drawPath(path, horizontalPaint);
+      canvas.drawPath(path, cache.horizontalPaint);
     }
 
-    final verticalPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
-      ..color = _grid.withValues(alpha: 0.76);
-    for (var column = 0; column < _columns; column += 2) {
-      final path = Path();
+    for (var pathIndex = 0;
+        pathIndex < cache.verticalPaths.length;
+        pathIndex++) {
+      final column = pathIndex * 2;
+      final path = cache.verticalPaths[pathIndex]..reset();
       for (var row = 0; row < _rows; row++) {
-        final point = _points[row * _columns + column];
+        final pointIndex = row * _columns + column;
+        final dx = cache.projectedX[pointIndex];
+        final dy = cache.projectedY[pointIndex];
         if (row == 0) {
-          path.moveTo(point.dx, point.dy);
+          path.moveTo(dx, dy);
         } else {
-          path.lineTo(point.dx, point.dy);
+          path.lineTo(dx, dy);
         }
       }
-      canvas.drawPath(path, verticalPaint);
+      canvas.drawPath(path, cache.verticalPaint);
     }
 
-    final ridgeRow = (_rows * 0.54).round().clamp(0, _rows - 1);
-    final ridge = Path();
+    final ridge = cache.ridgePath..reset();
     for (var column = 0; column < _columns; column++) {
-      final point = _points[ridgeRow * _columns + column];
+      final pointIndex = cache.ridgeRow * _columns + column;
+      final dx = cache.projectedX[pointIndex];
+      final dy = cache.projectedY[pointIndex];
       if (column == 0) {
-        ridge.moveTo(point.dx, point.dy);
+        ridge.moveTo(dx, dy);
       } else {
-        ridge.lineTo(point.dx, point.dy);
+        ridge.lineTo(dx, dy);
       }
     }
-    canvas.drawPath(
-      ridge,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
-        ..color = accent.withValues(alpha: 0.95),
-    );
-  }
-
-  double _heightAt(
-    double x,
-    double z,
-    double phase,
-    double normalizedPnl,
-    double now,
-  ) {
-    final amplitude = 0.07 + normalizedPnl.abs() * 0.065;
-    final primary = math.sin(x * math.pi * 2.1 + phase + z * 1.6) * amplitude;
-    final secondary =
-        math.cos(z * math.pi * 2.4 - phase * 0.72 + x) * amplitude * 0.58;
-    final historyLift = _historyAt((x + 1) * 0.5) * 0.13;
-    var rippleHeight = 0.0;
-    for (final ripple in interaction.ripples) {
-      final age = now - ripple.bornAt;
-      if (age < 0 || age > 2.6) continue;
-      final dx = x - ripple.x;
-      final dz = z - ripple.z;
-      final distance = math.sqrt(dx * dx + dz * dz);
-      rippleHeight += math.sin(distance * 18 - age * 10) *
-          math.exp(-distance * 2.3) *
-          math.exp(-age * 1.55) *
-          0.13;
-    }
-    return primary +
-        secondary +
-        historyLift +
-        normalizedPnl * 0.16 +
-        rippleHeight;
-  }
-
-  double _historyAt(double position) {
-    if (history.isEmpty) return 0;
-    if (history.length == 1) return history.first.sign;
-    if (_historyMagnitude == 0) return 0;
-    final scaled = position.clamp(0.0, 1.0) * (history.length - 1);
-    final left = scaled.floor();
-    final right = math.min(history.length - 1, left + 1);
-    final t = scaled - left;
-    return _lerp(history[left], history[right], t) / _historyMagnitude;
-  }
-
-  Offset _project(
-    double x,
-    double y,
-    double z,
-    Size size,
-    double cosYaw,
-    double sinYaw,
-    double cosPitch,
-    double sinPitch,
-  ) {
-    final rotatedX = x * cosYaw - z * sinYaw;
-    final yawDepth = x * sinYaw + z * cosYaw;
-    final rotatedY = y * cosPitch - yawDepth * sinPitch;
-    final depth = y * sinPitch + yawDepth * cosPitch;
-    final perspective = 1.28 / (3.25 + depth);
-    return Offset(
-      size.width * 0.5 + rotatedX * size.width * 0.94 * perspective,
-      size.height * 0.58 - rotatedY * size.height * 1.42 * perspective,
-    );
+    cache.ridgePaint.color = accent.withValues(alpha: 0.95);
+    canvas.drawPath(ridge, cache.ridgePaint);
   }
 
   @override
@@ -576,10 +527,157 @@ class _TerrainPainter extends CustomPainter {
         oldDelegate.history != history ||
         oldDelegate.positiveColor != positiveColor ||
         oldDelegate.negativeColor != negativeColor ||
+        oldDelegate.cache != cache ||
         oldDelegate.time != time ||
         oldDelegate.pnlTransition != pnlTransition ||
         oldDelegate.inertia != inertia ||
         oldDelegate.interaction != interaction;
+  }
+}
+
+class _TerrainRenderCache {
+  static const columns = _TerrainPainter._columns;
+  static const rows = _TerrainPainter._rows;
+  static const pointCount = columns * rows;
+
+  final Float64List x = Float64List(pointCount);
+  final Float64List z = Float64List(pointCount);
+  final Float64List primarySin = Float64List(pointCount);
+  final Float64List primaryCos = Float64List(pointCount);
+  final Float64List secondarySin = Float64List(pointCount);
+  final Float64List secondaryCos = Float64List(pointCount);
+  final Float64List historyLift = Float64List(pointCount);
+  final Float64List projectedX = Float64List(pointCount);
+  final Float64List projectedY = Float64List(pointCount);
+  final List<Path> stripPaths =
+      List<Path>.generate(rows - 1, (_) => Path(), growable: false);
+  final List<Path> horizontalPaths =
+      List<Path>.generate(rows, (_) => Path(), growable: false);
+  final List<Path> verticalPaths =
+      List<Path>.generate((columns + 1) ~/ 2, (_) => Path(), growable: false);
+  final Path ridgePath = Path();
+  final Paint stripPaint = Paint();
+  final Paint horizontalPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1;
+  final Paint verticalPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.8
+    ..color = _TerrainPainter._grid.withValues(alpha: 0.76);
+  final Paint ridgePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.2
+    ..strokeCap = StrokeCap.round;
+  final Paint _accentPaint = Paint();
+  final List<_TerrainRipple?> activeRipple =
+      List<_TerrainRipple?>.filled(8, null);
+  final Float64List rippleAge = Float64List(8);
+  final Float64List rippleDecay = Float64List(8);
+  final int ridgeRow = (rows * 0.54).round().clamp(0, rows - 1);
+
+  Size _size = Size.zero;
+  ui.Picture? _staticBackground;
+  int _accentKey = -1;
+  List<double>? _history;
+
+  ui.Picture get staticBackground => _staticBackground!;
+
+  void ensureGeometry(Size size) {
+    if (_size == size && _staticBackground != null) return;
+    _size = size;
+    for (var row = 0; row < rows; row++) {
+      final rowZ = -1 + row * 2 / (rows - 1);
+      for (var column = 0; column < columns; column++) {
+        final index = row * columns + column;
+        final columnX = -1 + column * 2 / (columns - 1);
+        final primaryAngle = columnX * math.pi * 2.1 + rowZ * 1.6;
+        final secondaryAngle = rowZ * math.pi * 2.4 + columnX;
+        x[index] = columnX;
+        z[index] = rowZ;
+        primarySin[index] = FastTrig.sinRadians(primaryAngle);
+        primaryCos[index] = FastTrig.cosRadians(primaryAngle);
+        secondarySin[index] = FastTrig.sinRadians(secondaryAngle);
+        secondaryCos[index] = FastTrig.cosRadians(secondaryAngle);
+      }
+    }
+    _recordBackground(size);
+    _accentKey = -1;
+    if (_history != null) _precomputeHistory(_history!);
+  }
+
+  void updateHistory(List<double> history) {
+    if (identical(_history, history)) return;
+    _history = history;
+    _precomputeHistory(history);
+  }
+
+  Paint accentPaint(Color accent) {
+    final key = accent.toARGB32();
+    if (_accentKey != key) {
+      _accentKey = key;
+      _accentPaint.shader = RadialGradient(
+        center: const Alignment(0.2, -0.1),
+        radius: 1.2,
+        colors: [
+          accent.withValues(alpha: 0.13),
+          Colors.transparent,
+        ],
+      ).createShader(Offset.zero & _size);
+    }
+    return _accentPaint;
+  }
+
+  int prepareRipples(List<_TerrainRipple> ripples, double now) {
+    var count = 0;
+    for (final ripple in ripples) {
+      final age = now - ripple.bornAt;
+      if (age < 0 || age > 2.6 || count == activeRipple.length) continue;
+      ripple.ensureGeometry(this);
+      activeRipple[count] = ripple;
+      rippleAge[count] = age;
+      rippleDecay[count] = math.exp(-age * 1.55);
+      count++;
+    }
+    for (var index = count; index < activeRipple.length; index++) {
+      activeRipple[index] = null;
+    }
+    return count;
+  }
+
+  void _recordBackground(Size size) {
+    _staticBackground?.dispose();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF030405),
+    );
+    _staticBackground = recorder.endRecording();
+  }
+
+  void _precomputeHistory(List<double> history) {
+    var magnitude = 0.0;
+    for (final value in history) {
+      magnitude = math.max(magnitude, value.abs());
+    }
+    for (var column = 0; column < columns; column++) {
+      var value = 0.0;
+      if (history.length == 1) {
+        value = history.first.sign;
+      } else if (history.length > 1 && magnitude > 0) {
+        final scaled = column / (columns - 1) * (history.length - 1);
+        final left = scaled.floor();
+        final right = math.min(history.length - 1, left + 1);
+        value = _lerp(history[left], history[right], scaled - left) / magnitude;
+      }
+      for (var row = 0; row < rows; row++) {
+        historyLift[row * columns + column] = value * 0.13;
+      }
+    }
+  }
+
+  void dispose() {
+    _staticBackground?.dispose();
   }
 }
 
@@ -602,7 +700,7 @@ class _TerrainInteraction extends ChangeNotifier {
 }
 
 class _TerrainRipple {
-  const _TerrainRipple({
+  _TerrainRipple({
     required this.x,
     required this.z,
     required this.bornAt,
@@ -611,6 +709,21 @@ class _TerrainRipple {
   final double x;
   final double z;
   final double bornAt;
+  final Float64List radialPhase = Float64List(_TerrainRenderCache.pointCount);
+  final Float64List spatialDecay = Float64List(_TerrainRenderCache.pointCount);
+  Size _geometrySize = Size.zero;
+
+  void ensureGeometry(_TerrainRenderCache cache) {
+    if (_geometrySize == cache._size) return;
+    _geometrySize = cache._size;
+    for (var index = 0; index < _TerrainRenderCache.pointCount; index++) {
+      final dx = cache.x[index] - x;
+      final dz = cache.z[index] - z;
+      final distance = math.sqrt(dx * dx + dz * dz);
+      radialPhase[index] = distance * 18;
+      spatialDecay[index] = math.exp(-distance * 2.3);
+    }
+  }
 }
 
 double _lerp(double start, double end, double t) => start + (end - start) * t;

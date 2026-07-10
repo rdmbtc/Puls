@@ -21,6 +21,16 @@ class LiveSwarmView extends StatefulWidget {
 
 class _LiveSwarmViewState extends State<LiveSwarmView> {
   int _i = 0; // 0 = full swarm, 1 = Pulse (flagship)
+  late final List<Widget?> _views = [
+    const SwarmView(),
+    null,
+  ];
+
+  void _selectView(int index) {
+    if (_i == index) return;
+    _views[index] ??= const PulseFeed();
+    setState(() => _i = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,14 +50,17 @@ class _LiveSwarmViewState extends State<LiveSwarmView> {
             t: t,
             index: _i,
             labels: const ['Swarm', 'Pulse · flagship'],
-            onChanged: (v) => setState(() => _i = v),
+            onChanged: _selectView,
           ),
         ),
         Expanded(
           child: IndexedStack(
             index: _i,
             sizing: StackFit.expand,
-            children: const [SwarmView(), PulseFeed()],
+            children: [
+              _views[0]!,
+              _views[1] ?? const SizedBox.shrink(),
+            ],
           ),
         ),
       ],

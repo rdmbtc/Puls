@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../motion.dart';
+import '../rendering/fast_trig.dart';
 import '../theme/app_theme.dart';
 
 @immutable
@@ -55,12 +56,10 @@ class _PulseActionCoreState extends State<PulseActionCore>
   late final AnimationController _particles;
   late final Animation<double> _morphCurve;
   late final List<_ParticleSeed> _particleSeeds;
-  bool _expanded = false;
-  bool _pressed = false;
+  late final Listenable _coreListenable;
+  final _interaction = _PulseInteraction();
   bool? _reduceMotion;
-  int? _activeAction;
   double _panelWidth = 0;
-  double _particleOriginX = 0.5;
 
   @override
   void initState() {
@@ -82,16 +81,30 @@ class _PulseActionCoreState extends State<PulseActionCore>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInOutCubic,
     );
+    _coreListenable = Listenable.merge([_breath, _morph, _interaction]);
     final random = math.Random(41);
     _particleSeeds = List.generate(
       24,
-      (_) => _ParticleSeed(
-        angle: -math.pi + random.nextDouble() * math.pi * 2,
-        speed: 36 + random.nextDouble() * 82,
-        radius: 1.4 + random.nextDouble() * 2.5,
-        spin: random.nextDouble() * math.pi * 2,
-        colorMix: random.nextDouble(),
-      ),
+      (_) {
+        final angle = -math.pi + random.nextDouble() * math.pi * 2;
+        final radius = 1.4 + random.nextDouble() * 2.5;
+        return _ParticleSeed(
+          directionX: math.cos(angle),
+          directionY: math.sin(angle),
+          speed: 36 + random.nextDouble() * 82,
+          spin: random.nextDouble() * math.pi * 2,
+          shape: RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: radius * 2.4,
+              height: radius,
+            ),
+            Radius.circular(radius),
+          ),
+          color: Color.lerp(_mint, _pink, random.nextDouble())!,
+        );
+      },
+      growable: false,
     );
   }
 
@@ -105,7 +118,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
       _breath
         ..stop()
         ..value = 0.5;
-    } else if (!_expanded) {
+    } else if (!_interaction.expanded) {
       _breath.repeat(reverse: true);
     }
   }
@@ -113,22 +126,21 @@ class _PulseActionCoreState extends State<PulseActionCore>
   @override
   void didUpdateWidget(PulseActionCore oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_activeAction != null && _activeAction! >= widget.actions.length) {
-      _activeAction = null;
+    final activeAction = _interaction.activeAction;
+    if (activeAction != null && activeAction >= widget.actions.length) {
+      _interaction.setActiveAction(null);
     }
   }
 
   void _tapDown(TapDownDetails details) {
-    if (!_pressed) setState(() => _pressed = true);
+    _interaction.setPressed(true);
   }
 
   void _tapUp(TapUpDetails details) {
-    if (_pressed) setState(() => _pressed = false);
+    _interaction.setPressed(false);
   }
 
-  void _tapCancel() {
-    if (_pressed) setState(() => _pressed = false);
-  }
+  void _tapCancel() => _interaction.setPressed(false);
 
   void _tap() {
     HapticFeedback.lightImpact();
@@ -138,11 +150,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
   void _longPressStart(LongPressStartDetails details) {
     if (widget.actions.isEmpty) return;
     HapticFeedback.mediumImpact();
-    setState(() {
-      _expanded = true;
-      _pressed = false;
-      _activeAction = null;
-    });
+    _interaction.expand();
     _breath.stop();
     if (context.reduceMotion) {
       _morph.value = 1;
@@ -152,21 +160,24 @@ class _PulseActionCoreState extends State<PulseActionCore>
   }
 
   void _longPressMove(LongPressMoveUpdateDetails details) {
-    if (!_expanded || widget.actions.isEmpty || _panelWidth <= 0) return;
+    if (!_interaction.expanded || widget.actions.isEmpty || _panelWidth <= 0) {
+      return;
+    }
     final normalized =
         (details.localPosition.dx / _panelWidth).clamp(0.0, 0.9999);
     final index = (normalized * widget.actions.length).floor();
-    if (index == _activeAction) return;
+    if (index == _interaction.activeAction) return;
     HapticFeedback.selectionClick();
-    setState(() => _activeAction = index);
+    _interaction.setActiveAction(index);
   }
 
   void _longPressEnd(LongPressEndDetails details) {
-    if (!_expanded) return;
-    final selected = _activeAction;
-    _particleOriginX = selected == null
+    if (!_interaction.expanded) return;
+    final selected = _interaction.activeAction;
+    final particleOriginX = selected == null
         ? 0.5
         : (selected + 0.5) / math.max(1, widget.actions.length);
+    _interaction.setParticleOrigin(particleOriginX);
     HapticFeedback.heavyImpact();
     if (selected != null && selected < widget.actions.length) {
       widget.actions[selected].onSelected();
@@ -178,15 +189,12 @@ class _PulseActionCoreState extends State<PulseActionCore>
   }
 
   void _longPressCancel() {
-    if (!_expanded) return;
+    if (!_interaction.expanded) return;
     _collapse();
   }
 
   void _collapse() {
-    setState(() {
-      _expanded = false;
-      _activeAction = null;
-    });
+    _interaction.collapse();
     if (context.reduceMotion) {
       _morph.value = 0;
     } else {
@@ -200,6 +208,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
     _breath.dispose();
     _morph.dispose();
     _particles.dispose();
+    _interaction.dispose();
     super.dispose();
   }
 
@@ -235,100 +244,84 @@ class _PulseActionCoreState extends State<PulseActionCore>
                       painter: _ParticlePainter(
                         progress: _particles,
                         seeds: _particleSeeds,
-                        originX: _particleOriginX,
+                        interaction: _interaction,
                       ),
                     ),
                   ),
                 ),
               ),
-              Semantics(
-                button: true,
-                expanded: _expanded,
-                label: widget.semanticLabel,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: _tapDown,
-                  onTapUp: _tapUp,
-                  onTapCancel: _tapCancel,
-                  onTap: _tap,
-                  onLongPressStart:
-                      widget.actions.isEmpty ? null : _longPressStart,
-                  onLongPressMoveUpdate:
-                      widget.actions.isEmpty ? null : _longPressMove,
-                  onLongPressEnd: widget.actions.isEmpty ? null : _longPressEnd,
-                  onLongPressCancel:
-                      widget.actions.isEmpty ? null : _longPressCancel,
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([_breath, _morph]),
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _CoreShapePainter(
-                          morph: _morphCurve,
-                          breath: _breath,
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            FadeTransition(
-                              opacity: ReverseAnimation(_morphCurve),
-                              child: Center(
-                                child: Icon(
-                                  widget.icon,
-                                  color: _background,
-                                  size: widget.orbSize * 0.38,
-                                ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: _tapDown,
+                onTapUp: _tapUp,
+                onTapCancel: _tapCancel,
+                onTap: _tap,
+                onLongPressStart:
+                    widget.actions.isEmpty ? null : _longPressStart,
+                onLongPressMoveUpdate:
+                    widget.actions.isEmpty ? null : _longPressMove,
+                onLongPressEnd: widget.actions.isEmpty ? null : _longPressEnd,
+                onLongPressCancel:
+                    widget.actions.isEmpty ? null : _longPressCancel,
+                child: AnimatedBuilder(
+                  animation: _coreListenable,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _CoreShapePainter(
+                        morph: _morphCurve,
+                        breath: _breath,
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          FadeTransition(
+                            opacity: ReverseAnimation(_morphCurve),
+                            child: Center(
+                              child: Icon(
+                                widget.icon,
+                                color: _background,
+                                size: widget.orbSize * 0.38,
                               ),
                             ),
-                            FadeTransition(
-                              opacity: _morphCurve,
-                              child: _actionPanel(),
+                          ),
+                          FadeTransition(
+                            opacity: _morphCurve,
+                            child: AnimatedBuilder(
+                              animation: _interaction,
+                              builder: (context, child) => _actionPanel(
+                                _interaction.activeAction,
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    builder: (context, child) {
-                      final breath =
-                          Curves.easeInOutSine.transform(_breath.value);
-                      final pressedScale = _pressed ? 0.92 : 1.0;
-                      final scale = pressedScale *
-                          (1 + (1 - _morph.value) * breath * 0.035);
-                      return Transform.scale(
+                  ),
+                  builder: (context, child) {
+                    final breath =
+                        Curves.easeInOutSine.transform(_breath.value);
+                    final pressedScale = _interaction.pressed ? 0.92 : 1.0;
+                    final scale = pressedScale *
+                        (1 + (1 - _morph.value) * breath * 0.035);
+                    final width = _lerp(
+                      widget.orbSize,
+                      expandedWidth,
+                      _morphCurve.value,
+                    );
+                    return Semantics(
+                      button: true,
+                      expanded: _interaction.expanded,
+                      label: widget.semanticLabel,
+                      child: Transform.scale(
                         scale: context.reduceMotion ? 1 : scale,
-                        child: AnimatedContainer(
-                          duration: context.motionDuration(
-                            const Duration(milliseconds: 380),
-                          ),
-                          curve: Curves.easeOutCubic,
-                          width: _expanded ? expandedWidth : widget.orbSize,
+                        child: SizedBox(
+                          width: width,
                           height: widget.orbSize,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              _expanded ? 24 : widget.orbSize / 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _mint.withValues(
-                                  alpha: 0.2 + breath * 0.14,
-                                ),
-                                blurRadius: 18 + breath * 16,
-                                spreadRadius: breath * 2,
-                                offset: const Offset(0, 10),
-                              ),
-                              BoxShadow(
-                                color: _pink.withValues(
-                                  alpha: 0.12 + breath * 0.08,
-                                ),
-                                blurRadius: 28 + breath * 12,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
                           child: child,
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -338,7 +331,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
     );
   }
 
-  Widget _actionPanel() {
+  Widget _actionPanel(int? activeAction) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       child: Row(
@@ -351,7 +344,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
                 curve: Curves.easeOutCubic,
                 height: double.infinity,
                 decoration: BoxDecoration(
-                  color: _activeAction == index
+                  color: activeAction == index
                       ? _background.withValues(alpha: 0.92)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
@@ -362,7 +355,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
                     Icon(
                       widget.actions[index].icon,
                       size: 19,
-                      color: _activeAction == index
+                      color: activeAction == index
                           ? (widget.actions[index].color ?? _mint)
                           : _background,
                     ),
@@ -373,7 +366,7 @@ class _PulseActionCoreState extends State<PulseActionCore>
                       overflow: TextOverflow.fade,
                       softWrap: false,
                       style: TextStyle(
-                        color: _activeAction == index ? _text : _background,
+                        color: activeAction == index ? _text : _background,
                         fontFamily: PulsColors.fontSans,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
@@ -401,11 +394,18 @@ class _CoreShapePainter extends CustomPainter {
 
   static const _mint = Color(0xFF31F5B0);
   static const _pink = Color(0xFFFF4FA3);
+  final Path _path = Path();
+  final Paint _fillPaint = Paint();
+  final Paint _strokePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1
+    ..color = Colors.white.withValues(alpha: 0.34);
+  Size _shaderSize = Size.zero;
 
   @override
   void paint(Canvas canvas, Size size) {
     final t = morph.value;
-    final undulation = math.sin(breath.value * math.pi * 2) * (1 - t) * 1.6;
+    final undulation = FastTrig.sinTurns(breath.value) * (1 - t) * 1.6;
     final radius = size.height * 0.5;
     final corner = _lerp(radius, 24, t);
     const left = 0.0;
@@ -414,7 +414,8 @@ class _CoreShapePainter extends CustomPainter {
     final bottom = size.height;
     final shoulder = _lerp(radius * 0.56, corner * 0.62, t);
 
-    final path = Path()
+    _path
+      ..reset()
       ..moveTo(left + corner, top + undulation)
       ..cubicTo(
         left + shoulder,
@@ -454,23 +455,31 @@ class _CoreShapePainter extends CustomPainter {
       ..quadraticBezierTo(left, top, left + corner, top + undulation)
       ..close();
 
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_mint, Color(0xFF76FFD1), _pink],
-          stops: [0, 0.54, 1],
-        ).createShader(Offset.zero & size),
+    final breathValue = Curves.easeInOutSine.transform(breath.value);
+    canvas.drawShadow(
+      _path,
+      _mint.withValues(alpha: 0.2 + breathValue * 0.14),
+      12 + breathValue * 8,
+      true,
     );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: 0.34),
+    canvas.drawShadow(
+      _path,
+      _pink.withValues(alpha: 0.12 + breathValue * 0.08),
+      18 + breathValue * 6,
+      true,
     );
+    if (_shaderSize != size) {
+      _shaderSize = size;
+      _fillPaint.shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_mint, Color(0xFF76FFD1), _pink],
+        stops: [0, 0.54, 1],
+      ).createShader(Offset.zero & size);
+    }
+    canvas
+      ..drawPath(_path, _fillPaint)
+      ..drawPath(_path, _strokePaint);
   }
 
   @override
@@ -483,45 +492,32 @@ class _ParticlePainter extends CustomPainter {
   _ParticlePainter({
     required this.progress,
     required this.seeds,
-    required this.originX,
-  }) : super(repaint: progress);
+    required this.interaction,
+  }) : super(repaint: Listenable.merge([progress, interaction]));
 
   final Animation<double> progress;
   final List<_ParticleSeed> seeds;
-  final double originX;
-
-  static const _mint = Color(0xFF31F5B0);
-  static const _pink = Color(0xFFFF4FA3);
+  final _PulseInteraction interaction;
+  final Paint _paint = Paint();
 
   @override
   void paint(Canvas canvas, Size size) {
     if (progress.value == 0 || progress.value == 1) return;
     final t = Curves.easeOutCubic.transform(progress.value);
-    final origin = Offset(size.width * originX, size.height * 0.5);
+    final originX = size.width * interaction.particleOriginX;
+    final originY = size.height * 0.5;
+    final gravity = 34 * progress.value * progress.value;
+    final fade = (1 - progress.value).clamp(0.0, 1.0).toDouble();
     for (final seed in seeds) {
       final distance = seed.speed * t;
-      final gravity = 34 * progress.value * progress.value;
-      final position = origin +
-          Offset(
-            math.cos(seed.angle) * distance,
-            math.sin(seed.angle) * distance + gravity,
-          );
-      final fade = (1 - progress.value).clamp(0.0, 1.0).toDouble();
-      final color = Color.lerp(_mint, _pink, seed.colorMix)!;
+      _paint.color = seed.color.withValues(alpha: fade);
       canvas.save();
-      canvas.translate(position.dx, position.dy);
-      canvas.rotate(seed.spin * t);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: seed.radius * 2.4,
-            height: seed.radius,
-          ),
-          Radius.circular(seed.radius),
-        ),
-        Paint()..color = color.withValues(alpha: fade),
+      canvas.translate(
+        originX + seed.directionX * distance,
+        originY + seed.directionY * distance + gravity,
       );
+      canvas.rotate(seed.spin * t);
+      canvas.drawRRect(seed.shape, _paint);
       canvas.restore();
     }
   }
@@ -530,24 +526,64 @@ class _ParticlePainter extends CustomPainter {
   bool shouldRepaint(covariant _ParticlePainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.seeds != seeds ||
-        oldDelegate.originX != originX;
+        oldDelegate.interaction != interaction;
   }
 }
 
 class _ParticleSeed {
   const _ParticleSeed({
-    required this.angle,
+    required this.directionX,
+    required this.directionY,
     required this.speed,
-    required this.radius,
     required this.spin,
-    required this.colorMix,
+    required this.shape,
+    required this.color,
   });
 
-  final double angle;
+  final double directionX;
+  final double directionY;
   final double speed;
-  final double radius;
   final double spin;
-  final double colorMix;
+  final RRect shape;
+  final Color color;
+}
+
+class _PulseInteraction extends ChangeNotifier {
+  bool pressed = false;
+  bool expanded = false;
+  int? activeAction;
+  double particleOriginX = 0.5;
+
+  void setPressed(bool value) {
+    if (pressed == value) return;
+    pressed = value;
+    notifyListeners();
+  }
+
+  void expand() {
+    pressed = false;
+    expanded = true;
+    activeAction = null;
+    notifyListeners();
+  }
+
+  void collapse() {
+    expanded = false;
+    activeAction = null;
+    notifyListeners();
+  }
+
+  void setActiveAction(int? value) {
+    if (activeAction == value) return;
+    activeAction = value;
+    notifyListeners();
+  }
+
+  void setParticleOrigin(double value) {
+    if (particleOriginX == value) return;
+    particleOriginX = value;
+    notifyListeners();
+  }
 }
 
 double _lerp(double start, double end, double t) => start + (end - start) * t;

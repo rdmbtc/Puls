@@ -102,35 +102,61 @@ class _PulseFeedState extends State<PulseFeed> {
     if (_loading) {
       return const PulsLoader();
     }
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _identityCard(t),
-        const SizedBox(height: 20),
-        Text('Decision feed',
-            style: TextStyle(
-                color: t.text, fontWeight: FontWeight.w900, fontSize: 17)),
-        const SizedBox(height: 4),
-        Text(
-          'Every trade below was researched, decided and executed autonomously — no human in the loop.',
-          style: TextStyle(color: t.textMuted, fontSize: 13),
-        ),
-        const SizedBox(height: 14),
-        if (_decisions.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: t.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: t.border),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _identityCard(t),
+                const SizedBox(height: 20),
+                Text(
+                  'Decision feed',
+                  style: TextStyle(
+                    color: t.text,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Every trade below was researched, decided and executed autonomously — no human in the loop.',
+                  style: TextStyle(color: t.textMuted, fontSize: 13),
+                ),
+              ],
             ),
-            child: Text(
-              'Pulse is researching the markets — its first published decision will appear here shortly.',
-              style: TextStyle(color: t.textMuted, fontSize: 14),
+          ),
+        ),
+        if (_decisions.isEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            sliver: SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: t.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: t.border),
+                ),
+                child: Text(
+                  'Pulse is researching the markets — its first published decision will appear here shortly.',
+                  style: TextStyle(color: t.textMuted, fontSize: 14),
+                ),
+              ),
             ),
           )
         else
-          ..._decisions.map((d) => _decisionCard(t, d)),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            sliver: SliverList.builder(
+              itemCount: _decisions.length,
+              itemBuilder: (context, index) => RepaintBoundary(
+                child: _decisionCard(t, _decisions[index]),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -164,8 +190,8 @@ class _PulseFeedState extends State<PulseFeed> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [t.brand, PulsColors.brandMint]),
+                  gradient:
+                      LinearGradient(colors: [t.brand, PulsColors.brandMint]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: ClipRRect(
@@ -254,9 +280,7 @@ class _PulseFeedState extends State<PulseFeed> {
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
-                    color: t.text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+                    color: t.text, fontSize: 12, fontWeight: FontWeight.w700)),
             if (onTap != null) ...[
               const SizedBox(width: 4),
               Icon(Icons.open_in_new_rounded, size: 11, color: t.textSubtle),
@@ -353,12 +377,11 @@ class _PulseFeedState extends State<PulseFeed> {
               if (d.txHash != null && d.txHash!.isNotEmpty) ...[
                 const SizedBox(width: 10),
                 InkWell(
-                  onTap: () => launchUrl(Uri.parse(
-                      'https://testnet.arcscan.app/tx/${d.txHash}')),
+                  onTap: () => launchUrl(
+                      Uri.parse('https://testnet.arcscan.app/tx/${d.txHash}')),
                   borderRadius: BorderRadius.circular(99),
                   child: Row(children: [
-                    Icon(Icons.receipt_long_rounded,
-                        size: 13, color: t.brand),
+                    Icon(Icons.receipt_long_rounded, size: 13, color: t.brand),
                     const SizedBox(width: 4),
                     Text('Arcscan',
                         style: TextStyle(

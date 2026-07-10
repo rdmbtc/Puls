@@ -1,9 +1,12 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/motion.dart';
+import '../../core/rendering/fast_trig.dart';
 import '../../core/theme/app_theme.dart';
 
 enum DecisionSide { yes, no }
@@ -64,6 +67,7 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
   late final AnimationController _sequence;
   late final AnimationController _pulse;
   late final Animation<double> _decisionReveal;
+  final _renderCache = _BrainRenderCache();
   bool? _reduceMotion;
 
   Color get _decisionColor =>
@@ -177,6 +181,7 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
                         pulse: _pulse,
                         sourceCount: widget.decision.sources.length,
                         decisionSide: widget.decision.side,
+                        cache: _renderCache,
                       ),
                     ),
                   ),
@@ -286,15 +291,14 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
         border: Border.all(color: _line),
       ),
       child: AnimatedBuilder(
-        animation: Listenable.merge([_sequence, _pulse]),
+        animation: _sequence,
         builder: (context, _) {
           final process = _unit((_sequence.value - 0.26) / 0.48);
           final count = (widget.decision.reasoning.length *
                   Curves.easeInOutCubic.transform(process))
               .floor()
               .clamp(0, widget.decision.reasoning.length);
-          final cursorVisible =
-              process > 0 && process < 1 && _pulse.value < 0.62;
+          final cursorVisible = process > 0 && process < 1;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -429,12 +433,14 @@ class _BrainPainter extends CustomPainter {
     required this.pulse,
     required this.sourceCount,
     required this.decisionSide,
+    required this.cache,
   }) : super(repaint: Listenable.merge([sequence, pulse]));
 
   final Animation<double> sequence;
   final Animation<double> pulse;
   final int sourceCount;
   final DecisionSide decisionSide;
+  final _BrainRenderCache cache;
 
   static const _mint = Color(0xFF31F5B0);
   static const _red = Color(0xFFFF4968);
@@ -442,113 +448,119 @@ class _BrainPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final nodes = sourceCount.clamp(5, 8);
+    cache.ensureGeometry(size, nodes);
     final ingest = _unit(sequence.value / 0.34);
     final process = _unit((sequence.value - 0.24) / 0.5);
     final reveal = _unit((sequence.value - 0.72) / 0.28);
     final decisionColor = decisionSide == DecisionSide.yes ? _mint : _red;
     final coreColor = Color.lerp(_mint, decisionColor, reveal)!;
-    final center = Offset(size.width * 0.5, size.height * 0.5);
-    final shortest = math.min(size.width, size.height);
-    final orbitRadius = shortest * 0.37;
-    final nodes = sourceCount.clamp(5, 8);
 
-    _drawOrbit(canvas, center, orbitRadius, process);
+    _drawOrbit(canvas, process);
 
+    var largeParticleCount = 0;
+    var smallParticleCount = 0;
     for (var index = 0; index < nodes; index++) {
       final delay = index / nodes * 0.28;
       final entry = _unit((ingest - delay) / (1 - delay));
       if (entry == 0) continue;
-
-      final angle = -math.pi / 2 + index * math.pi * 2 / nodes;
-      final wobble = math.sin(pulse.value * math.pi * 2 + index) * 4;
-      final node = center +
-          Offset(math.cos(angle), math.sin(angle)) * (orbitRadius + wobble);
-      final tangent = Offset(-math.sin(angle), math.cos(angle));
-      final controlA = Offset.lerp(node, center, 0.34)! + tangent * 24;
-      final controlB = Offset.lerp(node, center, 0.68)! - tangent * 18;
-      final path = Path()
-        ..moveTo(node.dx, node.dy)
-        ..cubicTo(
-          controlA.dx,
-          controlA.dy,
-          controlB.dx,
-          controlB.dy,
-          center.dx,
-          center.dy,
-        );
+      final connection = cache.connections[index];
 
       final connectionProgress =
           Curves.easeOutCubic.transform(_unit((entry - 0.28) / 0.72));
       if (connectionProgress > 0) {
         final segment = connectionProgress >= 0.999
-            ? path
-            : () {
-                final metric = path.computeMetrics().first;
-                return metric.extractPath(
-                  0,
-                  metric.length * connectionProgress,
-                );
-              }();
-        final connectionPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..strokeCap = StrokeCap.round
-          ..shader = LinearGradient(
-            colors: [
-              _mint.withValues(alpha: 0.16),
-              _mint.withValues(alpha: 0.72),
-            ],
-          ).createShader(Rect.fromPoints(node, center));
-        canvas.drawPath(segment, connectionPaint);
+            ? connection.path
+            : connection.metric.extractPath(
+                0,
+                connection.metric.length * connectionProgress,
+              );
+        cache.connectionPaint.shader = connection.shader;
+        canvas.drawPath(segment, cache.connectionPaint);
 
         if (process > 0) {
           for (var particle = 0; particle < 2; particle++) {
             final travel = (pulse.value + index * 0.127 + particle * 0.48) % 1;
-            final position = _cubicPoint(
-              node,
-              controlA,
-              controlB,
-              center,
-              travel,
-            );
-            final radius = particle == 0 ? 2.6 : 1.7;
-            canvas.drawCircle(
-              position,
-              radius + pulse.value * 0.5,
-              Paint()..color = _mint.withValues(alpha: 0.9),
-            );
+            final inverse = 1 - travel;
+            final inverse2 = inverse * inverse;
+            final travel2 = travel * travel;
+            final x = connection.start.dx * inverse2 * inverse +
+                connection.controlA.dx * 3 * inverse2 * travel +
+                connection.controlB.dx * 3 * inverse * travel2 +
+                cache.center.dx * travel2 * travel;
+            final y = connection.start.dy * inverse2 * inverse +
+                connection.controlA.dy * 3 * inverse2 * travel +
+                connection.controlB.dy * 3 * inverse * travel2 +
+                cache.center.dy * travel2 * travel;
+            final target = particle == 0
+                ? cache.largeParticlePoints
+                : cache.smallParticlePoints;
+            final pointIndex =
+                particle == 0 ? largeParticleCount++ : smallParticleCount++;
+            target[pointIndex * 2] = x;
+            target[pointIndex * 2 + 1] = y;
           }
         }
       }
 
+      final nodePulse =
+          1 + FastTrig.sinRadians(pulse.value * math.pi * 2 + index) * 0.08;
       final scale = Curves.easeOutBack.transform(entry);
       _drawOrganicNode(
         canvas,
-        node,
-        6.5 * scale,
+        connection.start,
+        6.5 * scale * nodePulse,
         index + pulse.value,
         _mint,
       );
     }
 
-    final coreRadius = shortest * 0.085 * (0.92 + pulse.value * 0.13);
-    final glowRect = Rect.fromCircle(center: center, radius: coreRadius * 3.4);
-    canvas.drawCircle(
-      center,
-      coreRadius * 3.4,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            coreColor.withValues(alpha: 0.28 + reveal * 0.12),
-            coreColor.withValues(alpha: 0),
-          ],
-        ).createShader(glowRect),
-    );
+    if (largeParticleCount > 0) {
+      final points = largeParticleCount == nodes
+          ? cache.largeParticlePoints
+          : Float32List.sublistView(
+              cache.largeParticlePoints,
+              0,
+              largeParticleCount * 2,
+            );
+      canvas.drawRawPoints(
+        ui.PointMode.points,
+        points,
+        cache.largeParticlePaint..strokeWidth = (2.6 + pulse.value * 0.5) * 2,
+      );
+    }
+    if (smallParticleCount > 0) {
+      final points = smallParticleCount == nodes
+          ? cache.smallParticlePoints
+          : Float32List.sublistView(
+              cache.smallParticlePoints,
+              0,
+              smallParticleCount * 2,
+            );
+      canvas.drawRawPoints(
+        ui.PointMode.points,
+        points,
+        cache.smallParticlePaint..strokeWidth = (1.7 + pulse.value * 0.5) * 2,
+      );
+    }
+
+    final coreRadius = cache.shortest * 0.085 * (0.92 + pulse.value * 0.13);
+    cache.glowPaint.color = coreColor.withValues(alpha: 0.09 + reveal * 0.04);
+    for (var glow = 3; glow >= 1; glow--) {
+      canvas.drawCircle(
+        cache.center,
+        coreRadius * (1.2 + glow * 0.72),
+        cache.glowPaint
+          ..color = coreColor.withValues(
+            alpha: (0.055 + reveal * 0.025) * (4 - glow),
+          ),
+      );
+    }
 
     for (var ring = 2; ring >= 0; ring--) {
       _drawOrganicNode(
         canvas,
-        center,
+        cache.center,
         coreRadius * (1 + ring * 0.38),
         pulse.value * 2 + ring,
         Color.lerp(coreColor, Colors.white, ring == 0 ? 0.28 : 0)!,
@@ -559,40 +571,29 @@ class _BrainPainter extends CustomPainter {
 
     if (reveal > 0) {
       final ringRadius = coreRadius * (1.4 + reveal * 3.2);
-      canvas.drawCircle(
-        center,
-        ringRadius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5 * (1 - reveal)
-          ..color = decisionColor.withValues(alpha: 1 - reveal),
-      );
+      cache.revealPaint
+        ..strokeWidth = 1.5 * (1 - reveal)
+        ..color = decisionColor.withValues(alpha: 1 - reveal);
+      canvas.drawCircle(cache.center, ringRadius, cache.revealPaint);
     }
   }
 
-  void _drawOrbit(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double progress,
-  ) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = _line.withValues(alpha: 0.74);
+  void _drawOrbit(Canvas canvas, double progress) {
+    cache.orbitPaint.color = _line.withValues(alpha: 0.74);
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
+      cache.outerOrbit,
       -math.pi / 2,
       math.pi * 2 * progress,
       false,
-      paint,
+      cache.orbitPaint,
     );
+    cache.orbitPaint.color = _line.withValues(alpha: 0.42);
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius * 0.68),
+      cache.innerOrbit,
       math.pi / 2,
       -math.pi * 1.4 * progress,
       false,
-      paint..color = _line.withValues(alpha: 0.42),
+      cache.orbitPaint,
     );
   }
 
@@ -605,50 +606,160 @@ class _BrainPainter extends CustomPainter {
     double fillAlpha = 0.9,
     bool strokeOnly = false,
   }) {
-    const points = 10;
-    final path = Path();
-    for (var index = 0; index < points; index++) {
-      final angle = index * math.pi * 2 / points;
-      final variance = 1 + math.sin(angle * 3 + phase * math.pi) * 0.09;
-      final point =
-          center + Offset(math.cos(angle), math.sin(angle)) * radius * variance;
+    final phaseSin = FastTrig.sinRadians(phase * math.pi);
+    final phaseCos = FastTrig.cosRadians(phase * math.pi);
+    final path = cache.organicPath..reset();
+    for (var index = 0; index < _BrainRenderCache.organicPoints; index++) {
+      final variance = 1 +
+          (cache.harmonicSin[index] * phaseCos +
+                  cache.harmonicCos[index] * phaseSin) *
+              0.09;
+      final pointX = center.dx + cache.unitX[index] * radius * variance;
+      final pointY = center.dy + cache.unitY[index] * radius * variance;
       if (index == 0) {
-        path.moveTo(point.dx, point.dy);
+        path.moveTo(pointX, pointY);
       } else {
-        path.lineTo(point.dx, point.dy);
+        path.lineTo(pointX, pointY);
       }
     }
     path.close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = strokeOnly ? PaintingStyle.stroke : PaintingStyle.fill
-        ..strokeWidth = 1.2
-        ..color = color.withValues(alpha: fillAlpha),
-    );
-  }
-
-  Offset _cubicPoint(
-    Offset start,
-    Offset controlA,
-    Offset controlB,
-    Offset end,
-    double t,
-  ) {
-    final inverse = 1 - t;
-    return start * (inverse * inverse * inverse) +
-        controlA * (3 * inverse * inverse * t) +
-        controlB * (3 * inverse * t * t) +
-        end * (t * t * t);
+    cache.organicPaint
+      ..style = strokeOnly ? PaintingStyle.stroke : PaintingStyle.fill
+      ..color = color.withValues(alpha: fillAlpha);
+    canvas.drawPath(path, cache.organicPaint);
   }
 
   @override
   bool shouldRepaint(covariant _BrainPainter oldDelegate) {
     return oldDelegate.sourceCount != sourceCount ||
         oldDelegate.decisionSide != decisionSide ||
+        oldDelegate.cache != cache ||
         oldDelegate.sequence != sequence ||
         oldDelegate.pulse != pulse;
   }
+}
+
+class _BrainRenderCache {
+  static const organicPoints = 10;
+
+  final Float32List unitX = Float32List(organicPoints);
+  final Float32List unitY = Float32List(organicPoints);
+  final Float32List harmonicSin = Float32List(organicPoints);
+  final Float32List harmonicCos = Float32List(organicPoints);
+  Float32List largeParticlePoints = Float32List(0);
+  Float32List smallParticlePoints = Float32List(0);
+  final Path organicPath = Path();
+  final Paint connectionPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2
+    ..strokeCap = StrokeCap.round;
+  final Paint orbitPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1;
+  final Paint organicPaint = Paint()..strokeWidth = 1.2;
+  final Paint glowPaint = Paint();
+  final Paint revealPaint = Paint()..style = PaintingStyle.stroke;
+  final Paint largeParticlePaint = Paint()
+    ..color = _BrainPainter._mint.withValues(alpha: 0.9)
+    ..strokeCap = StrokeCap.round;
+  final Paint smallParticlePaint = Paint()
+    ..color = _BrainPainter._mint.withValues(alpha: 0.9)
+    ..strokeCap = StrokeCap.round;
+
+  List<_BrainConnection> connections = const [];
+  Size _size = Size.zero;
+  int _nodes = 0;
+  Offset center = Offset.zero;
+  double shortest = 0;
+  Rect outerOrbit = Rect.zero;
+  Rect innerOrbit = Rect.zero;
+
+  _BrainRenderCache() {
+    for (var index = 0; index < organicPoints; index++) {
+      final angle = index * math.pi * 2 / organicPoints;
+      unitX[index] = FastTrig.cosRadians(angle);
+      unitY[index] = FastTrig.sinRadians(angle);
+      harmonicSin[index] = FastTrig.sinRadians(angle * 3);
+      harmonicCos[index] = FastTrig.cosRadians(angle * 3);
+    }
+  }
+
+  void ensureGeometry(Size size, int nodes) {
+    if (_size == size && _nodes == nodes) return;
+    _size = size;
+    _nodes = nodes;
+    largeParticlePoints = Float32List(nodes * 2);
+    smallParticlePoints = Float32List(nodes * 2);
+    center = Offset(size.width * 0.5, size.height * 0.5);
+    shortest = math.min(size.width, size.height);
+    final orbitRadius = shortest * 0.37;
+    outerOrbit = Rect.fromCircle(center: center, radius: orbitRadius);
+    innerOrbit = Rect.fromCircle(center: center, radius: orbitRadius * 0.68);
+    connections = List<_BrainConnection>.generate(
+      nodes,
+      (index) {
+        final angle = -math.pi / 2 + index * math.pi * 2 / nodes;
+        final angleCos = FastTrig.cosRadians(angle);
+        final angleSin = FastTrig.sinRadians(angle);
+        final start = Offset(
+          center.dx + angleCos * orbitRadius,
+          center.dy + angleSin * orbitRadius,
+        );
+        final tangentX = -angleSin;
+        final tangentY = angleCos;
+        final controlA = Offset(
+          start.dx + (center.dx - start.dx) * 0.34 + tangentX * 24,
+          start.dy + (center.dy - start.dy) * 0.34 + tangentY * 24,
+        );
+        final controlB = Offset(
+          start.dx + (center.dx - start.dx) * 0.68 - tangentX * 18,
+          start.dy + (center.dy - start.dy) * 0.68 - tangentY * 18,
+        );
+        final path = Path()
+          ..moveTo(start.dx, start.dy)
+          ..cubicTo(
+            controlA.dx,
+            controlA.dy,
+            controlB.dx,
+            controlB.dy,
+            center.dx,
+            center.dy,
+          );
+        return _BrainConnection(
+          start: start,
+          controlA: controlA,
+          controlB: controlB,
+          path: path,
+          metric: path.computeMetrics().first,
+          shader: LinearGradient(
+            colors: [
+              _BrainPainter._mint.withValues(alpha: 0.16),
+              _BrainPainter._mint.withValues(alpha: 0.72),
+            ],
+          ).createShader(Rect.fromPoints(start, center)),
+        );
+      },
+      growable: false,
+    );
+  }
+}
+
+class _BrainConnection {
+  const _BrainConnection({
+    required this.start,
+    required this.controlA,
+    required this.controlB,
+    required this.path,
+    required this.metric,
+    required this.shader,
+  });
+
+  final Offset start;
+  final Offset controlA;
+  final Offset controlB;
+  final Path path;
+  final ui.PathMetric metric;
+  final Shader shader;
 }
 
 double _unit(double value) => value.clamp(0.0, 1.0).toDouble();

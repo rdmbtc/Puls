@@ -33,15 +33,14 @@ class SwarmView extends StatefulWidget {
 
 class _SwarmViewState extends State<SwarmView> {
   List<Map<String, dynamic>> _agents = const [];
-  bool _loading = true;
+  bool _loading = false;
+  bool _loaded = false;
   Timer? _refresh;
   int _seg = 0; // 0 = Live colony feed, 1 = Agents grid
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _refresh = Timer.periodic(const Duration(seconds: 45), (_) => _load());
   }
 
   @override
@@ -51,6 +50,7 @@ class _SwarmViewState extends State<SwarmView> {
   }
 
   Future<void> _load() async {
+    if (!_loaded && mounted) setState(() => _loading = true);
     try {
       final res = await http
           .get(Uri.parse('$backendUrl/api/agents/roster'))
@@ -64,31 +64,26 @@ class _SwarmViewState extends State<SwarmView> {
       setState(() {
         _agents = agents;
         _loading = false;
+        _loaded = true;
       });
+      _refresh ??= Timer.periodic(
+        const Duration(seconds: 45),
+        (_) => _load(),
+      );
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  void _selectSegment(int index) {
+    if (_seg == index) return;
+    setState(() => _seg = index);
+    if (index == 1 && !_loaded && !_loading) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    if (_loading) {
-      return const PulsLoader();
-    }
-    if (_agents.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Text(
-            'The agent swarm is warming up — agents will appear here as they wake.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.textMuted, fontSize: 14),
-          ),
-        ),
-      );
-    }
-
     final traders = _agents.where((a) => a['role'] == 'trader').length;
     final creators = _agents.where((a) => a['role'] == 'creator').length;
 
@@ -99,37 +94,64 @@ class _SwarmViewState extends State<SwarmView> {
           child: _segmentBar(t),
         ),
         Expanded(
-          child: _seg == 0
-              ? ColonyFeed(agents: _agents)
-              : RefreshIndicator(
+          child: IndexedStack(
+            index: _seg,
+            sizing: StackFit.expand,
+            children: [
+              ColonyFeed(agents: _agents),
+              if (_loading)
+                const PulsLoader()
+              else if (_agents.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Text(
+                      'The agent swarm is warming up — agents will appear here as they wake.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: t.textMuted, fontSize: 14),
+                    ),
+                  ),
+                )
+              else
+                RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    children: [
-                      _header(t, traders, creators),
-                      const SizedBox(height: 16),
-                      LayoutBuilder(builder: (context, c) {
-                        final cols = c.maxWidth > 520 ? 3 : 2;
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _agents.length,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: cols,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            mainAxisExtent: 176,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth > 520 ? 3 : 2;
+                      return CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            sliver: SliverToBoxAdapter(
+                              child: _header(t, traders, creators),
+                            ),
                           ),
-                          itemBuilder: (_, i) => _AgentCard(
-                            agent: _agents[i],
-                            onTap: () => _openDetail(_agents[i]),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                            sliver: SliverGrid.builder(
+                              itemCount: _agents.length,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                mainAxisExtent: 176,
+                              ),
+                              itemBuilder: (_, index) => RepaintBoundary(
+                                child: _AgentCard(
+                                  agent: _agents[index],
+                                  onTap: () => _openDetail(_agents[index]),
+                                ),
+                              ),
+                            ),
                           ),
-                        );
-                      }),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
+            ],
+          ),
         ),
       ],
     );
@@ -140,7 +162,7 @@ class _SwarmViewState extends State<SwarmView> {
       final sel = _seg == i;
       return Expanded(
         child: GestureDetector(
-          onTap: () => setState(() => _seg = i),
+          onTap: () => _selectSegment(i),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
@@ -556,7 +578,7 @@ class AgentDetailSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         AnimatedGradientText(currentThought,
-                            style: TextStyle(
+                            style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 height: 1.3)),
@@ -727,10 +749,10 @@ class AgentDetailSheet extends StatelessWidget {
                     ),
                   );
                 },
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.psychology_alt_rounded,
                       size: 13, color: Colors.purpleAccent),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Text('visualize brain',
                       style: TextStyle(
                           color: Colors.purpleAccent,

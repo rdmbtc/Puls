@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -420,7 +419,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
             children: [
               Icon(Icons.explore_rounded, color: t.brand, size: 18),
               const SizedBox(width: 8),
-              Text('Trade Prediction Markets', style: TextStyle(color: t.brand, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('Trade Prediction Markets',
+                  style: TextStyle(
+                      color: t.brand,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -428,22 +431,22 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     );
   }
 
-  double? _calcPnl(Map<String, dynamic> position, dynamic appState) {
+  double? _calcPnl(
+    Map<String, dynamic> position,
+    Map<String, Market> marketsByQuestion,
+  ) {
     final cost = (position['usdcAmount'] as num?)?.toDouble() ?? 0;
     final entryPrice = (position['entryPrice'] as num?)?.toDouble() ?? 0;
     final isYes = position['side'] == 'YES';
     final question = position['question'] as String? ?? '';
 
-    double? currentPrice;
-    try {
-      final market = (appState.markets as List).firstWhere(
-        (m) => (m.question as String).toLowerCase().contains(
-              question.toLowerCase().split(' ').take(5).join(' '),
-            ),
-      );
-      currentPrice =
-          isYes ? market.yesPrice as double : market.noPrice as double;
-    } catch (_) {}
+    final key = question.toLowerCase().split(' ').take(5).join(' ');
+    final market = marketsByQuestion[key];
+    final currentPrice = market == null
+        ? null
+        : isYes
+            ? market.yesPrice
+            : market.noPrice;
 
     if (currentPrice == null) return null;
     final shares = (position['shares'] as num?)?.toDouble() ??
@@ -455,15 +458,22 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.puls;
-    final ws = WalletServiceScope.of(context).state;
+    final walletService = WalletServiceScope.of(context);
+    final ws = walletService.state;
     final appState = PulsStateScope.of(context);
+    final marketsByQuestion = <String, Market>{
+      for (final market in appState.markets)
+        market.question.toLowerCase().split(' ').take(5).join(' '): market,
+    };
 
     double totalPnl = 0;
     double openValue = 0;
     int wins = 0, losses = 0;
+    var completePositionCount = 0;
     for (final p in _positions) {
       if (p['state'] != 'COMPLETE') continue;
-      final pnl = _calcPnl(p, appState);
+      completePositionCount++;
+      final pnl = _calcPnl(p, marketsByQuestion);
       if (pnl != null) {
         totalPnl += pnl;
         openValue += ((p['usdcAmount'] as num?)?.toDouble() ?? 0) + pnl;
@@ -524,9 +534,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     children: [
                       _HeroCard(
                         totalSpent: _totalSpent,
-                        positionCount: _positions
-                            .where((p) => p['state'] == 'COMPLETE')
-                            .length,
+                        positionCount: completePositionCount,
                         totalPnl: totalPnl,
                         t: t,
                         walletAddress: ws.walletAddress,
@@ -575,7 +583,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty) _tradeMarketsBtn(t),
+                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty)
+                      _tradeMarketsBtn(t),
                     Row(
                       children: [
                         Expanded(child: _tabToggle(t)),
@@ -596,21 +605,24 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                       'Place a limit order on any prediction to see it here.',
                                   t: t,
                                 )
-                              : ListView.separated(
-                                  itemCount: _limitOrders.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (context, i) => FadeInUp(
-                                    delay: Duration(milliseconds: i * 40),
-                                    duration: const Duration(milliseconds: 250),
-                                    child: _LimitOrderCard(
-                                      order: _limitOrders[i],
-                                      t: t,
-                                      appState: appState,
-                                      onCancel: () => _cancelLimitOrder(
-                                          _limitOrders[i]['id'] as String),
+                              : CustomScrollView(
+                                  slivers: [
+                                    SliverList.builder(
+                                      itemCount: _limitOrders.length,
+                                      itemBuilder: (context, i) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: _LimitOrderCard(
+                                          order: _limitOrders[i],
+                                          t: t,
+                                          appState: appState,
+                                          onCancel: () => _cancelLimitOrder(
+                                            _limitOrders[i]['id'] as String,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 )
                           : _positions.isEmpty
                               ? _Empty(
@@ -625,22 +637,23 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                   onCta: () => ShellNavScope.maybeOf(context)
                                       ?.goToTab(PulsTab.feed),
                                 )
-                              : ListView.separated(
-                                  itemCount: _positions.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (context, i) => FadeInUp(
-                                    delay: Duration(milliseconds: i * 40),
-                                    duration: const Duration(milliseconds: 250),
-                                    child: _PositionCard(
-                                      position: _positions[i],
-                                      t: t,
-                                      appState: appState,
-                                      walletService:
-                                          WalletServiceScope.of(context),
-                                      onRefresh: _load,
+                              : CustomScrollView(
+                                  slivers: [
+                                    SliverList.builder(
+                                      itemCount: _positions.length,
+                                      itemBuilder: (context, i) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: _PositionCard(
+                                          position: _positions[i],
+                                          t: t,
+                                          appState: appState,
+                                          walletService: walletService,
+                                          onRefresh: _load,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                     ),
                   ],
@@ -660,9 +673,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   children: [
                     _HeroCard(
                       totalSpent: _totalSpent,
-                      positionCount: _positions
-                          .where((p) => p['state'] == 'COMPLETE')
-                          .length,
+                      positionCount: completePositionCount,
                       totalPnl: totalPnl,
                       t: t,
                       walletAddress: ws.walletAddress,
@@ -694,7 +705,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty) _tradeMarketsBtn(t),
+                    if (_positions.isNotEmpty || _limitOrders.isNotEmpty)
+                      _tradeMarketsBtn(t),
                     Row(
                       children: [
                         Expanded(child: _tabToggle(t)),
@@ -728,17 +740,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                   sliver: SliverList.builder(
                     itemCount: _limitOrders.length,
-                    itemBuilder: (context, i) => FadeInUp(
-                      delay: Duration(milliseconds: i * 40),
-                      duration: const Duration(milliseconds: 250),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _LimitOrderCard(
-                          order: _limitOrders[i],
-                          t: t,
-                          appState: appState,
-                          onCancel: () => _cancelLimitOrder(
-                              _limitOrders[i]['id'] as String),
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _LimitOrderCard(
+                        order: _limitOrders[i],
+                        t: t,
+                        appState: appState,
+                        onCancel: () => _cancelLimitOrder(
+                          _limitOrders[i]['id'] as String,
                         ),
                       ),
                     ),
@@ -772,18 +781,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 sliver: SliverList.builder(
                   itemCount: _positions.length,
-                  itemBuilder: (context, i) => FadeInUp(
-                    delay: Duration(milliseconds: i * 40),
-                    duration: const Duration(milliseconds: 250),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PositionCard(
-                        position: _positions[i],
-                        t: t,
-                        appState: appState,
-                        walletService: WalletServiceScope.of(context),
-                        onRefresh: _load,
-                      ),
+                  itemBuilder: (context, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _PositionCard(
+                      position: _positions[i],
+                      t: t,
+                      appState: appState,
+                      walletService: walletService,
+                      onRefresh: _load,
                     ),
                   ),
                 ),
@@ -797,9 +802,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const AnimatedGradientText('Portfolio',
-            style: TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5)),
+            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -944,7 +947,8 @@ class _HeroCard extends StatelessWidget {
             child: Opacity(
               opacity: 0.22,
               child: PulsVideoIllustration(
-                asset: 'assets/illustrations/lucent-analyzing-statistics-in-interactive-dashboard.mp4',
+                asset:
+                    'assets/illustrations/lucent-analyzing-statistics-in-interactive-dashboard.mp4',
                 fit: BoxFit.cover,
                 borderRadius: 20,
                 fallback: SizedBox.shrink(),
@@ -1025,7 +1029,8 @@ class _HeroCard extends StatelessWidget {
                       if (pnlPositive) ...[
                         const SizedBox(width: 6),
                         const PulsSvgIllustration(
-                          asset: 'assets/illustrations/lucent-financial-income-growth-with-upward-arrow-and-falling-coins.svg',
+                          asset:
+                              'assets/illustrations/lucent-financial-income-growth-with-upward-arrow-and-falling-coins.svg',
                           width: 18,
                           height: 18,
                         ),
@@ -1534,7 +1539,6 @@ class _PositionCardState extends State<_PositionCard> {
       ),
     );
   }
-
 }
 
 class _StatBox extends StatelessWidget {
@@ -1784,5 +1788,4 @@ class _LimitOrderCard extends StatelessWidget {
       ),
     );
   }
-
 }

@@ -14,7 +14,6 @@ import 'package:haptic_kit/haptic_kit.dart';
 import '../../app/puls_app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/motion.dart';
-import '../../core/widgets/puls_video_illustration.dart';
 import '../../core/utils/puls_emoji.dart';
 import '../../core/widgets/puls_emoji_text.dart';
 import '../../core/widgets/gradient_text.dart';
@@ -229,6 +228,7 @@ class _AgentScreenState extends State<AgentScreen>
       _tabController.index = agentSubTabRequest.value;
     }
     agentSubTabRequest.addListener(_onSubTabRequest);
+    _tabController.addListener(_onTabChanged);
   }
 
   void _onSubTabRequest() {
@@ -236,16 +236,25 @@ class _AgentScreenState extends State<AgentScreen>
     if (mounted && i >= 0 && i < 4) _tabController.animateTo(i);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_resumed && _userId != null) {
-      _resumed = true;
-      _resume();
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging && _tabController.index == 1) {
+      _resumeIfNeeded();
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_tabController.index == 1) _resumeIfNeeded();
+  }
+
   bool _resumed = false;
+
+  void _resumeIfNeeded() {
+    if (_resumed || _userId == null) return;
+    _resumed = true;
+    _resume();
+  }
 
   // Restore an existing agent on page load so funds + agent aren't "lost" after a reload.
   Future<void> _resume() async {
@@ -302,6 +311,7 @@ class _AgentScreenState extends State<AgentScreen>
   @override
   void dispose() {
     agentSubTabRequest.removeListener(_onSubTabRequest);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _client.close();
     _input.dispose();
@@ -513,8 +523,7 @@ class _AgentScreenState extends State<AgentScreen>
             const SizedBox(width: 8),
             const AnimatedGradientText('AI Agent',
                 style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5)),
+                    fontWeight: FontWeight.w900, letterSpacing: -0.5)),
           ],
         ),
         actions: [
@@ -631,9 +640,14 @@ class _AgentScreenState extends State<AgentScreen>
                 ),
                 alignment: Alignment.center,
                 child: PulsEmoji.icon('🤖', size: 80),
-              ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-               .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.4))
-               .scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut),
+              )
+                  .animate(
+                      onPlay: (controller) => controller.repeat(reverse: true))
+                  .shimmer(
+                      duration: 2000.ms,
+                      color: Colors.white.withValues(alpha: 0.4))
+                  .scaleXY(
+                      end: 1.05, duration: 2000.ms, curve: Curves.easeInOut),
             ),
             const SizedBox(height: 20),
             FadeInUp(
@@ -779,9 +793,7 @@ class _AgentScreenState extends State<AgentScreen>
           '/api/agent/strategy', {'userId': uid, 'strategy': value});
       setState(() {
         _strategy = r['strategy'] as String? ?? 'NONE';
-        final strategyName = _strategy == 'NONE'
-            ? 'Manual Chat'
-            : 'DCA';
+        final strategyName = _strategy == 'NONE' ? 'Manual Chat' : 'DCA';
         _msgs.add(_Msg(true,
             '⚙️ Presets changed: Autonomous strategy set to **$strategyName** mode.'));
       });
@@ -823,9 +835,7 @@ class _AgentScreenState extends State<AgentScreen>
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  _strategy == 'NONE'
-                      ? 'Manual Chat'
-                      : 'DCA Active',
+                  _strategy == 'NONE' ? 'Manual Chat' : 'DCA Active',
                   style: TextStyle(
                     color: _strategy == 'NONE' ? t.textMuted : t.yes,
                     fontSize: 9,
@@ -839,12 +849,12 @@ class _AgentScreenState extends State<AgentScreen>
           Row(
             children: [
               Expanded(
-                  child: _strategyOption(t, 'NONE', 'Manual',
-                      Icons.chat_bubble_outline_rounded)),
+                  child: _strategyOption(
+                      t, 'NONE', 'Manual', Icons.chat_bubble_outline_rounded)),
               const SizedBox(width: 8),
               Expanded(
-                  child: _strategyOption(
-                      t, 'DCA', 'DCA', Icons.schedule_rounded)),
+                  child:
+                      _strategyOption(t, 'DCA', 'DCA', Icons.schedule_rounded)),
             ],
           ),
         ],
@@ -860,13 +870,20 @@ class _AgentScreenState extends State<AgentScreen>
     Widget content = Container(
       height: 42,
       decoration: BoxDecoration(
-        color: isSelected ? (isPremium ? t.brand.withValues(alpha: 0.15) : t.brand) : t.surfaceRaised,
+        color: isSelected
+            ? (isPremium ? t.brand.withValues(alpha: 0.15) : t.brand)
+            : t.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: isSelected ? t.brand : t.border,
             width: isSelected && isPremium ? 1.5 : 1.0),
         boxShadow: isSelected && isPremium
-            ? [BoxShadow(color: t.brand.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1)]
+            ? [
+                BoxShadow(
+                    color: t.brand.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    spreadRadius: 1)
+              ]
             : null,
       ),
       alignment: Alignment.center,
@@ -874,7 +891,10 @@ class _AgentScreenState extends State<AgentScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon,
-              size: 14, color: isSelected ? (isPremium ? t.brand : Colors.white) : t.textMuted),
+              size: 14,
+              color: isSelected
+                  ? (isPremium ? t.brand : Colors.white)
+                  : t.textMuted),
           const SizedBox(width: 6),
           Text(
             label,
@@ -889,8 +909,10 @@ class _AgentScreenState extends State<AgentScreen>
     );
 
     if (isPremium && isSelected) {
-      content = content.animate(onPlay: (controller) => controller.repeat(reverse: true))
-          .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3))
+      content = content
+          .animate(onPlay: (controller) => controller.repeat(reverse: true))
+          .shimmer(
+              duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3))
           .elevation(end: 4, color: t.brand);
     }
 
@@ -907,18 +929,20 @@ class _AgentScreenState extends State<AgentScreen>
         _header(t),
         if (_showTools) _toolsPanel(t),
         Expanded(
-          child: ListView.builder(
+          child: CustomScrollView(
             controller: _scroll,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            itemCount: _msgs.length,
-            itemBuilder: (_, mi) {
-              return FadeInUp(
-                key: ValueKey(mi),
-                duration: const Duration(milliseconds: 300),
-                from: 12,
-                child: _bubble(_msgs[mi], t),
-              );
-            },
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                sliver: SliverList.builder(
+                  itemCount: _msgs.length,
+                  itemBuilder: (_, mi) => RepaintBoundary(
+                    key: ValueKey(mi),
+                    child: _bubble(_msgs[mi], t),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         if (_busy) _thinking(t),
@@ -990,9 +1014,8 @@ class _AgentScreenState extends State<AgentScreen>
             const SizedBox(width: 5),
             Icon(Icons.flash_on_rounded,
                 size: 12,
-                color: disabled
-                    ? t.textSubtle
-                    : t.brand.withValues(alpha: 0.7)),
+                color:
+                    disabled ? t.textSubtle : t.brand.withValues(alpha: 0.7)),
           ],
         ),
       ),
@@ -1060,158 +1083,171 @@ class _AgentScreenState extends State<AgentScreen>
         : addr;
     final remaining = (_budgetVal - _spent).clamp(0, double.infinity);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: t.surfaceRaised.withValues(alpha: 0.65),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: t.border.withValues(alpha: 0.5)),
-            ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration:
-                BoxDecoration(color: t.brandSubtle, shape: BoxShape.circle),
-            child: Icon(Icons.smart_toy_rounded, color: t.brand, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: addr.isEmpty
-                          ? null
-                          : () => launchUrl(
-                              Uri.parse(
-                                  'https://testnet.arcscan.app/address/$addr'),
-                              mode: LaunchMode.externalApplication),
-                      child: Text(short,
-                          style: TextStyle(
-                              color: t.brand,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                    if (_registered) ...[
-                      const SizedBox(width: 6),
-                      Icon(Icons.verified_rounded, size: 13, color: t.yes),
-                      Text(' ERC-8004',
-                          style: TextStyle(
-                              color: t.yes,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                    'Budget \$${remaining.toStringAsFixed(2)} / \$${_budgetVal.toStringAsFixed(2)} USDC',
-                    style: TextStyle(color: t.textMuted, fontSize: 11)),
-                if (_registered) ...[
-                  const SizedBox(height: 3),
-                  GestureDetector(
-                    onTap: addr.isEmpty
-                        ? null
-                        : () => launchUrl(
-                            Uri.parse(
-                                'https://testnet.arcscan.app/address/$addr'),
-                            mode: LaunchMode.externalApplication),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.workspace_premium_rounded,
-                            size: 12, color: PulsColors.amber),
-                        const SizedBox(width: 3),
-                        Text(
-                          _reputation > 0
-                              ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
-                              : 'Reputation: builds as it trades',
-                          style: TextStyle(
-                              color: t.textSubtle,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: t.surfaceRaised.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: t.border.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                            color: t.brandSubtle, shape: BoxShape.circle),
+                        child: Icon(Icons.smart_toy_rounded,
+                            color: t.brand, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: addr.isEmpty
+                                      ? null
+                                      : () => launchUrl(
+                                          Uri.parse(
+                                              'https://testnet.arcscan.app/address/$addr'),
+                                          mode: LaunchMode.externalApplication),
+                                  child: Text(short,
+                                      style: TextStyle(
+                                          color: t.brand,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700)),
+                                ),
+                                if (_registered) ...[
+                                  const SizedBox(width: 6),
+                                  Icon(Icons.verified_rounded,
+                                      size: 13, color: t.yes),
+                                  Text(' ERC-8004',
+                                      style: TextStyle(
+                                          color: t.yes,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                                'Budget \$${remaining.toStringAsFixed(2)} / \$${_budgetVal.toStringAsFixed(2)} USDC',
+                                style: TextStyle(
+                                    color: t.textMuted, fontSize: 11)),
+                            if (_registered) ...[
+                              const SizedBox(height: 3),
+                              GestureDetector(
+                                onTap: addr.isEmpty
+                                    ? null
+                                    : () => launchUrl(
+                                        Uri.parse(
+                                            'https://testnet.arcscan.app/address/$addr'),
+                                        mode: LaunchMode.externalApplication),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.workspace_premium_rounded,
+                                        size: 12, color: PulsColors.amber),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _reputation > 0
+                                          ? 'Reputation: $_reputation on-chain attestation${_reputation == 1 ? '' : 's'}'
+                                          : 'Reputation: builds as it trades',
+                                      style: TextStyle(
+                                          color: t.textSubtle,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                    if (_agentId != null) ...[
+                                      const SizedBox(width: 5),
+                                      Text('· Agent #$_agentId',
+                                          style: TextStyle(
+                                              color: t.textSubtle,
+                                              fontSize: 10.5)),
+                                    ],
+                                    const SizedBox(width: 3),
+                                    Icon(Icons.open_in_new_rounded,
+                                        size: 10, color: t.textSubtle),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        if (_agentId != null) ...[
-                          const SizedBox(width: 5),
-                          Text('· Agent #$_agentId',
-                              style: TextStyle(
-                                  color: t.textSubtle, fontSize: 10.5)),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip:
+                                'Agent tools — strategy & Finance Director',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 28),
+                            icon: Icon(
+                                _showTools
+                                    ? Icons.close_rounded
+                                    : Icons.tune_rounded,
+                                size: 18,
+                                color: _showTools ? t.brand : t.textMuted),
+                            onPressed: () =>
+                                setState(() => _showTools = !_showTools),
+                          ),
+                          const SizedBox(height: 2),
+                          TextButton(
+                            onPressed: _busy ? null : _deposit,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              backgroundColor: t.brand,
+                              minimumSize: const Size(84, 28),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Deposit',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
+                          ),
+                          if (remaining > 0.01) ...[
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: _busy ? null : _withdraw,
+                              style: TextButton.styleFrom(
+                                foregroundColor: t.brand,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                backgroundColor: t.brandSubtle,
+                                minimumSize: const Size(84, 28),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Withdraw',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                          ],
                         ],
-                        const SizedBox(width: 3),
-                        Icon(Icons.open_in_new_rounded,
-                            size: 10, color: t.textSubtle),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Agent tools — strategy & Finance Director',
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 28),
-                icon: Icon(
-                    _showTools ? Icons.close_rounded : Icons.tune_rounded,
-                    size: 18,
-                    color: _showTools ? t.brand : t.textMuted),
-                onPressed: () => setState(() => _showTools = !_showTools),
-              ),
-              const SizedBox(height: 2),
-              TextButton(
-                onPressed: _busy ? null : _deposit,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  backgroundColor: t.brand,
-                  minimumSize: const Size(84, 28),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Deposit',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
               ),
-              if (remaining > 0.01) ...[
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: _busy ? null : _withdraw,
-                  style: TextButton.styleFrom(
-                    foregroundColor: t.brand,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    backgroundColor: t.brandSubtle,
-                    minimumSize: const Size(84, 28),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Withdraw',
-                      style:
-                          TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    ),
-    ),
-    )).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1, duration: 400.ms, curve: Curves.easeOut);
+            ))
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideY(begin: -0.1, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _bubble(_Msg m, PulsThemeColors t) {
@@ -1235,12 +1271,22 @@ class _AgentScreenState extends State<AgentScreen>
                 bottomLeft: Radius.circular(m.fromAgent ? 4 : 16),
                 bottomRight: Radius.circular(m.fromAgent ? 16 : 4),
               ),
-              boxShadow: m.fromAgent ? [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
-              ] : [
-                BoxShadow(color: t.brand.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))
-              ],
-              border: m.fromAgent ? Border.all(color: t.border.withValues(alpha: 0.5)) : null,
+              boxShadow: m.fromAgent
+                  ? [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4))
+                    ]
+                  : [
+                      BoxShadow(
+                          color: t.brand.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4))
+                    ],
+              border: m.fromAgent
+                  ? Border.all(color: t.border.withValues(alpha: 0.5))
+                  : null,
             ),
             child: PulsEmojiText(m.text,
                 style: TextStyle(color: fg, fontSize: 14.5, height: 1.4)),
@@ -1384,10 +1430,14 @@ class _AgentScreenState extends State<AgentScreen>
             const SizedBox(height: 8),
             Row(
               children: [
-                if (stance != null) _pill(stance, stance == 'NO' ? t.no : t.yes),
+                if (stance != null)
+                  _pill(stance, stance == 'NO' ? t.no : t.yes),
                 if (stance != null && slug != null) const SizedBox(width: 8),
                 if (slug != null)
-                  _linkChip('Market', Icons.open_in_new_rounded, accent,
+                  _linkChip(
+                      'Market',
+                      Icons.open_in_new_rounded,
+                      accent,
                       () => launchUrl(Uri.parse('$appUrl/m/$slug'),
                           mode: LaunchMode.externalApplication)),
               ],
@@ -1430,7 +1480,8 @@ class _AgentScreenState extends State<AgentScreen>
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.0)),
               const Spacer(),
-              _pill('$side · \$${amt.toStringAsFixed(amt >= 1 ? 0 : 2)}', accent),
+              _pill(
+                  '$side · \$${amt.toStringAsFixed(amt >= 1 ? 0 : 2)}', accent),
             ],
           ),
           const SizedBox(height: 6),
@@ -1446,12 +1497,18 @@ class _AgentScreenState extends State<AgentScreen>
           Row(
             children: [
               if (slug != null)
-                _linkChip('Open market', Icons.open_in_new_rounded, accent,
+                _linkChip(
+                    'Open market',
+                    Icons.open_in_new_rounded,
+                    accent,
                     () => launchUrl(Uri.parse('$appUrl/m/$slug'),
                         mode: LaunchMode.externalApplication)),
               if (slug != null) const SizedBox(width: 8),
               if (txHash != null)
-                _linkChip('Arcscan', Icons.verified_rounded, t.brand,
+                _linkChip(
+                    'Arcscan',
+                    Icons.verified_rounded,
+                    t.brand,
                     () => launchUrl(
                         Uri.parse('https://testnet.arcscan.app/tx/$txHash'),
                         mode: LaunchMode.externalApplication))
@@ -1528,7 +1585,10 @@ class _AgentScreenState extends State<AgentScreen>
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: t.border.withValues(alpha: 0.6)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, -4))
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, -4))
           ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1551,31 +1611,36 @@ class _AgentScreenState extends State<AgentScreen>
                 ),
               ),
             ),
-          const SizedBox(width: 8),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _input,
-            builder: (context, val, child) {
-              final isEmpty = val.text.trim().isEmpty;
-              final disabled = _busy || isEmpty;
-              return GestureDetector(
-                onTap: disabled ? null : _send,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                      color: disabled ? t.surface : t.brand, 
-                      shape: BoxShape.circle,
-                      boxShadow: disabled ? [] : [
-                        BoxShadow(color: t.brand.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1)
-                      ]
+            const SizedBox(width: 8),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _input,
+              builder: (context, val, child) {
+                final isEmpty = val.text.trim().isEmpty;
+                final disabled = _busy || isEmpty;
+                return GestureDetector(
+                  onTap: disabled ? null : _send,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                        color: disabled ? t.surface : t.brand,
+                        shape: BoxShape.circle,
+                        boxShadow: disabled
+                            ? []
+                            : [
+                                BoxShadow(
+                                    color: t.brand.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 1)
+                              ]),
+                    child: Icon(Icons.arrow_upward_rounded,
+                        color: disabled ? t.textSubtle : Colors.white,
+                        size: 20),
                   ),
-                  child: Icon(Icons.arrow_upward_rounded,
-                      color: disabled ? t.textSubtle : Colors.white, size: 20),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
           ],
         ),
       ),
