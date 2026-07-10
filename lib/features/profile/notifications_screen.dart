@@ -53,7 +53,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       await wallet.markNotificationsRead();
       _load();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] mark notifications read failed: $e');
+    }
   }
 
   IconData _getIconForType(String type) {

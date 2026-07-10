@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/gradient_text.dart';
 import '../../core/widgets/agent_badge.dart';
 import '../../core/widgets/puls_avatar.dart';
+import '../../core/widgets/puls_snack.dart';
 
 class Comment {
   Comment({
@@ -121,6 +122,7 @@ class _CommentThreadState extends State<CommentThread> {
     final body = _inputCtrl.text.trim();
     if (body.isEmpty || _sending) return;
     setState(() => _sending = true);
+    final snack = PulsSnack.of(context);
     try {
       final payload = <String, dynamic>{
         'target_type': widget.targetType,
@@ -138,29 +140,56 @@ class _CommentThreadState extends State<CommentThread> {
         _replyToId = null;
         _replyToName = null;
         await _fetch();
+      } else {
+        snack.error(_errorFrom(res.body, 'Couldn\'t post your comment'));
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] comment send failed: $e');
+      snack.error('Couldn\'t post your comment. Check your connection.');
+    }
     if (mounted) setState(() => _sending = false);
   }
 
   Future<void> _toggleLike(String commentId) async {
     try {
-      await http.post(
+      final res = await http.post(
         Uri.parse('$backendUrl/api/comments/$commentId/like'),
         headers: _authHeaders,
       );
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        throw Exception('like failed (${res.statusCode})');
+      }
       await _fetch();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] comment like failed: $e');
+    }
   }
 
   Future<void> _delete(String commentId) async {
+    final snack = PulsSnack.of(context);
     try {
-      await http.delete(
+      final res = await http.delete(
         Uri.parse('$backendUrl/api/comments/$commentId'),
         headers: _authHeaders,
       );
+      if (res.statusCode != 200 && res.statusCode != 204) {
+        throw Exception('delete failed (${res.statusCode})');
+      }
       await _fetch();
+    } catch (e) {
+      debugPrint('[Puls] comment delete failed: $e');
+      snack.error('Couldn\'t delete that comment.');
+    }
+  }
+
+  /// Best-effort extraction of a server-provided `error` string, falling back
+  /// to [fallback] when the body isn't JSON or has no error field.
+  String _errorFrom(String responseBody, String fallback) {
+    try {
+      final data = jsonDecode(responseBody);
+      if (data is Map && data['error'] is String) return data['error'] as String;
     } catch (_) {}
+    return fallback;
   }
 
   void _startReply(String id, String name) {

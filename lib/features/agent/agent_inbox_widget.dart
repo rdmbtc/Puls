@@ -96,7 +96,9 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
         Map<String, dynamic> payload = {};
         try {
           payload = jsonDecode('${m['message']}') as Map<String, dynamic>;
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Puls] agent inbox: bad DM payload for ${m['id']}: $e');
+        }
         dms.add({
           'id': m['id'],
           'read': m['read'] == true,
@@ -109,7 +111,9 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
         });
       }
       if (mounted) setState(() => _dms = dms);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] agent inbox fetch failed: $e');
+    }
   }
 
   List<Map<String, dynamic>> get _visible =>

@@ -235,7 +235,9 @@ class WalletService extends ChangeNotifier {
         isLoading: false,
       ));
       if (address.isNotEmpty) _fetchBalanceFromChain(address);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Puls] reloadWallet failed: $e');
+    }
   }
 
   /// Reads USDC balance directly from Arc Testnet via eth_call — no backend needed.
@@ -305,7 +307,9 @@ class WalletService extends ChangeNotifier {
             usdcBalance: res['usdcBalance'] as String? ?? _state.usdcBalance,
           ));
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Puls] backend balance fallback failed: $e');
+      }
     }
   }
 

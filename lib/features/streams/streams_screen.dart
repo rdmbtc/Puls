@@ -36,15 +36,17 @@ class _StreamsScreenState extends State<StreamsScreen> {
       final wallet = WalletServiceScope.of(context);
       Map<String, dynamic> config = {};
       Map<String, dynamic> summary = {};
-      try { config = await wallet.streamsConfig(); } catch (_) {}
-      try { summary = await wallet.streamsSummary(); } catch (_) {}
+      try { config = await wallet.streamsConfig(); } catch (e) { debugPrint('[Puls] streams config load failed: $e'); }
+      try { summary = await wallet.streamsSummary(); } catch (e) { debugPrint('[Puls] streams summary load failed: $e'); }
       List<Map<String, dynamic>> streams = [];
       try {
         final d = await wallet.listStreams();
         streams = ((d['streams'] as List?) ?? [])
             .map((e) => (e as Map).cast<String, dynamic>())
             .toList();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Puls] streams list load failed: $e');
+      }
       if (!mounted) return;
       setState(() {
         _config = config;
