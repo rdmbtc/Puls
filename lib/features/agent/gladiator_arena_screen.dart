@@ -71,40 +71,67 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
 
   late final List<_Gladiator> _agents = [
     _Gladiator(
-      id: 'degen',
-      name: 'DEGENBOT',
-      tagline: 'Max leverage. Zero fear.',
-      icon: Icons.local_fire_department_rounded,
+      id: 'pulse',
+      name: 'PULSE',
+      tagline: 'The Heartbeat of the Market.',
+      icon: Icons.electric_bolt_rounded,
       color: const Color(0xFFF87171),
-      equity: 1147,
-      odds: 3.1,
+      equity: 1247,
+      odds: 2.1,
     ),
     _Gladiator(
-      id: 'macro',
-      name: 'MACROMIND',
-      tagline: 'Sees the whole board.',
-      icon: Icons.psychology_rounded,
+      id: 'striker',
+      name: 'STRIKER',
+      tagline: 'Aggressive entries, zero hesitation.',
+      icon: Icons.local_fire_department_rounded,
+      color: const Color(0xFFF59E0B),
+      equity: 1141,
+      odds: 3.2,
+    ),
+    _Gladiator(
+      id: 'orion',
+      name: 'ORION',
+      tagline: 'Stellar macro predictions.',
+      icon: Icons.track_changes_rounded,
       color: const Color(0xFF2DD4BF),
-      equity: 1231,
-      odds: 2.2,
-    ),
-    _Gladiator(
-      id: 'sniper',
-      name: 'SNIPER',
-      tagline: 'One shot. One fill.',
-      icon: Icons.gps_fixed_rounded,
-      color: const Color(0xFFF472B6),
       equity: 1089,
       odds: 3.8,
     ),
     _Gladiator(
-      id: 'insider',
-      name: 'INSIDER',
-      tagline: 'Heard it here first.',
-      icon: Icons.visibility_rounded,
-      color: const Color(0xFFF59E0B),
+      id: 'nova',
+      name: 'NOVA',
+      tagline: 'Explosive volatility capture.',
+      icon: Icons.wb_sunny_rounded,
+      color: const Color(0xFFF472B6),
       equity: 962,
       odds: 5.4,
+    ),
+    _Gladiator(
+      id: 'atlas',
+      name: 'ATLAS',
+      tagline: 'Holding the line on dips.',
+      icon: Icons.shield_rounded,
+      color: const Color(0xFF818CF8),
+      equity: 1300,
+      odds: 1.9,
+    ),
+    _Gladiator(
+      id: 'vega',
+      name: 'VEGA',
+      tagline: 'Calculated alpha generation.',
+      icon: Icons.visibility_rounded,
+      color: const Color(0xFF34D399),
+      equity: 890,
+      odds: 6.2,
+    ),
+    _Gladiator(
+      id: 'cygnus',
+      name: 'CYGNUS',
+      tagline: 'Graceful exits, sharp snipes.',
+      icon: Icons.gps_fixed_rounded,
+      color: const Color(0xFFA78BFA),
+      equity: 1010,
+      odds: 4.5,
     ),
   ];
 
@@ -135,10 +162,10 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
     super.initState();
     // Seed the feed
     _feed.addAll([
-      _FeedEvent(_agents[1], 'MACROMIND takes the lead with a \$310 YES sweep', true),
-      _FeedEvent(_agents[0], 'DEGENBOT ${_trashTalk[0]}', false),
-      _FeedEvent(_agents[2], 'SNIPER ${_tradeVerbs[3]}', true),
-      _FeedEvent(_agents[3], 'INSIDER ${_trashTalk[3]}', false),
+      _FeedEvent(_agents[1], 'STRIKER takes the lead with a \$310 YES sweep', true),
+      _FeedEvent(_agents[0], 'PULSE ${_trashTalk[0]}', false),
+      _FeedEvent(_agents[2], 'ORION ${_tradeVerbs[3]}', true),
+      _FeedEvent(_agents[3], 'NOVA ${_trashTalk[3]}', false),
     ]);
 
     _simTimer = Timer.periodic(const Duration(milliseconds: 2400), (_) {
@@ -208,7 +235,7 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
   Widget build(BuildContext context) {
     final t = context.puls;
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: t.bg,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         title: const Text('Gladiator Arena'),
         actions: [
@@ -689,7 +716,7 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.puls.bg,
       builder: (_) => _StakeSheet(agent: g),
     );
   }

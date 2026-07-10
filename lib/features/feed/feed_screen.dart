@@ -24,6 +24,7 @@ import '../market/market_detail_screen.dart';
 import '../market/swipe_discovery_screen.dart';
 import '../market/trade_preview_sheet.dart';
 import '../onboarding/puls_tour_overlay.dart';
+import '../../core/tour_keys.dart';
 import '../profile/notifications_screen.dart';
 import '../profile/user_profile_screen.dart';
 import '../shell/shell_nav.dart';
@@ -318,9 +319,9 @@ class _FeedHeader extends StatelessWidget {
           TextButton.icon(
             onPressed: () {
               buildPulsTour(
-                swarmKey: GlobalKey(), // We might need keys for tour, but in Feed we can just launch the tour as is, or use the feed keys
-                usdcKey: GlobalKey(),
-                marketKey: GlobalKey(),
+                swarmKey: tourSwarmKey,
+                usdcKey: tourUsdcKey,
+                marketKey: tourMarketKey,
               ).start(context);
             },
             icon: Icon(Icons.help_outline_rounded, size: 16, color: t.brand),

@@ -2,34 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-
-/// ─────────────────────────────────────────────────────────────────────────────
-/// Agent Brain Visualizer — cyberpunk visualization of how a Puls AI agent
-/// makes a trading decision.
-///
-/// Three animated phases driven by ONE master AnimationController:
-///   Phase 1 (0.00 → 0.35)  Ingestion  — source nodes fly in and wire into a
-///                                       central brain core.
-///   Phase 2 (0.35 → 0.80)  Processing — typewriter reveal of the reasoning.
-///   Phase 3 (0.80 → 1.00)  Decision   — smooth green/red flash + verdict.
-///
-/// ```dart
-/// AgentBrainVisualizer(
-///   decision: AgentDecision(
-///     question: 'Will BTC close above \$100k this month?',
-///     sources: [
-///       AgentSource(title: 'CoinDesk — BTC momentum', url: 'coindesk.com'),
-///       AgentSource(title: 'Fed minutes summary', url: 'reuters.com'),
-///       AgentSource(title: 'On-chain flows', url: 'glassnode.com'),
-///     ],
-///     reasoning: 'ETF inflows accelerating. Funding rates neutral. '
-///         'Macro tailwind from rate-cut odds. Momentum favors upside.',
-///     side: DecisionSide.yes,
-///     amountUsdc: 42.50,
-///   ),
-/// )
-/// ```
-/// ─────────────────────────────────────────────────────────────────────────────
+import '../../core/theme/app_theme.dart';
 
 enum DecisionSide { yes, no }
 
@@ -55,14 +28,12 @@ class AgentDecision {
   final double amountUsdc;
 }
 
-/// ── Palette (cyberpunk, per spec) ────────────────────────────────────────────
 class _Brain {
   static const bg = Color(0xFF0D0F12);
   static const brand = Color(0xFF00FF88);
   static const no = Color(0xFFFF3B5C);
   static const dim = Color(0xFF1A1E24);
   static const text = Color(0xFFE8FFF2);
-  static const textDim = Color(0xFF6B7A72);
   static const mono = 'monospace';
 }
 
@@ -84,49 +55,20 @@ class AgentBrainVisualizer extends StatefulWidget {
 
 class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
     with TickerProviderStateMixin {
-  /// Master timeline. Phase boundaries at 0.35 / 0.80.
   late final AnimationController _master;
-
-  /// Ambient pulse for the brain core (loops forever, cheap).
   late final AnimationController _pulse;
-
-  /// Decision flash intensity: ramps up then settles, via TweenSequence.
-  late final Animation<double> _flash;
-
-  static const _phase1End = 0.35;
-  static const _phase2End = 0.80;
 
   @override
   void initState() {
     super.initState();
     _master = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 6500),
+      duration: const Duration(milliseconds: 5500),
     );
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-
-    // Flash: 0 → 1 fast, hold, then relax to a steady glow.
-    _flash = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeOutExpo)),
-        weight: 30,
-      ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 25),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.45)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 45,
-      ),
-    ]).animate(
-      CurvedAnimation(
-        parent: _master,
-        curve: const Interval(_phase2End, 1.0),
-      ),
-    );
 
     _master.addStatusListener((status) {
       if (status == AnimationStatus.completed) widget.onComplete?.call();
@@ -152,30 +94,26 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
     super.dispose();
   }
 
-  void replay() => _master.forward(from: 0);
-
-  double get _ingestion =>
-      Curves.easeOutCubic.transform(
-          (_master.value / _phase1End).clamp(0.0, 1.0));
-
-  double get _processing => ((_master.value - _phase1End) /
-          (_phase2End - _phase1End))
-      .clamp(0.0, 1.0);
+  double get _progress => _master.value;
+  double get _ingestProgress => (_progress / 0.3).clamp(0, 1);
+  double get _processProgress => ((_progress - 0.3) / 0.4).clamp(0, 1);
+  double get _flashProgress => ((_progress - 0.7) / 0.3).clamp(0, 1);
 
   bool get _isYes => widget.decision.side == DecisionSide.yes;
   Color get _verdictColor => _isYes ? _Brain.brand : _Brain.no;
 
   @override
   Widget build(BuildContext context) {
-    final d = widget.decision;
-
     return AnimatedBuilder(
       animation: Listenable.merge([_master, _pulse]),
       builder: (context, _) {
-        final flash = _flash.value;
+        final d = widget.decision;
+        final flash = Curves.easeOutExpo.transform(_flashProgress);
+
         return ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: Container(
+            width: double.infinity,
             decoration: BoxDecoration(
               color: _Brain.bg,
               borderRadius: BorderRadius.circular(24),
@@ -195,20 +133,18 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
                 ),
               ],
             ),
+            // The canvas takes the FULL background for an immersive visualizer.
             child: Stack(
               children: [
-                // Decision flash wash over the whole widget.
                 Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            _verdictColor.withValues(alpha: 0.16 * flash),
-                            _verdictColor.withValues(alpha: 0.03 * flash),
-                          ],
-                        ),
-                      ),
+                  child: CustomPaint(
+                    painter: _FullCanvasPainter(
+                      sources: d.sources,
+                      ingestion: _ingestProgress,
+                      pulse: _pulse.value,
+                      processing: _processProgress,
+                      flash: flash,
+                      verdictColor: _verdictColor,
                     ),
                   ),
                 ),
@@ -219,35 +155,16 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _header(d),
-                      const SizedBox(height: 16),
-                      // Phase 1: neural ingestion canvas.
-                      SizedBox(
-                        height: 190,
-                        width: double.infinity,
-                        child: CustomPaint(
-                          painter: _NeuralPainter(
-                            sources: d.sources,
-                            ingestion: _ingestion,
-                            pulse: _pulse.value,
-                            processing: _processing,
-                            flash: flash,
-                            verdictColor: _verdictColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Phase 2: reasoning terminal.
+                      // Flexible space to allow the background animation to be visible
+                      const SizedBox(height: 220),
                       _reasoningTerminal(d),
-                      // Phase 3: verdict.
-                      ClipRect(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor:
-                              Curves.easeOutCubic.transform(flash.clamp(0, 1)),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: _verdict(d, flash),
-                          ),
+                      const SizedBox(height: 16),
+                      // Slide up animation without clipping limits
+                      Opacity(
+                        opacity: flash,
+                        child: Transform.translate(
+                          offset: Offset(0, 20 * (1 - flash)),
+                          child: _verdict(d, flash),
                         ),
                       ),
                     ],
@@ -262,51 +179,33 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
   }
 
   Widget _header(AgentDecision d) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          margin: const EdgeInsets.only(top: 5),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _Brain.brand,
-            boxShadow: [
-              BoxShadow(
-                color: _Brain.brand.withValues(
-                    alpha: 0.4 + 0.4 * _pulse.value),
-                blurRadius: 8,
+        Row(
+          children: [
+            const Icon(Icons.psychology, color: _Brain.brand, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              'AGENT NEURAL NET',
+              style: TextStyle(
+                fontFamily: _Brain.mono,
+                color: _Brain.brand.withValues(alpha: 0.8),
+                fontSize: 11,
+                letterSpacing: 2,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'AGENT BRAIN // LIVE ANALYSIS',
-                style: TextStyle(
-                  fontFamily: _Brain.mono,
-                  color: _Brain.brand,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                d.question,
-                style: const TextStyle(
-                  color: _Brain.text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-            ],
+        const SizedBox(height: 12),
+        Text(
+          d.question,
+          style: const TextStyle(
+            color: _Brain.text,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
           ),
         ),
       ],
@@ -314,14 +213,9 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
   }
 
   Widget _reasoningTerminal(AgentDecision d) {
-    // Typewriter: reveal N characters of reasoning based on processing phase.
-    final chars =
-        (d.reasoning.length * Curves.easeInOut.transform(_processing))
-            .floor();
+    final chars = (d.reasoning.length * Curves.easeInOut.transform(_processProgress)).floor();
     final visible = d.reasoning.substring(0, chars.clamp(0, d.reasoning.length));
-    final cursorOn = _processing > 0 &&
-        _processing < 1 &&
-        (_pulse.value * 2) % 1 < 0.6;
+    final cursorOn = _processProgress > 0 && _processProgress < 1 && (_pulse.value * 2) % 1 < 0.6;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -329,45 +223,31 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _Brain.brand.withValues(alpha: 0.14),
-            ),
+            border: Border.all(color: _Brain.brand.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.terminal_rounded,
-                      color: _Brain.brand.withValues(alpha: 0.7), size: 13),
-                  const SizedBox(width: 6),
+                  Icon(Icons.terminal_rounded, color: _Brain.brand.withValues(alpha: 0.7), size: 14),
+                  const SizedBox(width: 8),
                   const Text(
                     'reasoning.log',
-                    style: TextStyle(
-                      fontFamily: _Brain.mono,
-                      color: _Brain.textDim,
-                      fontSize: 10,
-                      letterSpacing: 1,
-                    ),
+                    style: TextStyle(fontFamily: _Brain.mono, color: Colors.white70, fontSize: 11, letterSpacing: 1),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              // Fixed min height avoids layout jump while typing.
+              const SizedBox(height: 12),
               ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 54),
+                constraints: const BoxConstraints(minHeight: 60),
                 child: RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      fontFamily: _Brain.mono,
-                      color: _Brain.text,
-                      fontSize: 12.5,
-                      height: 1.55,
-                    ),
+                    style: const TextStyle(fontFamily: _Brain.mono, color: _Brain.text, fontSize: 13, height: 1.5),
                     children: [
                       TextSpan(text: visible),
                       TextSpan(
@@ -390,36 +270,34 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
     final label = _isYes ? 'YES' : 'NO';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.25 * flash),
-            blurRadius: 24,
+            color: color.withValues(alpha: 0.3 * flash),
+            blurRadius: 30,
           ),
         ],
       ),
       child: Row(
         children: [
           Icon(
-            _isYes
-                ? Icons.trending_up_rounded
-                : Icons.trending_down_rounded,
+            _isYes ? Icons.trending_up_rounded : Icons.trending_down_rounded,
             color: color,
-            size: 22,
+            size: 26,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Text(
             'BUY $label',
             style: TextStyle(
               fontFamily: _Brain.mono,
               color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.5,
             ),
           ),
           const Spacer(),
@@ -428,8 +306,8 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
               '\$${d.amountUsdc.toStringAsFixed(2)} USDC',
               style: TextStyle(
                 fontFamily: _Brain.mono,
-                color: _Brain.text.withValues(alpha: 0.9),
-                fontSize: 14,
+                color: _Brain.text,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -439,14 +317,13 @@ class _AgentBrainVisualizerState extends State<AgentBrainVisualizer>
   }
 }
 
-/// ── Phase 1 painter: sources → brain neural graph ───────────────────────────
-class _NeuralPainter extends CustomPainter {
-  _NeuralPainter({
+class _FullCanvasPainter extends CustomPainter {
+  _FullCanvasPainter({
     required this.sources,
-    required this.ingestion, // 0..1 phase 1 progress
-    required this.pulse, // 0..1 ambient loop
-    required this.processing, // 0..1 phase 2 progress
-    required this.flash, // 0..1 phase 3 intensity
+    required this.ingestion,
+    required this.pulse,
+    required this.processing,
+    required this.flash,
     required this.verdictColor,
   });
 
@@ -461,162 +338,117 @@ class _NeuralPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
+    // The visualizer is positioned in the center of the free space above the terminal
+    final center = Offset(size.width / 2, size.height * 0.35);
     final coreColor = Color.lerp(_brand, verdictColor, flash)!;
 
-    // ── Source nodes orbiting positions ──
     final n = sources.length.clamp(1, 8);
-    final radius = math.min(size.width, size.height) * 0.42;
+    final radius = size.width * 0.35;
 
+    // Draw grid background
+    _drawGrid(canvas, size);
+
+    // Draw Source Nodes and Data Streams
     for (var i = 0; i < n; i++) {
-      // Per-node staggered entrance within phase 1.
-      final stagger = i / (n * 1.6);
-      final local =
-          ((ingestion - stagger) / (1 - stagger)).clamp(0.0, 1.0);
-      if (local <= 0) continue;
-      final ease = Curves.easeOutBack.transform(local);
-
+      final stagger = i / (n * 1.5);
+      final localIn = ((ingestion - stagger) / (1 - stagger)).clamp(0.0, 1.0);
+      if (localIn <= 0) continue;
+      
+      final easeIn = Curves.easeOutBack.transform(localIn);
       final angle = (i / n) * math.pi * 2 - math.pi / 2;
-      // Nodes fly in from beyond the edge toward their orbit slot.
-      final target = center +
-          Offset(math.cos(angle), math.sin(angle)) * radius;
-      final start = center +
-          Offset(math.cos(angle), math.sin(angle)) * (radius * 1.9);
-      final pos = Offset.lerp(start, target, ease)!;
+      
+      final target = center + Offset(math.cos(angle), math.sin(angle)) * radius;
+      final start = center + Offset(math.cos(angle), math.sin(angle)) * (radius * 2);
+      final pos = Offset.lerp(start, target, easeIn)!;
 
-      // Connection: draws itself from node toward brain once node lands.
-      if (local > 0.55) {
-        final wireT =
-            Curves.easeInOut.transform(((local - 0.55) / 0.45).clamp(0, 1));
+      // Draw Connection Wire
+      if (localIn > 0.4) {
+        final wireT = Curves.easeInOut.transform(((localIn - 0.4) / 0.6).clamp(0, 1));
         final end = Offset.lerp(pos, center, wireT)!;
-        final wire = Paint()
+        
+        final wirePaint = Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
+          ..strokeWidth = 2
           ..shader = LinearGradient(
-            colors: [
-              _brand.withValues(alpha: 0.55),
-              _brand.withValues(alpha: 0.08),
-            ],
+            colors: [_brand.withValues(alpha: 0.6), _brand.withValues(alpha: 0.1)],
           ).createShader(Rect.fromPoints(pos, center));
-        canvas.drawLine(pos, end, wire);
+          
+        canvas.drawLine(pos, end, wirePaint);
 
-        // Data packet traveling along the wire while processing.
+        // Draw data pulses along the wire during processing
         if (processing > 0 && processing < 1) {
-          final packetT = ((processing * 3 + i * 0.37) % 1);
-          final packet = Offset.lerp(pos, center, packetT)!;
+          final pulsePos = (pulse + i * 0.3) % 1.0;
+          final dotPos = Offset.lerp(pos, center, pulsePos)!;
+          
           canvas.drawCircle(
-            packet,
-            2,
-            Paint()
-              ..color = _brand.withValues(alpha: 0.9)
-              ..maskFilter =
-                  const MaskFilter.blur(BlurStyle.normal, 3),
+            dotPos, 
+            3, 
+            Paint()..color = _brand.withValues(alpha: 0.8)
+                   ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
           );
         }
       }
 
-      // Node glow + dot.
-      final nodeAlpha = (0.5 + 0.5 * local) *
-          (1 - flash * 0.6); // fade slightly during verdict
+      // Draw Source Node
       canvas.drawCircle(
         pos,
-        9,
+        6,
         Paint()
-          ..color = _brand.withValues(alpha: 0.18 * nodeAlpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+          ..color = _brand.withValues(alpha: 0.8 * easeIn)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
       );
-      canvas.drawCircle(
-        pos,
-        3.5,
-        Paint()..color = _brand.withValues(alpha: nodeAlpha),
-      );
-
-      // Source label (truncated).
-      final label = sources[i].title;
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label.length > 18 ? '${label.substring(0, 17)}…' : label,
-          style: TextStyle(
-            fontFamily: _Brain.mono,
-            color: _Brain.textDim.withValues(alpha: nodeAlpha),
-            fontSize: 8.5,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        ellipsis: '…',
-      )..layout(maxWidth: 90);
-      final labelOffset = pos +
-          Offset(
-            pos.dx > center.dx ? 8 : -tp.width - 8,
-            -tp.height / 2,
-          );
-      tp.paint(canvas, labelOffset);
+      canvas.drawCircle(pos, 3, Paint()..color = Colors.white);
     }
 
-    // ── Brain core ──
-    final coreVis = Curves.easeOut.transform(ingestion.clamp(0, 1));
-    final breathe = 1 + 0.08 * math.sin(pulse * math.pi);
-    final coreR = (16 + 6 * processing) * breathe * coreVis;
-
-    // Outer halo.
-    canvas.drawCircle(
-      center,
-      coreR * 2.4,
-      Paint()
-        ..color = coreColor.withValues(
-            alpha: (0.10 + 0.18 * processing + 0.25 * flash) * coreVis)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22),
-    );
-    // Ring.
-    canvas.drawCircle(
-      center,
-      coreR * 1.5,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = coreColor.withValues(alpha: 0.4 * coreVis),
-    );
-    // Core.
-    canvas.drawCircle(
-      center,
-      coreR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            coreColor.withValues(alpha: 0.95),
-            coreColor.withValues(alpha: 0.25),
-          ],
-        ).createShader(
-            Rect.fromCircle(center: center, radius: coreR)),
-    );
-
-    // Brain glyph.
-    if (coreVis > 0.5) {
-      final iconPainter = TextPainter(
-        text: TextSpan(
-          text: String.fromCharCode(Icons.psychology_rounded.codePoint),
-          style: TextStyle(
-            fontFamily: Icons.psychology_rounded.fontFamily,
-            fontSize: coreR * 1.1,
-            color: _Brain.bg.withValues(alpha: 0.9),
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      iconPainter.paint(
-        canvas,
-        center - Offset(iconPainter.width / 2, iconPainter.height / 2),
+    // Draw Central Core
+    if (ingestion > 0.8) {
+      final coreSize = 25.0 + 15.0 * pulse + 20.0 * flash;
+      
+      // Outer glow
+      canvas.drawCircle(
+        center,
+        coreSize * 1.5,
+        Paint()
+          ..color = coreColor.withValues(alpha: 0.2 + 0.3 * flash)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20),
       );
+      
+      // Inner core
+      canvas.drawCircle(
+        center,
+        coreSize * 0.6,
+        Paint()..color = coreColor,
+      );
+      
+      // Data rings exploding outward during flash
+      if (flash > 0) {
+        final ringRadius = coreSize + (80 * flash);
+        canvas.drawCircle(
+          center,
+          ringRadius,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2 * (1 - flash)
+            ..color = coreColor.withValues(alpha: 1 - flash),
+        );
+      }
+    }
+  }
+
+  void _drawGrid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.03)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+      
+    for (double i = 0; i < size.width; i += 30) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += 30) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_NeuralPainter old) =>
-      old.ingestion != ingestion ||
-      old.pulse != pulse ||
-      old.processing != processing ||
-      old.flash != flash ||
-      old.verdictColor != verdictColor ||
-      old.sources != sources;
+  bool shouldRepaint(covariant _FullCanvasPainter old) => true;
 }
