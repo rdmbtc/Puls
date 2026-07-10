@@ -317,6 +317,14 @@
     function shortAddr(a) { return a && a.length > 12 ? a.slice(0, 6) + '…' + a.slice(-4) : (a || '—'); }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    // Only allow http(s) and root-relative hrefs; blocks javascript:/data:/vbscript:
+    // and escapes attribute-breaking characters. Returns '#' for anything unsafe.
+    function safeUrl(u) {
+      var s = String(u == null ? '' : u).trim();
+      if (!/^(https?:\/\/|\/)/i.test(s)) return '#';
+      return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
     // Decode the on-chain Arc memo for a payment. Agent payments are wrapped in
     // Arc's Memo contract, which emits the reason on-chain (e.g. `signal:<id>`).
@@ -382,7 +390,7 @@
         '</div></div>';
     }
     function txLink(url, label, hash) {
-      return '<a class="txlink" href="' + url + '" target="_blank" rel="noopener">🔗 ' + label +
+      return '<a class="txlink" href="' + safeUrl(url) + '" target="_blank" rel="noopener">🔗 ' + label +
         ' <span class="txmono">' + esc(hash) + '</span></a>';
     }
 
