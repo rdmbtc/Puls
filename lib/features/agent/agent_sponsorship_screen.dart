@@ -97,8 +97,8 @@ class _AgentSponsorshipScreenState extends State<AgentSponsorshipScreen>
     final userReturn = projectedGross - agentCut;
 
     return Scaffold(
-      backgroundColor: t.bg,
-      appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         title: const Text('Agent Sponsorship'),
         actions: [
           Padding(

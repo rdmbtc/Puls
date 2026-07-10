@@ -191,8 +191,8 @@ class _SwipeDiscoveryScreenState extends State<SwipeDiscoveryScreen>
     final t = context.puls;
 
     return Scaffold(
-      backgroundColor: t.bg,
-      appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         title: const Text('Discover'),
         actions: [
           if (!_deckEmpty)

@@ -643,7 +643,7 @@ class AgentDetailSheet extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => Scaffold(
-                      backgroundColor: Colors.black,
+                      backgroundColor: Colors.transparent,
                       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
                       body: AgentBrainVisualizer(
                         decision: AgentDecision(

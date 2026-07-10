@@ -198,8 +198,8 @@ class _FlashArbitrageScreenState extends State<FlashArbitrageScreen>
   Widget build(BuildContext context) {
     final t = context.puls;
     return Scaffold(
-      backgroundColor: t.bg,
-      appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         title: const Text('Flash Arbitrage'),
         actions: [
           Padding(

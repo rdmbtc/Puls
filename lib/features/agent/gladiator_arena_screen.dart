@@ -208,8 +208,8 @@ class _GladiatorArenaScreenState extends State<GladiatorArenaScreen>
   Widget build(BuildContext context) {
     final t = context.puls;
     return Scaffold(
-      backgroundColor: t.bg,
-      appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         title: const Text('Gladiator Arena'),
         actions: [
           Padding(
