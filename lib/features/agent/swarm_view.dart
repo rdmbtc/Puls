@@ -113,7 +113,8 @@ class _SwarmViewState extends State<SwarmView> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _agents.length,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: cols,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
@@ -149,12 +150,17 @@ class _SwarmViewState extends State<SwarmView> {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(icon, size: 15, color: sel ? Colors.white : t.textMuted),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: sel ? Colors.white : t.textMuted, fontSize: 12.5, fontWeight: FontWeight.w800)),
+              Text(label,
+                  style: TextStyle(
+                      color: sel ? Colors.white : t.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800)),
             ]),
           ),
         ),
       );
     }
+
     return Row(
       children: [
         Expanded(
@@ -174,8 +180,14 @@ class _SwarmViewState extends State<SwarmView> {
         const SizedBox(width: 8),
         InkWell(
           onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const SwarmAnalyticsDashboard()));
+            PulsSheet.show<void>(
+              context,
+              builder: (_) => const PulsSheetSurface(
+                scrollable:
+                    false, // The dashboard has its own ListView, so false is better to let the ListView handle scrolling
+                child: SwarmAnalyticsDashboard(),
+              ),
+            );
           },
           borderRadius: BorderRadius.circular(13),
           child: Container(
@@ -195,7 +207,8 @@ class _SwarmViewState extends State<SwarmView> {
   void _openDetail(Map<String, dynamic> agent) {
     PulsSheet.show<void>(
       context,
-      builder: (_) => AgentDetailSheet(agentMap: agent, agentKey: agent['key'] as String?),
+      builder: (_) =>
+          AgentDetailSheet(agentMap: agent, agentKey: agent['key'] as String?),
     );
   }
 
@@ -223,8 +236,7 @@ class _SwarmViewState extends State<SwarmView> {
                       letterSpacing: -0.3)),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: t.yesBg,
                   borderRadius: BorderRadius.circular(99),
@@ -233,8 +245,8 @@ class _SwarmViewState extends State<SwarmView> {
                   Container(
                     width: 7,
                     height: 7,
-                    decoration: BoxDecoration(
-                        color: t.yes, shape: BoxShape.circle),
+                    decoration:
+                        BoxDecoration(color: t.yes, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 5),
                   Text('LIVE',
@@ -271,7 +283,8 @@ class _AgentCard extends StatelessWidget {
     final erc = agent['erc8004Id']?.toString();
     final isCreator = role == 'creator';
     final decisions = (agent['recentDecisions'] as List?) ?? const [];
-    final last = decisions.isNotEmpty ? decisions.first as Map<String, dynamic> : null;
+    final last =
+        decisions.isNotEmpty ? decisions.first as Map<String, dynamic> : null;
     final signal = agent['signal'] as Map<String, dynamic>?;
 
     String lastLine;
@@ -280,7 +293,8 @@ class _AgentCard extends StatelessWidget {
     } else if (last != null) {
       final act = last['action'] as String? ?? '';
       if (act == 'go') {
-        lastLine = '${last['side'] ?? ''} \$${(last['amount'] as num?)?.toStringAsFixed(2) ?? ''} · ${last['question'] ?? ''}';
+        lastLine =
+            '${last['side'] ?? ''} \$${(last['amount'] as num?)?.toStringAsFixed(2) ?? ''} · ${last['question'] ?? ''}';
       } else {
         lastLine = 'Holding — no +EV this cycle';
       }
@@ -305,9 +319,10 @@ class _AgentCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: isCreator
-                      ? [t.brand, PulsColors.brandMint]
-                      : [PulsColors.brandMint, t.brand]),
+                  gradient: LinearGradient(
+                      colors: isCreator
+                          ? [t.brand, PulsColors.brandMint]
+                          : [PulsColors.brandMint, t.brand]),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: () {
@@ -318,7 +333,9 @@ class _AgentCard extends StatelessWidget {
                           child: Image.asset(p,
                               width: 38, height: 38, fit: BoxFit.cover))
                       : Icon(
-                          isCreator ? Icons.lightbulb_rounded : Icons.bolt_rounded,
+                          isCreator
+                              ? Icons.lightbulb_rounded
+                              : Icons.bolt_rounded,
                           color: Colors.white,
                           size: 20);
                 }(),
@@ -327,19 +344,25 @@ class _AgentCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isCreator ? t.brand.withValues(alpha: 0.12) : t.surfaceRaised,
+                  color: isCreator
+                      ? t.brand.withValues(alpha: 0.12)
+                      : t.surfaceRaised,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: t.border),
                 ),
                 child: Text(isCreator ? 'creator' : 'trader',
-                    style: TextStyle(color: t.textMuted, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                    style: TextStyle(
+                        color: t.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700)),
               ),
             ]),
             const SizedBox(height: 8),
             Text(name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900)),
+                style: TextStyle(
+                    color: t.text, fontSize: 15, fontWeight: FontWeight.w900)),
             const SizedBox(height: 2),
             if (brain.isNotEmpty)
               Row(children: [
@@ -349,30 +372,45 @@ class _AgentCard extends StatelessWidget {
                   child: Text('AI engine',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: t.textSubtle, fontSize: 10.5, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: t.textSubtle,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600)),
                 ),
               ]),
             const SizedBox(height: 8),
             Text(lastLine,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: t.textMuted, fontSize: 11, height: 1.35)),
+                style:
+                    TextStyle(color: t.textMuted, fontSize: 11, height: 1.35)),
             const Spacer(),
             Row(children: [
               Text('\$${balance.toStringAsFixed(2)}',
-                  style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w900)),
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900)),
               const SizedBox(width: 3),
-              Text('USDC', style: TextStyle(color: t.textSubtle, fontSize: 9.5, fontWeight: FontWeight.w700)),
+              Text('USDC',
+                  style: TextStyle(
+                      color: t.textSubtle,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700)),
               const Spacer(),
               if (erc != null && erc.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: t.yesBg,
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text('#$erc',
-                      style: TextStyle(color: t.yes, fontSize: 8.5, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: t.yes,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800)),
                 ),
             ]),
           ],
@@ -386,7 +424,6 @@ class AgentDetailSheet extends StatelessWidget {
   final String? agentKey;
   final Map<String, dynamic>? agentMap;
   const AgentDetailSheet({super.key, this.agentKey, this.agentMap});
-
 
   String _ago(DateTime t) {
     final d = DateTime.now().difference(t.toLocal());
@@ -421,8 +458,8 @@ class AgentDetailSheet extends StatelessWidget {
         .toList();
     final maxH = MediaQuery.sizeOf(context).height * 0.85;
 
-    final currentThought = decisions.isNotEmpty 
-        ? 'Evaluating: ${decisions.first['question'] ?? 'Market alpha'}' 
+    final currentThought = decisions.isNotEmpty
+        ? 'Evaluating: ${decisions.first['question'] ?? 'Market alpha'}'
         : 'Scanning markets and parsing news streams...';
 
     return SafeArea(
@@ -458,7 +495,8 @@ class AgentDetailSheet extends StatelessWidget {
                           padding: const EdgeInsets.only(right: 12),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(p, width: 42, height: 42, fit: BoxFit.cover),
+                            child: Image.asset(p,
+                                width: 42, height: 42, fit: BoxFit.cover),
                           ),
                         );
                       }
@@ -466,31 +504,39 @@ class AgentDetailSheet extends StatelessWidget {
                     }(),
                     Expanded(
                       child: Text(name,
-                          style: TextStyle(color: t.text, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
+                          style: TextStyle(
+                              color: t.text,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.4)),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.of(context).maybePop(),
-                      child: Icon(Icons.close_rounded, color: t.textMuted, size: 22),
+                      child: Icon(Icons.close_rounded,
+                          color: t.textMuted, size: 22),
                     ),
                   ]),
                   const SizedBox(height: 6),
                   if (persona.isNotEmpty)
                     Text(persona,
-                        style: TextStyle(color: t.textMuted, fontSize: 13, height: 1.4)),
+                        style: TextStyle(
+                            color: t.textMuted, fontSize: 13, height: 1.4)),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: [
-                    if (brain.isNotEmpty) _chip(t, Icons.memory_rounded, 'AI engine'),
+                    if (brain.isNotEmpty)
+                      _chip(t, Icons.memory_rounded, 'AI engine'),
                     _chip(t, Icons.workspace_premium_rounded, role),
-                    _chip(t, Icons.attach_money_rounded, '${balance.toStringAsFixed(2)} USDC'),
+                    _chip(t, Icons.attach_money_rounded,
+                        '${balance.toStringAsFixed(2)} USDC'),
                     if (address.isNotEmpty)
                       _chip(t, Icons.account_balance_wallet_rounded,
                           'Circle Wallet ${address.length > 12 ? '${address.substring(0, 6)}...${address.substring(address.length - 4)}' : address}',
-                          onTap: () => launchUrl(
-                              Uri.parse('https://testnet.arcscan.app/address/$address'))),
+                          onTap: () => launchUrl(Uri.parse(
+                              'https://testnet.arcscan.app/address/$address'))),
                     if (erc != null && erc.isNotEmpty)
-                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc', 
-                          onTap: () => launchUrl(
-                              Uri.parse('https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=$erc'))),
+                      _chip(t, Icons.fingerprint_rounded, 'ERC-8004 #$erc',
+                          onTap: () => launchUrl(Uri.parse(
+                              'https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=$erc'))),
                   ]),
                   const SizedBox(height: 16),
                   Container(
@@ -508,11 +554,20 @@ class AgentDetailSheet extends StatelessWidget {
                           children: [
                             Icon(Icons.bolt_rounded, size: 14, color: t.brand),
                             const SizedBox(width: 4),
-                            Text('LIVE THOUGHTS', style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                            Text('LIVE THOUGHTS',
+                                style: TextStyle(
+                                    color: t.brand,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5)),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        AnimatedGradientText(currentThought, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3)),
+                        AnimatedGradientText(currentThought,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3)),
                       ],
                     ),
                   ),
@@ -524,9 +579,13 @@ class AgentDetailSheet extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                 children: [
                   Text('Full Recap (Last 24h)',
-                      style: TextStyle(color: t.text, fontSize: 15, fontWeight: FontWeight.w900)),
+                      style: TextStyle(
+                          color: t.text,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
-                  Text('Every decision below was made autonomously by this agent.',
+                  Text(
+                      'Every decision below was made autonomously by this agent.',
                       style: TextStyle(color: t.textMuted, fontSize: 12)),
                   const SizedBox(height: 12),
                   if (decisions.isEmpty)
@@ -543,7 +602,8 @@ class AgentDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _thoughtCard(BuildContext context, PulsThemeColors t, Map<String, dynamic> d) {
+  Widget _thoughtCard(
+      BuildContext context, PulsThemeColors t, Map<String, dynamic> d) {
     final action = d['action'] as String? ?? '';
     final isGo = action == 'go';
     final side = d['side'] as String?;
@@ -578,7 +638,9 @@ class AgentDetailSheet extends StatelessWidget {
                 border: Border.all(color: t.border),
               ),
               child: Text(
-                isGo ? 'BUY $side \$${amount?.toStringAsFixed(2) ?? ''}' : 'HOLD',
+                isGo
+                    ? 'BUY $side \$${amount?.toStringAsFixed(2) ?? ''}'
+                    : 'HOLD',
                 style: TextStyle(
                     color: isGo ? (side == 'NO' ? t.no : t.yes) : t.textMuted,
                     fontSize: 10.5,
@@ -586,14 +648,16 @@ class AgentDetailSheet extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            Text(_ago(at), style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
+            Text(_ago(at),
+                style: TextStyle(color: t.textSubtle, fontSize: 10.5)),
           ]),
           if (question.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(question,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: t.text, fontSize: 13, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: t.text, fontSize: 13, fontWeight: FontWeight.w700)),
           ],
           if (review != null) ...[
             const SizedBox(height: 8),
@@ -605,13 +669,18 @@ class AgentDetailSheet extends StatelessWidget {
                 border: Border.all(color: t.border),
               ),
               child: Row(children: [
-                Icon(review['verdict'] == 'buy' ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                    size: 14, color: review['verdict'] == 'buy' ? t.yes : t.no),
+                Icon(
+                    review['verdict'] == 'buy'
+                        ? Icons.check_circle_rounded
+                        : Icons.cancel_rounded,
+                    size: 14,
+                    color: review['verdict'] == 'buy' ? t.yes : t.no),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '${review['verdict'] == 'buy' ? 'Bought' : 'Skipped'} ${review['creator'] ?? 'peer'}\'s signal — ${review['note'] ?? ''}',
-                    style: TextStyle(color: t.textMuted, fontSize: 11, height: 1.35),
+                    style: TextStyle(
+                        color: t.textMuted, fontSize: 11, height: 1.35),
                   ),
                 ),
               ]),
@@ -620,7 +689,8 @@ class AgentDetailSheet extends StatelessWidget {
           if (reasoning.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(reasoning,
-                style: TextStyle(color: t.textMuted, fontSize: 12.5, height: 1.45)),
+                style: TextStyle(
+                    color: t.textMuted, fontSize: 12.5, height: 1.45)),
           ],
           const SizedBox(height: 8),
           Wrap(spacing: 12, runSpacing: 6, children: [
@@ -632,48 +702,64 @@ class AgentDetailSheet extends StatelessWidget {
                   ));
                 },
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.insert_chart_outlined_rounded, size: 13, color: t.brand),
+                  Icon(Icons.insert_chart_outlined_rounded,
+                      size: 13, color: t.brand),
                   const SizedBox(width: 4),
                   Text('view market',
-                      style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: t.brand,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ]),
               ),
             if (reasoning.isNotEmpty)
               InkWell(
                 onTap: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      backgroundColor: Colors.transparent,
-                      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-                      body: AgentBrainVisualizer(
+                  PulsSheet.show<void>(
+                    context,
+                    builder: (_) => PulsSheetSurface(
+                      scrollable: true,
+                      child: AgentBrainVisualizer(
                         decision: AgentDecision(
-                          question: question.isNotEmpty ? question : (slug ?? 'Market Decision'),
+                          question: question.isNotEmpty
+                              ? question
+                              : (slug ?? 'Market Decision'),
                           sources: const [],
                           reasoning: reasoning,
-                          side: side == 'YES' ? DecisionSide.yes : DecisionSide.no,
+                          side: side == 'YES'
+                              ? DecisionSide.yes
+                              : DecisionSide.no,
                           amountUsdc: amount ?? 0,
                         ),
                       ),
                     ),
-                  ));
+                  );
                 },
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.psychology_alt_rounded, size: 13, color: Colors.purpleAccent),
+                  Icon(Icons.psychology_alt_rounded,
+                      size: 13, color: Colors.purpleAccent),
                   const SizedBox(width: 4),
                   Text('visualize brain',
-                      style: TextStyle(color: Colors.purpleAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: Colors.purpleAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ]),
               ),
             if (alphaPaid != null && alphaPaid > 0)
               InkWell(
                 onTap: (alphaTxId != null && alphaTxId.startsWith('0x'))
-                    ? () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/$alphaTxId'))
+                    ? () => launchUrl(
+                        Uri.parse('https://testnet.arcscan.app/tx/$alphaTxId'))
                     : null,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.swap_horiz_rounded, size: 13, color: t.brand),
                   const SizedBox(width: 4),
                   Text('paid \$${alphaPaid.toStringAsFixed(3)} for alpha',
-                      style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: t.brand,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ]),
               ),
             if (alphaMemo)
@@ -685,16 +771,23 @@ class AgentDetailSheet extends StatelessWidget {
                   border: Border.all(color: t.brand.withValues(alpha: 0.35)),
                 ),
                 child: PulsEmojiText('📝 on-chain memo',
-                    style: TextStyle(color: t.brand, fontSize: 10, fontWeight: FontWeight.w800)),
+                    style: TextStyle(
+                        color: t.brand,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800)),
               ),
             if (txHash != null && txHash.startsWith('0x'))
               InkWell(
-                onTap: () => launchUrl(Uri.parse('https://testnet.arcscan.app/tx/$txHash')),
+                onTap: () => launchUrl(
+                    Uri.parse('https://testnet.arcscan.app/tx/$txHash')),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.receipt_long_rounded, size: 13, color: t.brand),
                   const SizedBox(width: 4),
                   Text('trade on Arcscan',
-                      style: TextStyle(color: t.brand, fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: t.brand,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ]),
               ),
           ]),
@@ -703,7 +796,8 @@ class AgentDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _chip(PulsThemeColors t, IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _chip(PulsThemeColors t, IconData icon, String label,
+      {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(99),
@@ -714,12 +808,12 @@ class AgentDetailSheet extends StatelessWidget {
           borderRadius: BorderRadius.circular(99),
           border: Border.all(color: t.border),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: t.brand),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: t.brand),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: t.brand, fontSize: 12, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
