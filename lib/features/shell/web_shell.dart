@@ -44,13 +44,13 @@ class _WebShellState extends State<WebShell>
   ];
 
   static final _items = [
-    _NavItem(Picons.lightning, 'Feed'),
-    _NavItem(Picons.compass, 'Discover'),
-    _NavItem(Picons.playCircle, 'Home'),
-    _NavItem(Picons.chartBar, 'Portfolio'),
-    _NavItem(Picons.star, 'Creators'),
-    _NavItem(Picons.robot, 'Agent'),
-    _NavItem(Picons.userCircle, 'Profile'),
+    _NavItem(Picons.lightning, 'Feed', tourFeedKey),
+    _NavItem(Picons.compass, 'Discover', tourDiscoverKey),
+    _NavItem(Picons.playCircle, 'Home', tourHomeKey),
+    _NavItem(Picons.chartBar, 'Portfolio', tourPortfolioKey),
+    _NavItem(Picons.star, 'Creators', tourCreatorsKey),
+    _NavItem(Picons.robot, 'Agent', tourAgentKey),
+    _NavItem(Picons.userCircle, 'Profile', tourProfileKey),
   ];
 
   @override
@@ -363,6 +363,7 @@ class _Island extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: List.generate(items.length, (i) {
           final pill = _NavPill(
+            key: items[i].key,
             item: items[i],
             selected: i == index,
             showLabel: showLabels,
@@ -382,6 +383,7 @@ class _Island extends StatelessWidget {
 
 class _NavPill extends StatefulWidget {
   const _NavPill({
+    super.key,
     required this.item,
     required this.selected,
     required this.showLabel,
@@ -696,9 +698,10 @@ class _IconBtnState extends State<_IconBtn> {
 }
 
 class _NavItem {
-  _NavItem(this.icon, this.label);
+  _NavItem(this.icon, this.label, this.key);
   final PiconData icon;
   final String label;
+  final GlobalKey key;
 }
 
 class _DotGridPainter extends CustomPainter {

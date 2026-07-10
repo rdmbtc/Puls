@@ -320,9 +320,13 @@ class _FeedHeader extends StatelessWidget {
           TextButton.icon(
             onPressed: () {
               buildPulsTour(
-                swarmKey: tourSwarmKey,
-                usdcKey: tourUsdcKey,
-                marketKey: tourMarketKey,
+                feedKey: tourFeedKey,
+                discoverKey: tourDiscoverKey,
+                homeKey: tourHomeKey,
+                portfolioKey: tourPortfolioKey,
+                creatorsKey: tourCreatorsKey,
+                agentKey: tourAgentKey,
+                profileKey: tourProfileKey,
               ).start(context);
             },
             icon: Icon(Icons.help_outline_rounded, size: 16, color: t.brand),

@@ -1,0 +1,270 @@
+﻿diff --git a/lib/features/agent/agent_inbox_widget.dart b/lib/features/agent/agent_inbox_widget.dart
+index 560e1dd..db3e301 100644
+--- a/lib/features/agent/agent_inbox_widget.dart
++++ b/lib/features/agent/agent_inbox_widget.dart
+@@ -96,7 +96,9 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
+         Map<String, dynamic> payload = {};
+         try {
+           payload = jsonDecode('${m['message']}') as Map<String, dynamic>;
+-        } catch (_) {}
++        } catch (e) {
++          debugPrint('[Puls] agent inbox: bad DM payload for ${m['id']}: $e');
++        }
+         dms.add({
+           'id': m['id'],
+           'read': m['read'] == true,
+@@ -109,7 +111,9 @@ class _AgentInboxWidgetState extends State<AgentInboxWidget> {
+         });
+       }
+       if (mounted) setState(() => _dms = dms);
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] agent inbox fetch failed: $e');
++    }
+   }
+ 
+   List<Map<String, dynamic>> get _visible =>
+diff --git a/lib/features/agent/agent_screen.dart b/lib/features/agent/agent_screen.dart
+index 55d66aa..038faec 100644
+--- a/lib/features/agent/agent_screen.dart
++++ b/lib/features/agent/agent_screen.dart
+@@ -278,7 +278,9 @@ class _AgentScreenState extends State<AgentScreen>
+             final sr = jsonDecode(stratRes.body) as Map<String, dynamic>;
+             strategy = sr['strategy'] as String? ?? 'NONE';
+           }
+-        } catch (_) {}
++        } catch (e) {
++          debugPrint('[Puls] agent strategy fetch failed: $e');
++        }
+         setState(() {
+           _started = true;
+           _agentAddress = r['agentAddress'] as String?;
+@@ -292,7 +294,9 @@ class _AgentScreenState extends State<AgentScreen>
+               'Welcome back. Your agent is live with \$${bal.toStringAsFixed(2)} USDC available. Ask me to trade, or withdraw the funds back to your wallet anytime.'));
+         });
+       }
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] agent status load failed: $e');
++    }
+   }
+ 
+   @override
+diff --git a/lib/features/comments/comment_thread.dart b/lib/features/comments/comment_thread.dart
+index d33cdc3..674a823 100644
+--- a/lib/features/comments/comment_thread.dart
++++ b/lib/features/comments/comment_thread.dart
+@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
+ import '../../core/widgets/gradient_text.dart';
+ import '../../core/widgets/agent_badge.dart';
+ import '../../core/widgets/puls_avatar.dart';
++import '../../core/widgets/puls_snack.dart';
+ 
+ class Comment {
+   Comment({
+@@ -121,6 +122,7 @@ class _CommentThreadState extends State<CommentThread> {
+     final body = _inputCtrl.text.trim();
+     if (body.isEmpty || _sending) return;
+     setState(() => _sending = true);
++    final snack = PulsSnack.of(context);
+     try {
+       final payload = <String, dynamic>{
+         'target_type': widget.targetType,
+@@ -138,29 +140,56 @@ class _CommentThreadState extends State<CommentThread> {
+         _replyToId = null;
+         _replyToName = null;
+         await _fetch();
++      } else {
++        snack.error(_errorFrom(res.body, 'Couldn\'t post your comment'));
+       }
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] comment send failed: $e');
++      snack.error('Couldn\'t post your comment. Check your connection.');
++    }
+     if (mounted) setState(() => _sending = false);
+   }
+ 
+   Future<void> _toggleLike(String commentId) async {
+     try {
+-      await http.post(
++      final res = await http.post(
+         Uri.parse('$backendUrl/api/comments/$commentId/like'),
+         headers: _authHeaders,
+       );
++      if (res.statusCode != 200 && res.statusCode != 201) {
++        throw Exception('like failed (${res.statusCode})');
++      }
+       await _fetch();
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] comment like failed: $e');
++    }
+   }
+ 
+   Future<void> _delete(String commentId) async {
++    final snack = PulsSnack.of(context);
+     try {
+-      await http.delete(
++      final res = await http.delete(
+         Uri.parse('$backendUrl/api/comments/$commentId'),
+         headers: _authHeaders,
+       );
++      if (res.statusCode != 200 && res.statusCode != 204) {
++        throw Exception('delete failed (${res.statusCode})');
++      }
+       await _fetch();
++    } catch (e) {
++      debugPrint('[Puls] comment delete failed: $e');
++      snack.error('Couldn\'t delete that comment.');
++    }
++  }
++
++  /// Best-effort extraction of a server-provided `error` string, falling back
++  /// to [fallback] when the body isn't JSON or has no error field.
++  String _errorFrom(String responseBody, String fallback) {
++    try {
++      final data = jsonDecode(responseBody);
++      if (data is Map && data['error'] is String) return data['error'] as String;
+     } catch (_) {}
++    return fallback;
+   }
+ 
+   void _startReply(String id, String name) {
+diff --git a/lib/features/market/ai_oracle_panel.dart b/lib/features/market/ai_oracle_panel.dart
+index 64955a5..edba300 100644
+--- a/lib/features/market/ai_oracle_panel.dart
++++ b/lib/features/market/ai_oracle_panel.dart
+@@ -38,11 +38,15 @@ class _AiOraclePanelState extends State<AiOraclePanel> {
+     try {
+       final o = await wallet.getOracle(widget.slug);
+       if (mounted) setState(() { _oracle = o; });
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] oracle load failed for ${widget.slug}: $e');
++    }
+     try {
+       final c = await wallet.getOracleCorrelations(widget.slug);
+       if (mounted) setState(() { _correlations = (c['correlations'] as List?) ?? const []; });
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] oracle correlations load failed for ${widget.slug}: $e');
++    }
+     if (mounted) setState(() => _loading = false);
+   }
+ 
+diff --git a/lib/features/market/resolution_panel.dart b/lib/features/market/resolution_panel.dart
+index 5e44d2b..9f7058b 100644
+--- a/lib/features/market/resolution_panel.dart
++++ b/lib/features/market/resolution_panel.dart
+@@ -45,7 +45,9 @@ class _ResolutionPanelState extends State<ResolutionPanel> {
+         });
+         return;
+       }
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] resolution status load failed for ${widget.market.slug}: $e');
++    }
+     if (mounted) setState(() => _loading = false);
+   }
+ 
+diff --git a/lib/features/market/signals_marketplace.dart b/lib/features/market/signals_marketplace.dart
+index b00acf3..9e4a62d 100644
+--- a/lib/features/market/signals_marketplace.dart
++++ b/lib/features/market/signals_marketplace.dart
+@@ -72,7 +72,9 @@ class _SignalsMarketplaceState extends State<SignalsMarketplace> {
+           final m = a as Map<String, dynamic>;
+           _authors['agent_swarm_${m['key']}'] = _Author(m['name'] as String? ?? 'Agent', true);
+         }
+-      } catch (_) {}
++      } catch (e) {
++        debugPrint('[Puls] signals: agent roster load failed: $e');
++      }
+       // Known house creators.
+       _authors.putIfAbsent('agent_sage', () => const _Author('Sage 🔮', true, pfp: 'assets/sage-pfp.png'));
+       _authors.putIfAbsent('house_pulse', () => const _Author('Pulse 🤖', true, pfp: 'assets/puls-pfp.png'));
+diff --git a/lib/features/profile/notifications_screen.dart b/lib/features/profile/notifications_screen.dart
+index 265bf74..7c59c6e 100644
+--- a/lib/features/profile/notifications_screen.dart
++++ b/lib/features/profile/notifications_screen.dart
+@@ -53,7 +53,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
+     try {
+       await wallet.markNotificationsRead();
+       _load();
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] mark notifications read failed: $e');
++    }
+   }
+ 
+   IconData _getIconForType(String type) {
+diff --git a/lib/features/streams/streams_screen.dart b/lib/features/streams/streams_screen.dart
+index a0877d4..dda666e 100644
+--- a/lib/features/streams/streams_screen.dart
++++ b/lib/features/streams/streams_screen.dart
+@@ -36,15 +36,17 @@ class _StreamsScreenState extends State<StreamsScreen> {
+       final wallet = WalletServiceScope.of(context);
+       Map<String, dynamic> config = {};
+       Map<String, dynamic> summary = {};
+-      try { config = await wallet.streamsConfig(); } catch (_) {}
+-      try { summary = await wallet.streamsSummary(); } catch (_) {}
++      try { config = await wallet.streamsConfig(); } catch (e) { debugPrint('[Puls] streams config load failed: $e'); }
++      try { summary = await wallet.streamsSummary(); } catch (e) { debugPrint('[Puls] streams summary load failed: $e'); }
+       List<Map<String, dynamic>> streams = [];
+       try {
+         final d = await wallet.listStreams();
+         streams = ((d['streams'] as List?) ?? [])
+             .map((e) => (e as Map).cast<String, dynamic>())
+             .toList();
+-      } catch (_) {}
++      } catch (e) {
++        debugPrint('[Puls] streams list load failed: $e');
++      }
+       if (!mounted) return;
+       setState(() {
+         _config = config;
+diff --git a/lib/features/support/referral_card.dart b/lib/features/support/referral_card.dart
+index a8ba5d0..1f47c68 100644
+--- a/lib/features/support/referral_card.dart
++++ b/lib/features/support/referral_card.dart
+@@ -97,7 +97,13 @@ class _ReferralCardState extends State<ReferralCard> {
+               duration: const Duration(seconds: 2));
+         }
+       }
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] referral claim failed: $e');
++      if (mounted) {
++        PulsSnack.error(context, 'Couldn\'t apply code. Check your connection.',
++            duration: const Duration(seconds: 2));
++      }
++    }
+     if (mounted) setState(() => _claiming = false);
+   }
+ 
+diff --git a/lib/features/wallet/wallet_service.dart b/lib/features/wallet/wallet_service.dart
+index b0fa7ac..59ff633 100644
+--- a/lib/features/wallet/wallet_service.dart
++++ b/lib/features/wallet/wallet_service.dart
+@@ -235,7 +235,9 @@ class WalletService extends ChangeNotifier {
+         isLoading: false,
+       ));
+       if (address.isNotEmpty) _fetchBalanceFromChain(address);
+-    } catch (_) {}
++    } catch (e) {
++      debugPrint('[Puls] reloadWallet failed: $e');
++    }
+   }
+ 
+   /// Reads USDC balance directly from Arc Testnet via eth_call — no backend needed.
+@@ -305,7 +307,9 @@ class WalletService extends ChangeNotifier {
+             usdcBalance: res['usdcBalance'] as String? ?? _state.usdcBalance,
+           ));
+         }
+-      } catch (_) {}
++      } catch (e) {
++        debugPrint('[Puls] backend balance fallback failed: $e');
++      }
+     }
+   }
+ 

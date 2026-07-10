@@ -417,26 +417,20 @@ class _TourPopover extends StatelessWidget {
   }
 
   Widget _glassCard(BuildContext context, PulsThemeColors t) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-          decoration: BoxDecoration(
-            // Glassmorphism: translucent fill + hairline border + inner sheen.
-            color: Colors.white.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.14),
-                Colors.white.withValues(alpha: 0.05),
-              ],
-            ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
           ),
+        ],
+      ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,7 +451,7 @@ class _TourPopover extends StatelessWidget {
                         fontFamily: PulsColors.fontSans,
                         color: Colors.white,
                         fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
                       ),
                     ),
@@ -472,7 +466,7 @@ class _TourPopover extends StatelessWidget {
                         'Skip',
                         style: TextStyle(
                           fontFamily: PulsColors.fontSans,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: t.textSubtle,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -484,11 +478,11 @@ class _TourPopover extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 step.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: PulsColors.fontDisplay,
-                  color: Colors.white,
+                  color: t.text,
                   fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -497,12 +491,12 @@ class _TourPopover extends StatelessWidget {
                 step.description,
                 style: TextStyle(
                   fontFamily: PulsColors.fontSans,
-                  color: Colors.white.withValues(alpha: 0.78),
+                  color: t.textMuted,
                   fontSize: 14,
                   height: 1.55,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 24),
               Row(
                 children: [
                   // Progress dots.
@@ -520,7 +514,7 @@ class _TourPopover extends StatelessWidget {
                               active ? PulsColors.pulseGradient : null,
                           color: active
                               ? null
-                              : Colors.white.withValues(alpha: 0.28),
+                              : t.border,
                           borderRadius: BorderRadius.circular(999),
                         ),
                       );
@@ -534,12 +528,11 @@ class _TourPopover extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        gradient: PulsColors.pulseGradient,
+                        color: t.brand,
                         borderRadius: BorderRadius.circular(999),
                         boxShadow: [
                           BoxShadow(
-                            color: PulsColors.brandMint
-                                .withValues(alpha: 0.35),
+                            color: t.brand.withValues(alpha: 0.25),
                             blurRadius: 16,
                             offset: const Offset(0, 4),
                           ),
@@ -552,9 +545,9 @@ class _TourPopover extends StatelessWidget {
                             isLast ? 'Got it' : 'Next',
                             style: const TextStyle(
                               fontFamily: PulsColors.fontSans,
-                              color: Colors.white,
+                              color: Colors.black,
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -562,7 +555,7 @@ class _TourPopover extends StatelessWidget {
                             isLast
                                 ? Icons.check_rounded
                                 : Icons.arrow_forward_rounded,
-                            color: Colors.white,
+                            color: Colors.black,
                             size: 16,
                           ),
                         ],
@@ -573,9 +566,7 @@ class _TourPopover extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
+        );
   }
 }
 
@@ -622,42 +613,61 @@ class _ArrowPainter extends CustomPainter {
       old.pointingUp != pointingUp;
 }
 
-/// ── Convenience: default Puls tour ──────────────────────────────────────────
-
-/// Builds the canonical 3-step Puls tour. Pass the [GlobalKey]s of the widgets
-/// you want to spotlight (e.g. the swarm card, the USDC balance chip, and a
-/// market card in the feed).
+/// Builds the complete navigation tour.
 TourController buildPulsTour({
-  required GlobalKey swarmKey,
-  required GlobalKey usdcKey,
-  required GlobalKey marketKey,
+  required GlobalKey feedKey,
+  required GlobalKey discoverKey,
+  required GlobalKey homeKey,
+  required GlobalKey portfolioKey,
+  required GlobalKey creatorsKey,
+  required GlobalKey agentKey,
+  required GlobalKey profileKey,
   VoidCallback? onFinished,
 }) {
   return TourController(
     onFinished: onFinished,
     steps: [
       TourStep(
-        key: swarmKey,
-        title: 'The Swarm',
+        key: feedKey,
+        title: 'Feed',
         description:
-            'Autonomous AI agents research the web, debate each other and '
-            'trade prediction markets around the clock. Every decision is '
-            'verifiable on-chain.',
+            'Watch the AI swarm debate and trade prediction markets in real-time. Every action is verifiable on-chain.',
       ),
       TourStep(
-        key: usdcKey,
-        title: 'USDC Gas',
+        key: discoverKey,
+        title: 'Discover',
         description:
-            'Everything on Puls runs on USDC on Arc — trades, fees, even '
-            'agent-to-agent payments. No native gas token, no bridging.',
+            'Swipe through new markets in a seamless TikTok-style feed. Fast, fluid, and optimized for quick decisions.',
       ),
       TourStep(
-        key: marketKey,
-        title: 'Trade',
+        key: homeKey,
+        title: 'Home',
         description:
-            'Tap any market to buy YES or NO shares. Prices are live '
-            'probabilities — sell anytime before resolution to lock in '
-            'profit.',
+            'The dashboard where everything comes together. Overview of global markets, top volume, and latest resolutions.',
+      ),
+      TourStep(
+        key: portfolioKey,
+        title: 'Portfolio',
+        description:
+            'Track your YES and NO shares, claim winnings from resolved markets, and monitor your overall performance.',
+      ),
+      TourStep(
+        key: creatorsKey,
+        title: 'Creators',
+        description:
+            'See the top traders and most profitable agents. The leaderboard ranks the sharpest minds on the platform.',
+      ),
+      TourStep(
+        key: agentKey,
+        title: 'Agent',
+        description:
+            'Manage your autonomous agent. Sponsor it with USDC and let it trade on your behalf while you sleep.',
+      ),
+      TourStep(
+        key: profileKey,
+        title: 'Profile',
+        description:
+            'Your settings, connected wallets, and notifications. Everything you need to control your Puls experience.',
       ),
     ],
   );
