@@ -307,7 +307,15 @@
         '<span class="who">$' + (Number(last.amountUsdc) || 0).toFixed(2) + '</span>' +
         '<span class="q">' + (last.question ? '· ' + esc(last.question) : '') + '</span>';
     }
-    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;'); }
+    // Only allow http(s) and root-relative hrefs; blocks javascript:/data:/vbscript:
+    // and escapes attribute-breaking characters. Returns '#' for anything unsafe.
+    function safeUrl(u) {
+      var s = String(u == null ? '' : u).trim();
+      if (!/^(https?:\/\/|\/)/i.test(s)) return '#';
+      return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
     function tick() {
       fetch(API + '/api/live', { cache: 'no-store' })
@@ -426,7 +434,7 @@
             ? '<b>' + esc(memoParts[0]) + ':</b>' + esc(memoParts.slice(1).join(':'))
             : esc(memo);
           var when = flowProofUrl
-            ? '<a class="when" href="' + esc(flowProofUrl) + '" target="_blank" rel="noopener" title="View on-chain settlement on Arcscan">' + rel(p.createdAt) + ' ↗</a>'
+            ? '<a class="when" href="' + safeUrl(flowProofUrl) + '" target="_blank" rel="noopener" title="View on-chain settlement on Arcscan">' + rel(p.createdAt) + ' ↗</a>'
             : '<span class="when">' + rel(p.createdAt) + '</span>';
           return '<div class="frow">' +
             '<span class="memo ' + m.cls + '">' + esc(m.label) + '</span>' +
@@ -488,7 +496,7 @@
               (side ? '<span class="pill ' + sideCls + '" style="font-size:10.5px">' + side + '</span>' : '') +
               '<span class="amt">' + fmtAmt(b.amountUsdc) + '</span>' +
               '<span class="flowdir">' + esc(b.market || b.title || '') + '</span>' +
-              '<a class="when" href="' + esc(ex) + '" target="_blank" rel="noopener" title="AgentBond on Arcscan">' + label + ' ↗</a>' +
+              '<a class="when" href="' + safeUrl(ex) + '" target="_blank" rel="noopener" title="AgentBond on Arcscan">' + label + ' ↗</a>' +
               '</div>';
           }).join('');
         })

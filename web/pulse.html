@@ -341,6 +341,14 @@
 
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    // Only allow http(s) and root-relative hrefs; blocks javascript:/data:/vbscript:
+    // and escapes attribute-breaking characters. Returns '#' for anything unsafe.
+    function safeUrl(u) {
+      var s = String(u == null ? '' : u).trim();
+      if (!/^(https?:\/\/|\/)/i.test(s)) return '#';
+      return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
     function shortHash(h) { return h && h.length > 14 ? h.slice(0, 8) + '…' + h.slice(-6) : (h || ''); }
     function shortAddr(a) { return a && a.length > 12 ? a.slice(0, 6) + '…' + a.slice(-4) : (a || '—'); }
     function pct(n) { return (Math.round(Number(n) * 1000) / 10); }
@@ -380,7 +388,7 @@
           '<div class="stat"><div class="k">Reputation</div><div class="v">' + nf.format(a.reputation || 0) + ' <small>events</small></div></div>' +
           '<div class="stat"><div class="k">Cadence</div><div class="v">' + (a.intervalMinutes || 10) + '<small> min</small></div></div>' +
         '</div>' +
-        (a.address ? '<a class="addr" href="' + ADDR + a.address + '" target="_blank" rel="noopener">🔗 ' + esc(a.address) + '</a>' : '');
+        (a.address ? '<a class="addr" href="' + safeUrl(ADDR + a.address) + '" target="_blank" rel="noopener">🔗 ' + esc(a.address) + '</a>' : '');
     }
 
     function decisionHTML(d) {
@@ -397,7 +405,7 @@
         var sRes = '';
         if (d.sources && d.sources.length) {
           var sl = d.sources.slice(0, 3).map(function (s) {
-            return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
+            return '<a href="' + safeUrl(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
           }).join(' · ');
           sRes = '<div class="why research">🔍 <b>Researched the web</b> · ' + sl + '</div>';
         }
@@ -430,7 +438,7 @@
           '</div>';
       }
       var tx = d.txHash
-        ? '<a class="dtx" href="' + TX + d.txHash + '" target="_blank" rel="noopener">🔗 Trade tx on Arc <span class="txmono">' + esc(shortHash(d.txHash)) + '</span></a>'
+        ? '<a class="dtx" href="' + safeUrl(TX + d.txHash) + '" target="_blank" rel="noopener">🔗 Trade tx on Arc <span class="txmono">' + esc(shortHash(d.txHash)) + '</span></a>'
         : '';
       // Agent→creator nanopayment that fed this decision (x402 on Arc).
       var alphaLine = '';
@@ -440,10 +448,10 @@
           ? '🤝 <b>Paid agent Sage 🔮 $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for an on-chain-attested signal'
           : '💸 <b>Paid creator $' + Number(d.alphaPaid).toFixed(3) + ' USDC</b> for alpha before deciding';
         var attest = (a2a && d.alphaOnchainTx)
-          ? ' · <a href="' + TX + d.alphaOnchainTx + '" target="_blank" rel="noopener" class="txmono">attestation ↗</a>'
+          ? ' · <a href="' + safeUrl(TX + d.alphaOnchainTx) + '" target="_blank" rel="noopener" class="txmono">attestation ↗</a>'
           : '';
         alphaLine = '<div class="why alpha">' + label +
-          (d.alphaCreator ? ' · <a href="' + ADDR + d.alphaCreator + '" target="_blank" rel="noopener" class="txmono">' + esc(shortAddr(d.alphaCreator)) + '</a>' : '') +
+          (d.alphaCreator ? ' · <a href="' + safeUrl(ADDR + d.alphaCreator) + '" target="_blank" rel="noopener" class="txmono">' + esc(shortAddr(d.alphaCreator)) + '</a>' : '') +
           attest +
           '</div>';
       }
@@ -451,7 +459,7 @@
       var researchLine = '';
       if (d.sources && d.sources.length) {
         var links = d.sources.slice(0, 3).map(function (s) {
-          return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
+          return '<a href="' + safeUrl(s.url) + '" target="_blank" rel="noopener">' + esc(s.source || 'source') + '</a>';
         }).join(' · ');
         researchLine = '<div class="why research">🔍 <b>Researched the web</b> before deciding · ' + links + '</div>';
       }
