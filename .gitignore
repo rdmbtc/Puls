@@ -1,5 +1,6 @@
 node_modules/
 .env
+.env.*
 wallets.json
 trades.json
 approved.json
@@ -8,3 +9,8 @@ approved.json
 heroku_logs.txt
 pnl_data.json
 *.log
+
+# Temp/debug scripts that may contain hardcoded keys — never commit
+check_tmp.js
+scripts/check_tmp.js
+logs.txt
