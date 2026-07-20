@@ -1040,11 +1040,28 @@ async function isApproved(walletId, contractAddress) {
 }
 
 async function saveTrade(userId, trade) {
-  const { data } = await supabase.from('trades').insert({ user_id: userId, ...trade }).select().single();
+  const { data, error } = await supabase.from('trades').insert({ user_id: userId, ...trade }).select().single();
+  if (error) {
+    // CRITICAL: Circle transfer already succeeded — the trade exists on-chain
+    // but NOT in the DB. Log loudly so it can be reconciled manually.
+    // Retry once (transient Supabase errors are common on the free tier).
+    console.error('[saveTrade] CRITICAL: DB insert failed after Circle transfer succeeded:', error.message, { userId, tx_id: trade.tx_id });
+    const { data: retry, error: err2 } = await supabase.from('trades').insert({ user_id: userId, ...trade }).select().single();
+    if (err2) {
+      console.error('[saveTrade] RETRY ALSO FAILED — trade lost on-chain:', err2.message);
+      return null;
+    }
+    if (retry) {
+      eventBus.safeEmit(EVENTS.TRADE_CREATED, retry);
+      if (retry.state === 'COMPLETE') broadcastTrade(retry);
+    }
+    return retry;
+  }
   if (data) {
     eventBus.safeEmit(EVENTS.TRADE_CREATED, data);
     if (data.state === 'COMPLETE') broadcastTrade(data);
   }
+  return data;
 }
 
 async function syncCompletedTrade(userId, { marketId, side, amountUsdc, shares, txHash, question, entryPrice }) {
@@ -2521,18 +2538,29 @@ app.post('/api/trade/save-external', tradeLimiter, async (req, res) => {
   }
 });
 
+// In-memory cache for /api/trade/recent — this endpoint is polled by the
+// frontend feed every few seconds. Without caching, each poll hits Supabase.
+let _recentTradesCache = { data: null, ts: 0 };
+const RECENT_TRADES_TTL_MS = 3000; // 3s — fresh enough for live feed
 app.get('/api/trade/recent', async (req, res) => {
   try {
     const { limit = 20, marketId } = req.query;
     const limitNum = Math.min(100, parseInt(limit) || 20);
+
+    // Use cache for the default (no marketId) case — avoids hitting Supabase
+    // on every poll. When marketId is specified, skip cache (different query).
+    if (!marketId && _recentTradesCache.data && Date.now() - _recentTradesCache.ts < RECENT_TRADES_TTL_MS) {
+      return res.json(_recentTradesCache.data.slice(0, limitNum));
+    }
+
     let query = supabase
       .from('trades')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(limitNum);
-      
+      .limit(Math.max(limitNum, 50)); // fetch more than needed for cache hit
+
     if (marketId) {
-      query = query.eq('market_id', marketId);
+      query = query.eq('market_id', marketId).limit(limitNum);
     }
 
     const { data, error } = await query;
@@ -2540,6 +2568,10 @@ app.get('/api/trade/recent', async (req, res) => {
     if (error) {
       console.error('Error fetching recent trades:', error.message);
       return res.status(500).json({ error: error.message });
+    }
+    // Cache the result (only for the no-marketId default path).
+    if (!marketId) {
+      _recentTradesCache = { data: data ?? [], ts: Date.now() };
     }
     res.json(data ?? []);
   } catch (e) {
@@ -3693,22 +3725,27 @@ app.post('/api/webhook/circle', async (req, res) => {
     console.warn('[Circle Webhook] Could not verify signature (enforce off) — processing anyway. Set CIRCLE_WEBHOOK_ENFORCE=true once verification is confirmed.');
   }
 
-  res.sendStatus(200);
+  // CRITICAL: Do NOT ack 200 or mark processed BEFORE processing.
+  // If processing fails, Circle needs to retry. Moving markProcessed
+  // after successful processing prevents silently lost events.
   try {
     const notificationId = req.body?.notificationId || req.body?.id;
     if (markProcessed(notificationId)) {
       console.log(`Webhook: duplicate notification ${notificationId} ignored`);
-      return;
+      return res.sendStatus(200);
     }
     const { notificationType, transaction } = req.body;
-    if (notificationType !== 'transactions.outbound' || !transaction) return;
+    if (notificationType !== 'transactions.outbound' || !transaction) {
+      return res.sendStatus(200);
+    }
     const { id: txId, state, txHash } = transaction;
-    if (!txId) return;
+    if (!txId) return res.sendStatus(200);
     await supabase.from('trades').update({
       state,
       tx_hash: txHash ?? null,
     }).eq('tx_id', txId);
     console.log(`Webhook: tx ${txId} → ${state}`);
+    res.sendStatus(200);
   } catch (e) {
     console.error('webhook error:', e.message);
   }
@@ -3721,17 +3758,15 @@ async function handleQuickNodeLog(log) {
   try {
     // Idempotency: a (txHash, logIndex) pair uniquely identifies an on-chain
     // event, so retried/duplicated webhook deliveries are processed once.
+    // CRITICAL: Do NOT add to the Set BEFORE processing — if processing fails,
+    // the retried webhook would be silently skipped. Check, process, THEN add.
     const logKey = `${(log.transactionHash || '').toLowerCase()}:${log.logIndex ?? ''}`;
     if (logKey !== ':' ) {
       if (processedChainLogs.has(logKey)) {
         console.log(`[QuickNode Webhook] Duplicate log ${logKey} ignored`);
         return;
       }
-      processedChainLogs.add(logKey);
-      if (processedChainLogs.size > 10000) {
-        const it = processedChainLogs.values();
-        for (let i = 0; i < 2000; i++) { const n = it.next(); if (n.done) break; processedChainLogs.delete(n.value); }
-      }
+      // Process FIRST, mark AFTER (at the end of this function).
     }
     const contractAddress = log.address.toLowerCase();
     const slug = contractToSlugCache.get(contractAddress);
@@ -3870,6 +3905,16 @@ async function handleQuickNodeLog(log) {
         console.error(`[QuickNode Webhook] Failed to insert CLAIM trade for user ${userId}:`, error.message);
       } else {
         console.log(`[QuickNode Webhook] Successfully recorded CLAIM trade for user ${userId} and tx ${txHash}`);
+      }
+    }
+    // CRITICAL: Only mark as processed AFTER successful processing.
+    // This was previously done BEFORE processing, causing retried
+    // webhooks to be silently skipped on failure.
+    if (logKey !== ':') {
+      processedChainLogs.add(logKey);
+      if (processedChainLogs.size > 10000) {
+        const it = processedChainLogs.values();
+        for (let i = 0; i < 2000; i++) { const n = it.next(); if (n.done) break; processedChainLogs.delete(n.value); }
       }
     }
   } catch (err) {
@@ -6183,7 +6228,8 @@ app.get('/api/trade/limit-orders', authenticateUser, requireVerifiedUser, async 
       .from('limit_orders')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
       
     if (error) throw error;
     // Object, not bare array: the client reads res['orders'] (decodes body as
@@ -6298,13 +6344,24 @@ async function checkAndExecuteLimitOrders(filterMarketId) {
         
         console.log(`🔥 Match found for order ${orderId}! Current ${side} price ${currentPrice.toFixed(4)} matches target ${parseFloat(targetPrice).toFixed(4)}.`);
         
-        const { error: lockErr } = await supabase
+        // CRITICAL: The atomic lock — `UPDATE ... WHERE status='PENDING'` only
+        // affects a row still in PENDING. But Supabase returns `error: null`
+        // even when 0 rows matched. Must check `data` to verify the lock was
+        // actually acquired, otherwise two concurrent calls both "lock" and
+        // both execute → double buy.
+        const { data: lockData, error: lockErr } = await supabase
           .from('limit_orders')
           .update({ status: 'EXECUTING' })
           .eq('id', orderId)
-          .eq('status', 'PENDING');
+          .eq('status', 'PENDING')
+          .select('id');
 
         if (lockErr) continue;
+        // If 0 rows updated, another call already locked it — skip.
+        if (!lockData || lockData.length === 0) {
+          console.log(`Order ${orderId} already locked by another call — skipping.`);
+          continue;
+        }
         // Evict from cache immediately so a concurrent trade:complete trigger
         // for the same market can't double-execute this order.
         cache.limitOrders.delete(orderId);
