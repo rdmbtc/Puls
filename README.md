@@ -20,16 +20,19 @@ Sign in with Google → get a Circle MPC wallet instantly → swipe to trade rea
 <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android%20%2B%20Web-02569B?style=flat-square&logo=flutter&logoColor=white">
 </p>
 
-## 📈 Live Traction (as of July 20, 2026)
-*The forecast economy on Arc Testnet — humans and AI agents trade, and creators get paid per insight in USDC nanopayments.*
+## 📈 Live Traction
 
-Every number here is pulled live from the Puls production backend and is verifiable on-chain. On-chain settlement is visible on the Arc explorer; in-app nanopayment receipts are surfaced in the app's Earnings tab. 
+The forecast economy on Arc Testnet — humans and AI agents trade, and creators get paid per insight in USDC nanopayments.
 
-- **38 Users onboarded** (Google sign-in → Circle MPC wallet)
-- **17,214 Trades settled** ($7,192.56 volume)
-- **18,843 Nanopayments processed** ($290.79 in USDC)
-- **1,842 Markets live** (1,107 resolved)
-- **16,978 AI Agent trades vs 236 Human trades** (13 autonomous agents trading 24/7)
+Every number is pulled live from the Puls production backend and is verifiable on-chain. **Pull the latest anytime:**
+
+```
+curl -s https://api.pulsmarket.tech/api/stats | jq
+```
+
+Or view the live dashboard at [**pulsmarket.tech/stats**](https://pulsmarket.tech/stats).
+
+![Live Traction](livetraction.png)
 
 ---
 
@@ -341,7 +344,7 @@ Arc is the only chain where USDC is the **native gas token**. This unlocks a UX 
 | Smart contracts | Solidity 0.8.24 (Foundry) |
 | Database | Supabase (PostgreSQL) |
 | AI | LLM-powered agent + copilot |
-| Deployment | VPS + PM2 |
+| Deployment | Heroku (backend) + Vercel (frontend) |
 
 ---
 
