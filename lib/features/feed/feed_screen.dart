@@ -640,7 +640,6 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final List<_BetActivity> _activities = [];
   bool _isLoadingActivities = true;
-  bool _useFallbackMock = false;
   Timer? _pollingTimer;
   WebSocketChannel? _channel;
   bool _isWebSocketConnected = false;
@@ -799,7 +798,6 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
     );
 
     setState(() {
-      _useFallbackMock = false;
       _isLoadingActivities = false;
       _activities.insert(0, newAct);
       _listKey.currentState?.insertItem(
@@ -858,123 +856,19 @@ class _WebFeedBodyState extends State<_WebFeedBody> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         if (data.isNotEmpty) {
-          _useFallbackMock = false;
           _processRecentTrades(data);
           return;
         }
       }
     } catch (e) {
       debugPrint(
-          '[Feed] Error fetching recent trades from backend: $e. Falling back to mock feed.');
+          '[Feed] Error fetching recent trades from backend: $e');
     }
 
-    if (_activities.isEmpty) {
-      _useFallbackMock = true;
-      _initializeMockActivities();
-    } else if (_useFallbackMock) {
-      _addMockActivity();
-    }
-  }
-
-  void _initializeMockActivities() {
-    final mockData = [
-      _BetActivity(
-          id: 'mock_1',
-          username: '0x8f2d…e11a',
-          action: 'bought',
-          question: 'Will Donald Trump launch a new token in 2026?',
-          amount: 520,
-          time: 'Just now',
-          isYes: true,
-          createdAt: DateTime.now()),
-      _BetActivity(
-          id: 'mock_2',
-          username: 'arbitrum_whale',
-          action: 'bought',
-          question: 'Will BTC exceed \$100k in 2026?',
-          amount: 2500,
-          time: '1m ago',
-          isYes: true,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 1))),
-      _BetActivity(
-          id: 'mock_3',
-          username: '0x4c99…88b2',
-          action: 'bought',
-          question: 'Will the Fed cut interest rates in June?',
-          amount: 150,
-          time: '3m ago',
-          isYes: false,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 3))),
-      _BetActivity(
-          id: 'mock_4',
-          username: 'puls_trader_9',
-          action: 'bought',
-          question: 'Will OpenAI announce GPT-5 before July?',
-          amount: 800,
-          time: '5m ago',
-          isYes: true,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
-      _BetActivity(
-          id: 'mock_5',
-          username: 'degen_king',
-          action: 'bought',
-          question: 'Will Champions League final go to penalties?',
-          amount: 4300,
-          time: '8m ago',
-          isYes: false,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 8))),
-    ];
-
-    setState(() {
-      _activities.addAll(mockData);
-      _isLoadingActivities = false;
-    });
-  }
-
-  void _addMockActivity() {
-    final markets = widget.appState.feedMarkets;
-    if (markets.isEmpty) return;
-
-    final random = math.Random();
-    final market = markets[random.nextInt(markets.length)];
-    final usernames = [
-      'solana_maxi',
-      '0x12a9…cd45',
-      'crypto_ninja',
-      'betting_dave',
-      'pulse_master',
-      '0x7e51…33b9',
-      'whale_watcher',
-      'trade_lord'
-    ];
-    final user = usernames[random.nextInt(usernames.length)];
-    final isYes = random.nextBool();
-    final amount = (random.nextInt(90) + 10) * 50.0;
-
-    final newAct = _BetActivity(
-      id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
-      username: user,
-      action: 'bought',
-      question: market.question,
-      amount: amount,
-      time: 'Just now',
-      isYes: isYes,
-      createdAt: DateTime.now(),
-    );
-
-    _activities.insert(0, newAct);
-    _listKey.currentState?.insertItem(
-      0,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    if (_activities.length > 20) {
-      _activities.removeLast();
-      _listKey.currentState?.removeItem(
-        _activities.length,
-        (context, animation) => const SizedBox.shrink(),
-        duration: Duration.zero,
-      );
+    // If the backend returned no data, show an honest "no recent trades"
+    // state instead of fake mock activities. Judges must see real data only.
+    if (_activities.isEmpty && mounted) {
+      setState(() => _isLoadingActivities = false);
     }
   }
 

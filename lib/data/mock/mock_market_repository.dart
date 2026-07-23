@@ -1,6 +1,9 @@
 import '../models/market.dart';
 import '../models/position.dart';
 
+/// Repository of initial mock state used before the real Polymarket feed
+/// and backend data load. Positions and watchlist are intentionally empty
+/// — the app loads real data from Supabase + Polymarket API on startup.
 class MockMarketRepository {
   List<String> get categories => const [
         'Politics',
@@ -11,32 +14,9 @@ class MockMarketRepository {
         'Culture',
       ];
 
-  List<String> get initialWatchlistIds => const ['eth-etf-may', 'ai-agent-app'];
+  List<String> get initialWatchlistIds => const [];
 
-  List<Position> get initialPositions => [
-        Position(
-          id: 'pos-1',
-          marketId: 'fed-cut-june',
-          question: 'Will the Fed cut rates by June?',
-          side: MarketSide.yes,
-          amount: 120,
-          entryPrice: 0.42,
-          currentPrice: 0.48,
-          shares: 285.71,
-          openedAt: DateTime(2026, 5, 12),
-        ),
-        Position(
-          id: 'pos-2',
-          marketId: 'btc-100k',
-          question: 'Will Bitcoin close above 100k this quarter?',
-          side: MarketSide.no,
-          amount: 80,
-          entryPrice: 0.37,
-          currentPrice: 0.34,
-          shares: 216.21,
-          openedAt: DateTime(2026, 5, 10),
-        ),
-      ];
+  List<Position> get initialPositions => const [];
 
   List<Market> get markets => [
         Market(
